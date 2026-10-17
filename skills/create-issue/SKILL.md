@@ -1,6 +1,6 @@
 ---
 name: "create-issue"
-description: GitHubのissueを起票するときの書き方（タスク用・不具合用のテンプレート、タイトル、ラベル、依存関係の書き方）。「issueを作って」「issueに起こして」「これをissueにしておいて」「バグ報告を書いて」「タスクを分割してissueにして」など、GitHubにissueを新規作成する・issue本文を下書きするときは必ず使うこと。リポジトリにissueテンプレートがあればそちらを優先する。issueを実装する作業（issue-to-pr）やPRのレビュー（pr-review-and-merge）には使わない。
+description: GitHubのissueを起票するときの書き方（タスク用・不具合用のテンプレート、タイトル、ラベル、依存関係の書き方）。「issueを作って」「issueに起こして」「これをissueにしておいて」「バグ報告を書いて」「タスクを分割してissueにして」など、GitHubにissueを新規作成する・issue本文を下書きするときは必ず使うこと。リポジトリにissueテンプレートがあればそちらを優先する。issueを実装する作業（issue-to-pr）やPRのレビュー（pr-review）には使わない。
 ---
 
 # GitHub issue の作成

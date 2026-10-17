@@ -8,7 +8,7 @@ Claude Code と Codex で共通に使うエージェントスキル集。
 |---|---|
 | [create-issue](skills/create-issue/SKILL.md) | GitHub の issue を決まった書式（タスク用・不具合用）で起票する |
 | [issue-to-pr](skills/issue-to-pr/SKILL.md) | issue を実装して PR を作り、CI 失敗やレビュー指摘に対応する（マージはしない） |
-| [pr-review-and-merge](skills/pr-review-and-merge/SKILL.md) | PR を優先度付き（P0〜P3・Question）でレビューし、対応を確認してマージする |
+| [pr-review](skills/pr-review/SKILL.md) | PR を優先度付き（P0〜P3・Question）でレビューし、対応を確認してマージ可否を判定する（`--merge` 指定時はマージまで） |
 
 各スキルは `skills/<name>/SKILL.md` に置く。
 

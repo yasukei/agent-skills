@@ -41,13 +41,13 @@ cat > review.json <<'EOF'
 {
   "commit_id": "HEAD_SHA",
   "event": "COMMENT",
-  "body": "## レビュー結果\n...\n\n<!-- pr-review-and-merge -->",
+  "body": "## レビュー結果\n...\n\n<!-- pr-review -->",
   "comments": [
     {
       "path": "src/foo.py",
       "line": 42,
       "side": "RIGHT",
-      "body": "**[P1 (High)] ...**\n\n...\n\n<!-- pr-review-and-merge -->"
+      "body": "**[P1 (High)] ...**\n\n...\n\n<!-- pr-review -->"
     }
   ]
 }
@@ -71,7 +71,7 @@ gh api repos/OWNER/REPO/pulls/NUMBER/comments -X POST \
   -f commit_id=HEAD_SHA -f path=src/foo.py -f subject_type=file \
   -f body='**[P2 (Medium)] ...**
 
-<!-- pr-review-and-merge -->'
+<!-- pr-review -->'
 ```
 
 ## 3. スレッドの取得・返信・resolve
@@ -100,7 +100,7 @@ query($owner:String!, $repo:String!, $number:Int!) {
 }' -F owner=OWNER -F repo=REPO -F number=NUMBER
 ```
 
-- このスキルのスレッドは、最初のコメントの本文に `<!-- pr-review-and-merge -->` を含むもの。
+- このスキルのスレッドは、最初のコメントの本文に `<!-- pr-review -->` を含むもの。
 - 返信の有無は、最後のコメントがマーカーなしかどうかで判断する。
 
 スレッドへの返信:
@@ -111,7 +111,7 @@ mutation($id:ID!, $body:String!) {
   addPullRequestReviewThreadReply(input:{pullRequestReviewThreadId:$id, body:$body}) { comment { url } }
 }' -F id=THREAD_ID -f body='確認しました（abc1234 で修正済み）。
 
-<!-- pr-review-and-merge -->'
+<!-- pr-review -->'
 ```
 
 resolve:
@@ -126,7 +126,7 @@ PR全体へのコメント（マージ前の記録など）:
 ```bash
 gh pr comment PR_URL --body '...
 
-<!-- pr-review-and-merge -->'
+<!-- pr-review -->'
 ```
 
 ## 4. issueの確認
