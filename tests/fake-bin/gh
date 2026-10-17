@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# pr_status.sh のテスト用の偽 gh。出力と終了コードを環境変数で差し替える。
+#   FAKE_GRAPHQL       gh api graphql の標準出力にするファイル
+#   FAKE_CHECKS_OUT    gh pr checks の標準出力
+#   FAKE_CHECKS_ERR    gh pr checks の標準エラー
+#   FAKE_CHECKS_RC     gh pr checks の終了コード
+case "$1 ${2:-}" in
+  "api graphql")
+    cat "$FAKE_GRAPHQL"
+    ;;
+  "pr checks")
+    printf '%s' "${FAKE_CHECKS_OUT:-}"
+    printf '%s' "${FAKE_CHECKS_ERR:-}" >&2
+    exit "${FAKE_CHECKS_RC:-0}"
+    ;;
+  *)
+    echo "fake gh: 想定外の呼び出し: $*" >&2
+    exit 99
+    ;;
+esac
