@@ -17,31 +17,29 @@ Claude Code と Codex で共通に使うエージェントスキル集。
 submodule として追加し、`.claude/skills/` と `.agents/skills/` からスキル単位でシンボリックリンクを張る。
 スキル単位にしておくと、そのリポジトリ固有のスキルも同じディレクトリに共存させられる。
 
+導入先リポジトリの中で [scripts/setup.sh](scripts/setup.sh) を実行する。
+
 ```bash
-# main ブランチを追跡する submodule として追加
-git submodule add -b main https://github.com/yasukei/agent-skills.git .agent-skills
-
-# スキル単位でシンボリックリンクを張る（Claude Code 用と Codex 用）
-mkdir -p .claude/skills .agents/skills
-for s in .agent-skills/skills/*/; do
-  name=$(basename "$s")
-  ln -sfn "../../.agent-skills/skills/$name" ".claude/skills/$name"
-  ln -sfn "../../.agent-skills/skills/$name" ".agents/skills/$name"
-done
-
-git add .gitmodules .agent-skills .claude/skills .agents/skills
+curl -fsSL https://raw.githubusercontent.com/yasukei/agent-skills/main/scripts/setup.sh | bash
 git commit -m "chore: add shared agent skills"
 ```
 
-このリポジトリにスキルを追加したときは、上の `for` ループを再実行してリンクを張り直す。
+スクリプトがやること：
+
+- `main` ブランチを追跡する submodule として `.agent-skills` に追加する（追加済みならスキップ）
+- 各スキルへのシンボリックリンクを `.claude/skills/<name>` と `.agents/skills/<name>` に張る
+- 同名のリポジトリ固有スキル（リンクではない実ディレクトリ）がある場合は、上書きせず警告してスキップする
+- 共有リポジトリから消えたスキルのリンクを削除する
+- 変更をステージする（コミットはしない）
+
+何度実行してもよいので、このリポジトリにスキルを追加・削除したときも再実行すればリンクが揃う。
 
 ## 更新方針
 
-submodule は常に `main` の最新を追う。
+submodule は常に `main` の最新を追う。`--update` を付けると、submodule を最新にしてからリンクを張り直す。
 
 ```bash
-git submodule update --remote .agent-skills
-git add .agent-skills
+.agent-skills/scripts/setup.sh --update
 git commit -m "chore: update shared agent skills"
 ```
 

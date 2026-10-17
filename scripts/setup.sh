@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# agent-skills を submodule として導入し、.claude/skills と .agents/skills に
+# スキル単位のシンボリックリンクを張る。何度実行してもよい。
+# 使い方（導入先リポジトリの中で実行する）:
+#   初回:   curl -fsSL https://raw.githubusercontent.com/yasukei/agent-skills/main/scripts/setup.sh | bash
+#   2回目以降: .agent-skills/scripts/setup.sh [--update]
+#     --update  submodule を main の最新に更新してからリンクを張り直す
+# 変更はステージするだけで、コミットはしない。
+set -euo pipefail
+
+URL="${AGENT_SKILLS_URL:-https://github.com/yasukei/agent-skills.git}"
+SUBMODULE="${AGENT_SKILLS_PATH:-.agent-skills}"
+LINK_DIRS=(.claude/skills .agents/skills)
+
+UPDATE=0
+for arg in "$@"; do
+  case "$arg" in
+    --update) UPDATE=1 ;;
+    *) echo "usage: $0 [--update]" >&2; exit 1 ;;
+  esac
+done
+
+cd "$(git rev-parse --show-toplevel)"
+
+# submodule の追加・初期化
+if ! git config -f .gitmodules --get "submodule.$SUBMODULE.path" >/dev/null 2>&1; then
+  echo "submodule を追加します: $SUBMODULE"
+  git submodule add -b main "$URL" "$SUBMODULE"
+elif [ ! -d "$SUBMODULE/skills" ]; then
+  git submodule update --init "$SUBMODULE"
+fi
+
+if [ "$UPDATE" -eq 1 ]; then
+  git submodule update --remote "$SUBMODULE"
+fi
+
+# リンクは <dir>/<name> に置くので、リポジトリルートまで2階層上がる
+PREFIX="../../$SUBMODULE/skills"
+STAGE=(.gitmodules "$SUBMODULE")
+
+for dir in "${LINK_DIRS[@]}"; do
+  mkdir -p "$dir"
+
+  # 共有スキルから消えたスキルのリンクを削除する
+  for link in "$dir"/*; do
+    [ -L "$link" ] || continue
+    case "$(readlink "$link")" in
+      "$PREFIX"/*)
+        if [ ! -e "$link" ]; then
+          echo "削除: $link（リンク先がありません）"
+          rm "$link"
+          git rm -q --cached --ignore-unmatch "$link"
+        fi
+        ;;
+    esac
+  done
+
+  for skill in "$SUBMODULE"/skills/*/; do
+    name="$(basename "$skill")"
+    dest="$dir/$name"
+    if [ -e "$dest" ] && [ ! -L "$dest" ]; then
+      # リポジトリ固有のスキルと名前がぶつかった場合は上書きしない
+      echo "警告: $dest は既に存在するためスキップします" >&2
+      continue
+    fi
+    ln -sfn "$PREFIX/$name" "$dest"
+    STAGE+=("$dest")
+  done
+done
+
+# リポジトリ固有のスキルは巻き込まないよう、このスクリプトが張ったリンクだけをステージする
+git add "${STAGE[@]}"
+echo "完了しました。git status で確認してからコミットしてください。"
