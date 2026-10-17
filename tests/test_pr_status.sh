@@ -13,6 +13,7 @@ trap 'rm -rf "$WORK"' EXIT
 
 export PATH="$ROOT/tests/fake-bin:$PATH"
 export FAKE_GRAPHQL="$WORK/graphql.json"
+export FAKE_GH_LOG="$WORK/gh.log"
 
 # gh api graphql の出力を作る。引数はレビュースレッドの最後のコメント本文
 write_graphql() {
@@ -66,6 +67,8 @@ run_status
 assert_eq 0 "$RC" "終了コード"
 assert_eq passing "$(field .ci.summary)" "ci.summary"
 assert_eq 0 "$(field '.ci.failing | length')" "ci.failing"
+assert_contains "$(cat "$FAKE_GH_LOG")" "pr checks 1 --repo o/r --json" "gh pr checks に PR 番号とリポジトリを渡す"
+assert_contains "$(cat "$FAKE_GH_LOG")" "-F owner=o -F name=r -F pr=1" "GraphQL に owner・name・PR 番号を渡す"
 
 # ---------------------------------------------------------------------------
 t "CI 失敗"
@@ -101,6 +104,9 @@ assert_contains "$ERR" "HTTP 401: Bad credentials" "エラー内容を標準エ�
 # ---------------------------------------------------------------------------
 t "マーカー判定"
 checks "[$PASS_CHECK]" "" 0
+write_graphql "nullチェックを追加しました（abc1234）
+
+<!-- issue-to-pr -->"
 run_status
 assert_eq true "$(field '.threads[0].lastCommentByMe')" "マーカーあり"
 write_graphql "まだ直っていません"

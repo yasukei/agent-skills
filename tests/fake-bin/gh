@@ -4,6 +4,10 @@
 #   FAKE_CHECKS_OUT    gh pr checks の標準出力
 #   FAKE_CHECKS_ERR    gh pr checks の標準エラー
 #   FAKE_CHECKS_RC     gh pr checks の終了コード
+#   FAKE_GH_LOG        指定されていれば、呼び出されたときの引数を1行ずつ追記する
+if [ -n "${FAKE_GH_LOG:-}" ]; then
+  echo "$*" >>"$FAKE_GH_LOG"
+fi
 case "$1 ${2:-}" in
   "api graphql")
     cat "$FAKE_GRAPHQL"

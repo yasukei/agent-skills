@@ -12,6 +12,9 @@ SETUP="$ROOT/scripts/setup.sh"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
+# git フックなどから実行されたときに、外側のリポジトリを操作しないようにする
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+
 # 利用者の git 設定に影響されないよう、テスト専用の設定を使う。
 # protocol.file.allow はローカルパスを submodule として追加するために必要
 export GIT_CONFIG_GLOBAL="$WORK/gitconfig"
@@ -76,8 +79,14 @@ run_setup() {
   fi
 }
 
-staged() {
-  git diff --cached --name-only
+# パスがステージされているか（行単位で完全一致）
+assert_staged() {
+  if git diff --cached --name-only | grep -qxF "$1"; then pass; else fail "$1 がステージされていない"; fi
+}
+
+# パスの削除がステージされているか
+assert_staged_deletion() {
+  if git diff --cached --name-only --diff-filter=D | grep -qxF "$1"; then pass; else fail "$1 の削除がステージされていない"; fi
 }
 
 # ---------------------------------------------------------------------------
@@ -90,10 +99,11 @@ assert_eq ".agent-skills" "$(git config -f .gitmodules --get submodule..agent-sk
 for dir in .claude/skills .agents/skills; do
   for name in alpha beta; do
     assert_link "$dir/$name" "$L/$name"
-    assert_contains "$(staged)" "$dir/$name" "ステージされている"
+    assert_staged "$dir/$name"
   done
 done
-assert_contains "$(staged)" ".gitmodules" ".gitmodules がステージされている"
+assert_staged .gitmodules
+assert_staged .agent-skills
 
 # ---------------------------------------------------------------------------
 t "再実行"
@@ -142,7 +152,7 @@ run_setup --update
 assert_eq 0 "$RC" "終了コード"
 for dir in .claude/skills .agents/skills; do
   assert_missing "$dir/beta"
-  assert_contains "$(git diff --cached --name-status)" "D	$dir/beta" "削除がステージされている"
+  assert_staged_deletion "$dir/beta"
   assert_link "$dir/alpha" "$L/alpha"
 done
 
@@ -157,7 +167,7 @@ run_setup --update
 assert_eq 0 "$RC" "終了コード"
 for dir in .claude/skills .agents/skills; do
   assert_link "$dir/gamma" "$L/gamma"
-  assert_contains "$(staged)" "$dir/gamma" "ステージされている"
+  assert_staged "$dir/gamma"
 done
 
 # ---------------------------------------------------------------------------
@@ -173,7 +183,7 @@ run_setup --codex-only
 assert_eq 0 "$RC" "終了コード"
 for name in alpha beta; do
   assert_missing ".claude/skills/$name"
-  assert_contains "$(git diff --cached --name-status)" "D	.claude/skills/$name" "削除がステージされている"
+  assert_staged_deletion ".claude/skills/$name"
   assert_link ".agents/skills/$name" "$L/$name"
 done
 assert_dir .claude/skills/local

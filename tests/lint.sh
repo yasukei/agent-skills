@@ -4,6 +4,8 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# 該当するファイルがないパターンは、パターンの文字列のまま渡さず無視する
+shopt -s nullglob
 files=(scripts/*.sh skills/*/scripts/*.sh tests/*.sh tests/fake-bin/gh)
 
 for f in "${files[@]}"; do
