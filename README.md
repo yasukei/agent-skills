@@ -28,7 +28,8 @@ Claude Code と Codex で共通に使うエージェントスキル集。
 
 ### claude.ai
 
-claude.ai に登録すると、claude.ai のアカウントでサインインした Claude Code にも自動で同期される（`agent-skills@synced` として読み込まれる）。
+claude.ai に登録すると、claude.ai のアカウントでサインインした Claude Code（CLI）にも自動で同期され、`agent-skills@synced` として読み込まれる。
+Web 版 Claude Code で読み込まれるかは「[Web 版 Claude Code とプラグイン](#web-版-claude-code-とプラグイン)」を参照。
 
 1. claude.ai の Customize → Plugins → Add marketplace を開く
 2. リポジトリの URL（`https://github.com/yasukei/agent-skills`）を入力する
@@ -64,18 +65,22 @@ git commit -m "chore: add shared agent skills"
 Claude 側は上の「Claude のプラグインとしての導入」で入れ、このスクリプトでは Codex 用のリンクだけを張る場合は `--codex-only` を付ける。
 
 ```bash
+# 初回
+curl -fsSL https://raw.githubusercontent.com/yasukei/agent-skills/main/scripts/setup.sh | bash -s -- --codex-only
+# 導入済みのリポジトリを切り替える場合
 .agent-skills/scripts/setup.sh --codex-only
+
 git commit -m "chore: link shared agent skills for Codex only"
 ```
 
 - `.agents/skills/<name>` にだけリンクを張り、`.claude/skills/<name>` には張らない
-- 以前このスクリプトが `.claude/skills` に張ったリンク（`.agent-skills/skills/` を指すもの）は削除する。リポジトリ固有のスキルには触れない
+- 以前このスクリプトが `.claude/skills` に張ったリンク（submodule の `skills/` を指すもの）は削除する。リポジトリ固有のスキルには触れない
 - `--update` と組み合わせられる（`setup.sh --update --codex-only`）
 
 プラグインと `.claude/skills` のリンクを両方入れると、同じ description のスキルが2つ並ぶ。
 submodule 側が古いままだと、修正前と修正後のどちらが使われるかが会話ごとに変わりうるため、どちらか一方にする。
 
-`--codex-only` を付けずに再実行すると、`.claude/skills` のリンクも張り直される。
+`--codex-only` は記憶されない。付けずに再実行すると `.claude/skills` のリンクも張り直されるので、`--update` のときも毎回付ける。
 
 ## 更新方針
 
@@ -83,6 +88,9 @@ submodule は常に `main` の最新を追う。`--update` を付けると、sub
 
 ```bash
 .agent-skills/scripts/setup.sh --update
+# --codex-only で導入したリポジトリでは
+.agent-skills/scripts/setup.sh --update --codex-only
+
 git commit -m "chore: update shared agent skills"
 ```
 
