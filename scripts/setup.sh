@@ -58,10 +58,16 @@ for dir in "${LINK_DIRS[@]}"; do
   for skill in "$SUBMODULE"/skills/*/; do
     name="$(basename "$skill")"
     dest="$dir/$name"
-    if [ -e "$dest" ] && [ ! -L "$dest" ]; then
-      # リポジトリ固有のスキルと名前がぶつかった場合は上書きしない
-      echo "警告: $dest は既に存在するためスキップします" >&2
-      continue
+    if [ -e "$dest" ] || [ -L "$dest" ]; then
+      # 張り直してよいのはこのスクリプトが張ったリンクだけ。
+      # リポジトリ固有のスキル（実ディレクトリや別の場所へのリンク）は上書きしない
+      case "$(readlink "$dest" 2>/dev/null)" in
+        "$PREFIX/$name") ;;
+        *)
+          echo "警告: $dest は既に存在するためスキップします" >&2
+          continue
+          ;;
+      esac
     fi
     ln -sfn "$PREFIX/$name" "$dest"
     STAGE+=("$dest")
