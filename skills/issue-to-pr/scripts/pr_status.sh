@@ -15,6 +15,8 @@ REPO="${2:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}"
 OWNER="${REPO%%/*}"
 NAME="${REPO##*/}"
 
+# $owner などは GraphQL の変数で、シェルで展開するものではない
+# shellcheck disable=SC2016
 QUERY='
 query($owner: String!, $name: String!, $pr: Int!) {
   repository(owner: $owner, name: $name) {

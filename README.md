@@ -94,6 +94,20 @@ submodule は常に `main` の最新を追う。`--update` を付けると、sub
 git commit -m "chore: update shared agent skills"
 ```
 
+## テスト
+
+`scripts/setup.sh` と `skills/issue-to-pr/scripts/pr_status.sh` のテスト、`bash -n` と `shellcheck` による静的チェックを [GitHub Actions](.github/workflows/ci.yml) で PR ごとに実行している。
+ローカルでも同じものを次のコマンドで実行できる（`git`・`jq`・`shellcheck` が必要。ネットワークや GitHub の認証は不要）。
+
+```bash
+tests/run.sh          # lint とすべてのテスト
+tests/run.sh lint     # bash -n と shellcheck だけ
+tests/run.sh test     # テストだけ
+```
+
+- `setup.sh` のテストは、一時ディレクトリに共有リポジトリ役のローカル bare リポジトリを作り、`AGENT_SKILLS_URL` で指定して実行する
+- `pr_status.sh` のテストは、`PATH` の先頭に偽の `gh`（[tests/fake-bin/gh](tests/fake-bin/gh)）を置いて出力と終了コードを差し替える
+
 ## クラウド環境での設定
 
 ### Web 版 Claude Code とプラグイン
