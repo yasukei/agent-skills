@@ -1,0 +1,16 @@
+{
+  "name": "yasukei-agent-skills",
+  "owner": {
+    "name": "yasukei"
+  },
+  "metadata": {
+    "description": "Claude Code と Codex で共通に使うエージェントスキル集"
+  },
+  "plugins": [
+    {
+      "name": "agent-skills",
+      "source": "./",
+      "description": "issue の起票、issue からの PR 作成、PR のレビューを行うスキル集"
+    }
+  ]
+}
