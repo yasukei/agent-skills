@@ -52,9 +52,21 @@ query($owner: String!, $name: String!, $pr: Int!) {
 PR_JSON="$(gh api graphql -f query="$QUERY" -F owner="$OWNER" -F name="$NAME" -F pr="$PR" \
   | jq '.data.repository.pullRequest')"
 
-# CI（チェックがひとつもない場合 gh pr checks は非0で終わるので許容する）
-CHECKS_JSON="$(gh pr checks "$PR" --repo "$REPO" --json name,state,bucket,link,workflow 2>/dev/null || echo '[]')"
-[ -z "$CHECKS_JSON" ] && CHECKS_JSON='[]'
+# CI。gh pr checks は失敗時に1、pending時に8で終わるが、どちらもJSONは出力するので
+# 終了コードではなく出力で判断する。チェックがひとつもない場合だけ空配列として扱う
+CHECKS_ERR="$(mktemp)"
+trap 'rm -f "$CHECKS_ERR"' EXIT
+CHECKS_RC=0
+CHECKS_JSON="$(gh pr checks "$PR" --repo "$REPO" --json name,state,bucket,link,workflow 2>"$CHECKS_ERR")" || CHECKS_RC=$?
+if [ -n "$CHECKS_JSON" ] && jq -e 'type == "array"' >/dev/null 2>&1 <<<"$CHECKS_JSON"; then
+  :
+elif grep -q "no checks reported" "$CHECKS_ERR"; then
+  CHECKS_JSON='[]'
+else
+  echo "gh pr checks に失敗しました（終了コード $CHECKS_RC）:" >&2
+  cat "$CHECKS_ERR" >&2
+  exit 1
+fi
 
 jq -n --argjson pr "$PR_JSON" --argjson checks "$CHECKS_JSON" '
   ($pr.author.login) as $author
