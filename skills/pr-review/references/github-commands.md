@@ -74,6 +74,18 @@ gh api repos/OWNER/REPO/pulls/NUMBER/comments -X POST \
 <!-- pr-review -->'
 ```
 
+### Approve（作者と別アカウントの場合のみ）
+
+マージ判定の条件を満たしたときに投稿する。作者と同じアカウントでは失敗する。
+
+```bash
+gh pr review PR_URL --approve --body 'マージ条件をすべて満たしたことを確認しました（HEAD_SHA）。
+
+<!-- pr-review -->'
+```
+
+作者のログイン名は `gh pr view PR_URL --json author --jq .author.login`、自分のログイン名は `gh api user --jq .login` で確認できる。
+
 ## 3. スレッドの取得・返信・resolve
 
 スレッドの一覧（resolve済みかどうか、各コメント）:
