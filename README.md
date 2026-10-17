@@ -96,17 +96,25 @@ git commit -m "chore: update shared agent skills"
 
 ## テスト
 
-`scripts/setup.sh` と `skills/issue-to-pr/scripts/pr_status.sh` のテスト、`bash -n` と `shellcheck` による静的チェックを [GitHub Actions](.github/workflows/ci.yml) で PR ごとに実行している。
-ローカルでも同じものを次のコマンドで実行できる（`git`・`jq`・`shellcheck` が必要。ネットワークや GitHub の認証は不要）。
+`scripts/setup.sh` と `skills/issue-to-pr/scripts/pr_status.sh` のテスト、`bash -n` と `shellcheck` による静的チェック、SKILL.md の検証を [GitHub Actions](.github/workflows/ci.yml) で PR ごとに実行している。
+ローカルでも同じものを次のコマンドで実行できる（`git`・`jq`・`shellcheck`・`python3` と PyYAML が必要。ネットワークや GitHub の認証は不要）。
 
 ```bash
-tests/run.sh          # lint とすべてのテスト
-tests/run.sh lint     # bash -n と shellcheck だけ
-tests/run.sh test     # テストだけ
+scripts/validate-skills.py  # SKILL.md の検証
+tests/run.sh                # lint とすべてのテスト
+tests/run.sh lint           # bash -n と shellcheck だけ
+tests/run.sh test           # テストだけ
 ```
 
+- `validate-skills.py` は、`skills/` 直下の各スキルについて次を確かめ、問題があればファイルと項目を出力して終了コード 1 で終わる
+  - `SKILL.md` があり、YAML の frontmatter で始まっている
+  - `name` がディレクトリ名と一致し、英小文字・数字・ハイフンだけで64文字以内（先頭・末尾のハイフンとハイフンの連続は不可）。`description` が空でなく1024文字以内（[Agent Skills の仕様](https://agentskills.io/specification)に合わせている）
+  - 本文で参照している `references/`・`scripts/`・`assets/` のパスと Markdown のリンク先（相対パス）が、そのスキルのディレクトリに実在する
+  - `scripts/` 配下のファイルに実行権限がある
 - `setup.sh` のテストは、一時ディレクトリに共有リポジトリ役のローカル bare リポジトリを作り、`AGENT_SKILLS_URL` で指定して実行する
 - `pr_status.sh` のテストは、`PATH` の先頭に偽の `gh`（[tests/fake-bin/gh](tests/fake-bin/gh)）を置いて出力と終了コードを差し替える
+- `validate-skills.py` のテストは、一時ディレクトリに作ったスキルを1か所ずつ壊し、検証が失敗して問題の箇所が出力されることを確かめる
+- CI のジョブの結果は `ci-ok` ジョブにまとまる。ブランチ保護の必須チェックには `ci-ok` だけを指定すればよい
 
 ## クラウド環境での設定
 
