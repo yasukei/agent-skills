@@ -28,8 +28,8 @@ Claude Code と Codex で共通に使うエージェントスキル集。
 
 ### claude.ai
 
-claude.ai に登録すると、claude.ai のアカウントでサインインした Claude Code（CLI）にも自動で同期され、`agent-skills@synced` として読み込まれる。
-Web 版 Claude Code で読み込まれるかは「[Web 版 Claude Code とプラグイン](#web-版-claude-code-とプラグイン)」を参照。
+claude.ai に登録すると、claude.ai のアカウントでサインインした Claude Code（CLI・Web 版）にも自動で同期され、`agent-skills@synced` として読み込まれる。
+Web 版 Claude Code での確認結果は「[Web 版 Claude Code とプラグイン](#web-版-claude-code-とプラグイン)」を参照。
 
 1. claude.ai の Customize → Plugins → Add marketplace を開く
 2. リポジトリの URL（`https://github.com/yasukei/agent-skills`）を入力する
@@ -103,9 +103,12 @@ Web 版 Claude Code で、claude.ai から同期されたプラグイン（`agen
 - 読み込まれる場合: `--codex-only` を推奨する。Claude 側はプラグインに一本化できる
 - 読み込まれない場合: Web 版 Claude Code でも使うリポジトリでは、従来どおり `--codex-only` を付けずに両方にリンクを張る
 
-確認結果: **未確認**（このリポジトリを claude.ai に登録したあとに確認して更新する）。
-なお、Web 版 Claude Code のセッションでは、claude.ai に手で取り込んだスキルが `~/.claude/skills/synced/` に同期されて読み込まれること、
-同期プラグイン用のディレクトリ `~/.claude/plugins/synced/` が作られることは確認済み。
+確認結果: **読み込まれる**（2026-10-17 確認）。Web 版 Claude Code でも `--codex-only` を推奨する。
+
+- claude.ai に登録したプラグインが `~/.claude/plugins/synced/<組織ID>_<ID>/agent-skills/` に同期される
+- 3つのスキルが `agent-skills:create-issue`、`agent-skills:issue-to-pr`、`agent-skills:pr-review` として使える
+- 同期された `skills/` は `main` の最新と一致していた
+- claude.ai に手で取り込んだスキルの同期先（`~/.claude/skills/synced/`）に同名のスキルは無く、重複していない
 
 ### submodule の初期化
 
