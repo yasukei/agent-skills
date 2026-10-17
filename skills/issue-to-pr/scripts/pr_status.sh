@@ -68,7 +68,10 @@ else
   exit 1
 fi
 
-jq -n --argjson pr "$PR_JSON" --argjson checks "$CHECKS_JSON" '
+# このスキルが投稿したコメントに付けるマーカー。作者とレビュアーが同じアカウントでも区別できる
+MARKER='<!-- issue-to-pr -->'
+
+jq -n --argjson pr "$PR_JSON" --argjson checks "$CHECKS_JSON" --arg marker "$MARKER" '
   ($pr.author.login) as $author
   | {
       url: $pr.url,
@@ -104,10 +107,10 @@ jq -n --argjson pr "$PR_JSON" --argjson checks "$CHECKS_JSON" '
           id, isResolved, isOutdated, path, line,
           rootCommentId: .comments.nodes[0].databaseId,
           comments: .comments.nodes,
-          # 最後の発言者がこちら（作成者）以外なら、未返信の可能性がある
-          lastCommentByAuthor: (.comments.nodes[-1].author.login == $author)
+          # 最後のコメントにマーカーがなければ、レビュアーのコメントに未返信の可能性がある
+          lastCommentByMe: (.comments.nodes[-1].body | contains($marker))
         }
       ],
-      issueComments: $pr.comments.nodes
+      issueComments: [ $pr.comments.nodes[] | . + { byMe: (.body | contains($marker)) } ]
     }
 '
