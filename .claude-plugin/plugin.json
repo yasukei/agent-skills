@@ -1,0 +1,8 @@
+{
+  "name": "agent-skills",
+  "description": "issue の起票、issue からの PR 作成、PR のレビューを行うスキル集",
+  "author": {
+    "name": "yasukei"
+  },
+  "repository": "https://github.com/yasukei/agent-skills"
+}

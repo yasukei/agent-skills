@@ -3,20 +3,28 @@
 # スキル単位のシンボリックリンクを張る。何度実行してもよい。
 # 使い方（導入先リポジトリの中で実行する）:
 #   初回:   curl -fsSL https://raw.githubusercontent.com/yasukei/agent-skills/main/scripts/setup.sh | bash
-#   2回目以降: .agent-skills/scripts/setup.sh [--update]
-#     --update  submodule を main の最新に更新してからリンクを張り直す
+#   2回目以降: .agent-skills/scripts/setup.sh [--update] [--codex-only]
+#     --update      submodule を main の最新に更新してからリンクを張り直す
+#     --codex-only  .agents/skills にだけリンクを張る（Claude 側はプラグインで導入する場合）。
+#                   以前このスクリプトが .claude/skills に張ったリンクは削除する
 # 変更はステージするだけで、コミットはしない。
 set -euo pipefail
 
 URL="${AGENT_SKILLS_URL:-https://github.com/yasukei/agent-skills.git}"
 SUBMODULE="${AGENT_SKILLS_PATH:-.agent-skills}"
 LINK_DIRS=(.claude/skills .agents/skills)
+# リンクを張らず、このスクリプトが張ったリンクを削除するディレクトリ
+UNLINK_DIRS=()
 
 UPDATE=0
 for arg in "$@"; do
   case "$arg" in
     --update) UPDATE=1 ;;
-    *) echo "usage: $0 [--update]" >&2; exit 1 ;;
+    --codex-only)
+      LINK_DIRS=(.agents/skills)
+      UNLINK_DIRS=(.claude/skills)
+      ;;
+    *) echo "usage: $0 [--update] [--codex-only]" >&2; exit 1 ;;
   esac
 done
 
@@ -37,6 +45,21 @@ fi
 # リンクは <dir>/<name> に置くので、リポジトリルートまで2階層上がる
 PREFIX="../../$SUBMODULE/skills"
 STAGE=(.gitmodules "$SUBMODULE")
+
+# ${arr[@]+...} は bash 3.2 で空配列を set -u で参照してもエラーにしないため
+for dir in ${UNLINK_DIRS[@]+"${UNLINK_DIRS[@]}"}; do
+  # このスクリプトが張ったリンクだけを削除し、リポジトリ固有のスキルには触れない
+  for link in "$dir"/*; do
+    [ -L "$link" ] || continue
+    case "$(readlink "$link")" in
+      "$PREFIX"/*)
+        echo "削除: $link"
+        rm "$link"
+        git rm -q --cached --ignore-unmatch "$link"
+        ;;
+    esac
+  done
+done
 
 for dir in "${LINK_DIRS[@]}"; do
   mkdir -p "$dir"
