@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   # シェルスクリプトの静的チェックとテスト。
-  # SKILL.md やプラグインの検証は、別のジョブとしてここに足す
+  # プラグインの検証などのジョブを足したら、ci-ok の needs にも足す
   scripts:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -27,7 +27,38 @@ jobs:
           shellcheck --version | head -2
           jq --version
           git --version
+          python3 --version
+          python3 -c 'import yaml; print("PyYAML", yaml.__version__)'
       - name: Lint (bash -n, shellcheck)
         run: tests/run.sh lint
-      - name: Test (setup.sh, pr_status.sh)
+      - name: Test (setup.sh, pr_status.sh, validate-skills.py)
         run: tests/run.sh test
+
+  # skills/*/SKILL.md の frontmatter と参照ファイルの検証
+  skills:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tool versions
+        run: |
+          python3 --version
+          python3 -c 'import yaml; print("PyYAML", yaml.__version__)'
+      - name: Validate SKILL.md
+        run: scripts/validate-skills.py
+
+  # すべてのジョブが成功したときだけ成功する。
+  # ブランチ保護の必須チェックにはこのジョブだけを指定すれば、ジョブを足しても設定を変えずに済む
+  ci-ok:
+    needs: [scripts, skills]
+    # needs のジョブが失敗しても skipped にならず、このジョブ自体が失敗するように常に実行する
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check results of all jobs
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$NEEDS" | jq -e 'all(.[]; .result == "success")' >/dev/null
