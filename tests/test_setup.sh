@@ -86,7 +86,9 @@ assert_staged() {
 
 # パスの削除がステージされているか
 assert_staged_deletion() {
-  if git diff --cached --name-only --diff-filter=D | grep -qxF "$1"; then pass; else fail "$1 の削除がステージされていない"; fi
+  # 導入先の切り替えでは、同じリンク先のリンクが rename と判定されることがある。
+  # ここでは元のパスの削除を確認するため、rename 検出を無効にする。
+  if git diff --cached --no-renames --name-only --diff-filter=D | grep -qxF "$1"; then pass; else fail "$1 の削除がステージされていない"; fi
 }
 
 # ---------------------------------------------------------------------------
@@ -171,22 +173,121 @@ for dir in .claude/skills .agents/skills; do
 done
 
 # ---------------------------------------------------------------------------
-t "--codex-only"
-make_shared alpha beta
-make_target codex-only
-run_setup
-mkdir -p .claude/skills/local
-echo "# repo specific" >.claude/skills/local/SKILL.md
-git add -A
-git commit -qm "add skills"
-run_setup --codex-only
-assert_eq 0 "$RC" "終了コード"
-for name in alpha beta; do
-  assert_missing ".claude/skills/$name"
-  assert_staged_deletion ".claude/skills/$name"
-  assert_link ".agents/skills/$name" "$L/$name"
+for option in --codex-only --claude-only; do
+  if [ "$option" = --codex-only ]; then
+    selected=.agents/skills
+    excluded=.claude/skills
+    opposite=--claude-only
+  else
+    selected=.claude/skills
+    excluded=.agents/skills
+    opposite=--codex-only
+  fi
+
+  t "$option で初回導入"
+  make_shared alpha beta
+  make_target "${option#--}-initial"
+  run_setup "$option"
+  assert_eq 0 "$RC" "終了コード"
+  for name in alpha beta; do
+    assert_link "$selected/$name" "$L/$name"
+    assert_staged "$selected/$name"
+    assert_missing "$excluded/$name"
+  done
+  assert_missing "$excluded"
+  assert_staged .gitmodules
+  assert_staged .agent-skills
+
+  t "$option の再実行"
+  git commit -qm "add skills"
+  run_setup "$option" "$option"
+  assert_eq 0 "$RC" "終了コード"
+  assert_eq "" "$(git status --porcelain)" "再実行で差分が出ない"
+
+  t "$option と --update の併用"
+  shared_add gamma
+  run_setup --update "$option"
+  assert_eq 0 "$RC" "終了コード"
+  assert_link "$selected/gamma" "$L/gamma"
+  assert_staged "$selected/gamma"
+  assert_staged .agent-skills
+  assert_missing "$excluded"
+  git commit -qm "update skills"
+
+  t "$option から $opposite への切り替え"
+  run_setup "$opposite"
+  assert_eq 0 "$RC" "終了コード"
+  for name in alpha beta gamma; do
+    assert_missing "$selected/$name"
+    assert_staged_deletion "$selected/$name"
+    assert_link "$excluded/$name" "$L/$name"
+    assert_staged "$excluded/$name"
+  done
+  git commit -qm "switch skills"
+
+  t "片方のみの導入から指定なしに戻す"
+  run_setup
+  assert_eq 0 "$RC" "終了コード"
+  for name in alpha beta gamma; do
+    assert_link "$selected/$name" "$L/$name"
+    assert_staged "$selected/$name"
+    assert_link "$excluded/$name" "$L/$name"
+  done
+  git commit -qm "restore both"
+
+  t "$option は共有リンクだけを削除し、リポジトリ固有のスキルを保持する"
+  mkdir -p "$excluded/local"
+  echo "# repo specific" >"$excluded/local/SKILL.md"
+  ln -s ../../missing-local-skill "$excluded/foreign"
+  git add "$excluded/local" "$excluded/foreign"
+  git commit -qm "add local skills"
+  shared_remove beta
+  # option を先に指定する順序でも --update と併用できる
+  run_setup "$option" --update
+  assert_eq 0 "$RC" "終了コード"
+  for name in alpha beta gamma; do
+    assert_missing "$excluded/$name"
+    assert_staged_deletion "$excluded/$name"
+  done
+  for name in alpha gamma; do
+    assert_link "$selected/$name" "$L/$name"
+  done
+  assert_missing "$selected/beta"
+  assert_staged_deletion "$selected/beta"
+  assert_dir "$excluded/local"
+  assert_eq "# repo specific" "$(cat "$excluded/local/SKILL.md")" "固有スキルの中身"
+  assert_link "$excluded/foreign" ../../missing-local-skill
+  assert_eq "" "$(git diff --cached --name-only -- "$excluded/local" "$excluded/foreign")" "固有スキルは変更しない"
 done
-assert_dir .claude/skills/local
+
+# ---------------------------------------------------------------------------
+t "--codex-only と --claude-only の同時指定は順序によらず拒否する"
+make_target conflicting-options
+for first in --codex-only --claude-only; do
+  if [ "$first" = --codex-only ]; then second=--claude-only; else second=--codex-only; fi
+  run_setup --update "$first" "$second" 2>/dev/null
+  assert_eq 1 "$RC" "終了コード"
+  assert_contains "$ERR" "同時に指定できません" "競合するオプションの説明"
+  assert_missing .gitmodules
+  assert_missing .agent-skills
+  assert_missing .claude
+  assert_missing .agents
+  assert_eq "" "$(git status --porcelain)" "引数エラー時は何も変更しない"
+done
+
+t "導入済みでも同時指定はリンクや submodule を変更しない"
+make_shared alpha
+run_setup
+git commit -qm "add skills"
+shared_add gamma
+run_setup --claude-only --update --codex-only 2>/dev/null
+assert_eq 1 "$RC" "終了コード"
+assert_contains "$ERR" "同時に指定できません" "競合するオプションの説明"
+assert_eq "" "$(git status --porcelain)" "更新やリンク削除より前に引数エラーにする"
+for dir in .claude/skills .agents/skills; do
+  assert_link "$dir/alpha" "$L/alpha"
+  assert_missing "$dir/gamma"
+done
 
 # ---------------------------------------------------------------------------
 t "不正な引数"
