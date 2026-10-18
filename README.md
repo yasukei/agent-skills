@@ -96,14 +96,16 @@ git commit -m "chore: update shared agent skills"
 
 ## テスト
 
-`scripts/setup.sh` と `skills/issue-to-pr/scripts/pr_status.sh` のテスト、`bash -n` と `shellcheck` による静的チェック、SKILL.md の検証を [GitHub Actions](.github/workflows/ci.yml) で PR ごとに実行している。
+`scripts/setup.sh` と `skills/issue-to-pr/scripts/pr_status.sh` のテスト、`bash -n` と `shellcheck` による静的チェック、SKILL.md の検証、プラグインのマニフェストの検証を [GitHub Actions](.github/workflows/ci.yml) で PR ごとに実行している。
 ローカルでも同じものを次のコマンドで実行できる（`git`・`jq`・`shellcheck`・`python3` と PyYAML が必要。ネットワークや GitHub の認証は不要）。
 
 ```bash
-scripts/validate-skills.py  # SKILL.md の検証
-tests/run.sh                # lint とすべてのテスト
-tests/run.sh lint           # bash -n と shellcheck だけ
-tests/run.sh test           # テストだけ
+scripts/validate-skills.py      # SKILL.md の検証
+scripts/check-plugin-policy.py  # .claude-plugin/ のマニフェストがこのリポジトリの方針に沿っているかの検証
+claude plugin validate .        # .claude-plugin/ のマニフェストのスキーマの検証（Claude Code が必要）
+tests/run.sh                    # lint とすべてのテスト
+tests/run.sh lint               # bash -n と shellcheck だけ
+tests/run.sh test               # テストだけ
 ```
 
 - `validate-skills.py` は、`skills/` 直下の各スキルについて次を確かめ、問題があればファイルと項目を出力して終了コード 1 で終わる
@@ -111,9 +113,14 @@ tests/run.sh test           # テストだけ
   - `name` がディレクトリ名と一致し、英小文字・数字・ハイフンだけで64文字以内（先頭・末尾のハイフンとハイフンの連続は不可）。`description` が空でなく1024文字以内（[Agent Skills の仕様](https://agentskills.io/specification)に合わせている）
   - 本文で参照している `references/`・`scripts/`・`assets/` のパスと Markdown のリンク先（相対パス）が、そのスキルのディレクトリに実在する
   - `scripts/` 配下のファイルに実行権限がある
+- `check-plugin-policy.py` は、`claude plugin validate` では検出できないこのリポジトリの方針を確かめ、違反していれば理由を出力して終了コード 1 で終わる
+  - `marketplace.json` の `name` が `agent-skills` ではない（予約名で、claude.ai のマーケットプレイス同期で拒否される）
+  - `plugin.json` と `marketplace.json` のプラグインエントリに `version` がない（書くとその文字列を変えるまで更新が配布されない）
+- `claude plugin validate .` は認証なしで動くので、CI に API キーなどは設定していない。検証ルールの変更で突然失敗しないよう、CI の Claude Code のバージョンは固定している（[ci.yml](.github/workflows/ci.yml) の `CLAUDE_CODE_VERSION`）。`version` がない警告が出るが、上の方針どおりなので `--strict` は付けていない
 - `setup.sh` のテストは、一時ディレクトリに共有リポジトリ役のローカル bare リポジトリを作り、`AGENT_SKILLS_URL` で指定して実行する
 - `pr_status.sh` のテストは、`PATH` の先頭に偽の `gh`（[tests/fake-bin/gh](tests/fake-bin/gh)）を置いて出力と終了コードを差し替える
 - `validate-skills.py` のテストは、一時ディレクトリに作ったスキルを1か所ずつ壊し、検証が失敗して問題の箇所が出力されることを確かめる
+- `check-plugin-policy.py` のテストも同様に、一時ディレクトリに作ったマニフェストを1か所ずつ壊して確かめる
 - CI のジョブの結果は `ci-ok` ジョブにまとまる。ブランチ保護の必須チェックには `ci-ok` だけを指定すればよい
 
 ## クラウド環境での設定

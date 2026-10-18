@@ -31,7 +31,7 @@ jobs:
           python3 -c 'import yaml; print("PyYAML", yaml.__version__)'
       - name: Lint (bash -n, shellcheck)
         run: tests/run.sh lint
-      - name: Test (setup.sh, pr_status.sh, validate-skills.py)
+      - name: Test (setup.sh, pr_status.sh, validate-skills.py, check-plugin-policy.py)
         run: tests/run.sh test
 
   # skills/*/SKILL.md の frontmatter と参照ファイルの検証
@@ -47,10 +47,37 @@ jobs:
       - name: Validate SKILL.md
         run: scripts/validate-skills.py
 
+  # .claude-plugin/ のマニフェストの検証。
+  # claude plugin validate は認証なしで動くので、API キーなどは設定しない
+  plugin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      # 最新版を使うと、検証ルールの変更で突然失敗することがあるので固定する。
+      # 上げるときは、ローカルで同じバージョンの claude plugin validate . が通ることを確かめてから
+      CLAUDE_CODE_VERSION: 2.1.302
+      DISABLE_AUTOUPDATER: 1
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Claude Code
+        run: npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
+      - name: Tool versions
+        run: |
+          claude --version
+          python3 --version
+      - name: Check plugin policy
+        run: scripts/check-plugin-policy.py
+      - name: Validate plugin (claude plugin validate)
+        run: claude plugin validate .
+
   # すべてのジョブが成功したときだけ成功する。
   # ブランチ保護の必須チェックにはこのジョブだけを指定すれば、ジョブを足しても設定を変えずに済む
   ci-ok:
-    needs: [scripts, skills]
+    needs: [scripts, skills, plugin]
     # needs のジョブが失敗しても skipped にならず、このジョブ自体が失敗するように常に実行する
     if: always()
     runs-on: ubuntu-latest
