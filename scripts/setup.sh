@@ -3,10 +3,13 @@
 # スキル単位のシンボリックリンクを張る。何度実行してもよい。
 # 使い方（導入先リポジトリの中で実行する）:
 #   初回:   curl -fsSL https://raw.githubusercontent.com/yasukei/agent-skills/main/scripts/setup.sh | bash
-#   2回目以降: .agent-skills/scripts/setup.sh [--update] [--codex-only]
+#   2回目以降: .agent-skills/scripts/setup.sh [--update] [--codex-only | --claude-only]
 #     --update      submodule を main の最新に更新してからリンクを張り直す
 #     --codex-only  .agents/skills にだけリンクを張る（Claude 側はプラグインで導入する場合）。
 #                   以前このスクリプトが .claude/skills に張ったリンクは削除する
+#     --claude-only .claude/skills にだけリンクを張る（Codex 側はプラグインで導入する場合）。
+#                   以前このスクリプトが .agents/skills に張ったリンクは削除する
+#     --codex-only と --claude-only は同時に指定できない。
 # 変更はステージするだけで、コミットはしない。
 set -euo pipefail
 
@@ -17,16 +20,28 @@ LINK_DIRS=(.claude/skills .agents/skills)
 UNLINK_DIRS=()
 
 UPDATE=0
+CODEX_ONLY=0
+CLAUDE_ONLY=0
 for arg in "$@"; do
   case "$arg" in
     --update) UPDATE=1 ;;
-    --codex-only)
-      LINK_DIRS=(.agents/skills)
-      UNLINK_DIRS=(.claude/skills)
-      ;;
-    *) echo "usage: $0 [--update] [--codex-only]" >&2; exit 1 ;;
+    --codex-only) CODEX_ONLY=1 ;;
+    --claude-only) CLAUDE_ONLY=1 ;;
+    *) echo "usage: $0 [--update] [--codex-only | --claude-only]" >&2; exit 1 ;;
   esac
 done
+
+if [ "$CODEX_ONLY" -eq 1 ] && [ "$CLAUDE_ONLY" -eq 1 ]; then
+  echo "--codex-only と --claude-only は同時に指定できません" >&2
+  exit 1
+fi
+if [ "$CODEX_ONLY" -eq 1 ]; then
+  LINK_DIRS=(.agents/skills)
+  UNLINK_DIRS=(.claude/skills)
+elif [ "$CLAUDE_ONLY" -eq 1 ]; then
+  LINK_DIRS=(.claude/skills)
+  UNLINK_DIRS=(.agents/skills)
+fi
 
 cd "$(git rev-parse --show-toplevel)"
 
