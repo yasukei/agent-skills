@@ -72,6 +72,8 @@ jobs:
       - name: Check plugin policy
         run: scripts/check-plugin-policy.py
       - name: Validate plugin (claude plugin validate)
+        # 方針チェックが失敗しても実行し、スキーマの問題も同じ実行で見られるようにする
+        if: ${{ !cancelled() }}
         run: claude plugin validate .
 
   # すべてのジョブが成功したときだけ成功する。

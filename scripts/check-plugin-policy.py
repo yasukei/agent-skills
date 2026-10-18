@@ -31,7 +31,7 @@ def load_json(path, rel, errors):
     try:
         with open(path, encoding="utf-8") as fp:
             data = json.load(fp)
-    except json.JSONDecodeError as e:
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
         errors.append(f"{rel}: JSON として解析できません: {e}")
         return None
     if not isinstance(data, dict):
@@ -42,7 +42,7 @@ def load_json(path, rel, errors):
 
 def check_marketplace(data, rel, errors):
     name = data.get("name")
-    if name in RESERVED_MARKETPLACE_NAMES:
+    if isinstance(name, str) and name in RESERVED_MARKETPLACE_NAMES:
         errors.append(
             f"{rel}: name: {name!r} は予約名で、claude.ai のマーケットプレイス同期で拒否されます。"
             "別の名前（例: 'yasukei-agent-skills'）にしてください"

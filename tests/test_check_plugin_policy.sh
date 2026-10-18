@@ -55,6 +55,7 @@ assert_contains "$OUT" "plugin policy ok" "標準出力"
 
 # ---------------------------------------------------------------------------
 t "引数なしでリポジトリのマニフェストを検証する"
+# マニフェストのない $WORK を cwd にしても、cwd ではなくスクリプトの場所を基準にリポジトリを検証する
 RC=0
 (cd "$WORK" && "$SCRIPT") >"$WORK/out" 2>"$WORK/err" || RC=$?
 assert_eq 0 "$RC" "終了コード（$(cat "$WORK/err")）"
@@ -97,6 +98,20 @@ make_manifests
 echo '{' >"$WORK/.claude-plugin/marketplace.json"
 run_check
 assert_fails_with ".claude-plugin/marketplace.json: JSON として解析できません"
+
+# ---------------------------------------------------------------------------
+t "name が文字列でなくても落ちない"
+make_manifests
+sed -i 's/"name": "my-marketplace"/"name": ["agent-skills"]/' "$WORK/.claude-plugin/marketplace.json"
+run_check
+assert_eq 0 "$RC" "終了コード（$ERR）"
+
+# ---------------------------------------------------------------------------
+t "UTF-8 として読めない"
+make_manifests
+printf '\xff\xfe' >"$WORK/.claude-plugin/plugin.json"
+run_check
+assert_fails_with ".claude-plugin/plugin.json: JSON として解析できません"
 
 # ---------------------------------------------------------------------------
 t "問題が複数あればすべて出力する"
