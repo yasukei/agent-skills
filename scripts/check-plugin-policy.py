@@ -16,6 +16,7 @@ import json
 import os
 import sys
 
+# 小文字で書く。claude.ai が大文字小文字を区別するかは未確認なので、区別せずに比較する
 RESERVED_MARKETPLACE_NAMES = {"agent-skills"}
 
 VERSION_REASON = (
@@ -42,7 +43,7 @@ def load_json(path, rel, errors):
 
 def check_marketplace(data, rel, errors):
     name = data.get("name")
-    if isinstance(name, str) and name in RESERVED_MARKETPLACE_NAMES:
+    if isinstance(name, str) and name.lower() in RESERVED_MARKETPLACE_NAMES:
         errors.append(
             f"{rel}: name: {name!r} は予約名で、claude.ai のマーケットプレイス同期で拒否されます。"
             "別の名前（例: 'yasukei-agent-skills'）にしてください"

@@ -73,6 +73,12 @@ run_check
 assert_fails_with ".claude-plugin/marketplace.json: name: 'agent-skills' は予約名で、claude.ai のマーケットプレイス同期で拒否されます"
 
 # ---------------------------------------------------------------------------
+t "marketplace.json の name が大文字小文字違いの予約名"
+make_manifests Agent-Skills
+run_check
+assert_fails_with ".claude-plugin/marketplace.json: name: 'Agent-Skills' は予約名で"
+
+# ---------------------------------------------------------------------------
 t "plugin.json に version がある"
 make_manifests my-marketplace "" ', "version": "1.0.0"'
 run_check
