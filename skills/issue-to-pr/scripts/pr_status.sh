@@ -30,7 +30,7 @@ query($owner: String!, $name: String!, $pr: Int!) {
       headRefName
       baseRefName
       reviews(last: 50) {
-        nodes { author { login } state submittedAt body }
+        nodes { author { login __typename } state submittedAt body }
       }
       reviewThreads(first: 100) {
         nodes {
@@ -40,12 +40,12 @@ query($owner: String!, $name: String!, $pr: Int!) {
           path
           line
           comments(first: 50) {
-            nodes { databaseId author { login } body createdAt url }
+            nodes { databaseId author { login __typename } body createdAt url }
           }
         }
       }
       comments(last: 50) {
-        nodes { databaseId author { login } body createdAt url }
+        nodes { databaseId author { login __typename } body createdAt url }
       }
     }
   }
@@ -83,25 +83,31 @@ jq -n --argjson pr "$PR_JSON" --argjson checks "$CHECKS_JSON" \
      elif any($checks[]; .bucket == "pending") then "pending"
      else "passing" end) as $ci
   # レビュー側の活動（マーカーのないもの）。このスキル自身の返信やPR本文は含めない。
-  # スレッドへの返信をすると、本文が空の COMMENTED レビューが作者名義で作られるため、それも除く
-  | [ $pr.reviews.nodes[]
-      | select((.body // "" | contains($marker) | not)
-               and ((.body // "") != "" or .state != "COMMENTED")) ] as $reviewerReviews
-  | [ $pr.reviewThreads.nodes[] | select(.comments.nodes[0].body // "" | contains($marker) | not) ] as $reviewerThreads
-  | [ $pr.reviewThreads.nodes[].comments.nodes[] | select(.body // "" | contains($marker) | not) ] as $reviewerThreadComments
-  | [ $pr.comments.nodes[] | select(.body // "" | contains($marker) | not) ] as $reviewerIssueComments
-  | (($reviewerReviews | length) + ($reviewerThreadComments | length) + ($reviewerIssueComments | length) > 0) as $activity
-  | (any($pr.reviews.nodes[]; .author.login != $author)
-     or any($pr.reviewThreads.nodes[].comments.nodes[]; .author.login != $author)) as $hasOther
-  | ([ $pr.reviews.nodes[] | select(.author.login != $author and .state != "COMMENTED") ]
+  # スレッドへの返信をすると、本文が空の COMMENTED レビューが作者名義で作られるため、それも除く。
+  # bot（Copilot、カバレッジの報告など）はApproveも完了の合図もしないので、レビュアーとして数えない
+  | def human: (.author.__typename // "User") != "Bot" and (.author.login // "" | endswith("[bot]") | not);
+    def notMine: .body // "" | contains($marker) | not;
+  [ $pr.reviews.nodes[]
+      | select(human and notMine and ((.body // "") != "" or .state != "COMMENTED"))
+      | . + { at: .submittedAt } ] as $reviewerReviews
+  | [ $pr.reviewThreads.nodes[] | select(.comments.nodes[0] | human and notMine) ] as $reviewerThreads
+  | [ $pr.reviewThreads.nodes[].comments.nodes[] | select(human and notMine) | . + { at: .createdAt } ] as $reviewerThreadComments
+  | [ $pr.comments.nodes[] | select(human and notMine) | . + { at: .createdAt } ] as $reviewerIssueComments
+  | ($reviewerReviews + $reviewerThreadComments + $reviewerIssueComments) as $reviewerActivity
+  | (($reviewerActivity | length) > 0) as $activity
+  | any($reviewerActivity[]; .author.login != $author) as $hasOther
+  | ([ $pr.reviews.nodes[] | select(human and .author.login != $author and .state != "COMMENTED") ]
      | group_by(.author.login) | map(max_by(.submittedAt))) as $latestOthers
   | ([ $reviewerThreads[] | select(.isResolved | not) ] | length) as $unresolvedReviewer
-  | any(($reviewerReviews + $reviewerIssueComments)[]; .body // "" | contains($complete)) as $explicit
+  # 完了マーカーは、それより後にレビュー側の活動（質問など）がない場合だけ有効にする
+  | ([ ($reviewerReviews + $reviewerIssueComments)[] | select(.body // "" | contains($complete)) | .at ] | max) as $completedAt
+  | ($completedAt != null and all($reviewerActivity[]; .at <= $completedAt)) as $explicit
   | (if $pr.state == "MERGED" then ["merged", "PRがマージされた"]
      elif $pr.state == "CLOSED" then ["closed", "PRがクローズされた"]
      elif $ci == "failing" then ["ci_failing", "CIが失敗している"]
      elif $ci == "pending" then ["ci_pending", "CIが実行中"]
      elif $pr.mergeable == "CONFLICTING" then ["conflicting", "ベースブランチとコンフリクトしている"]
+     elif $pr.mergeable != "MERGEABLE" then ["mergeable_unknown", "マージできるかをGitHubが計算中"]
      elif ($activity | not) then ["waiting_for_review", "レビュー側の活動がまだない"]
      elif $hasOther then
        (if ($latestOthers | length) > 0 and all($latestOthers[]; .state == "APPROVED")

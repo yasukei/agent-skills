@@ -48,16 +48,21 @@ thread() {
     '{ id: "T1", isResolved: $r, isOutdated: false, path: "a.sh", line: 1, comments: { nodes: $c } }'
 }
 
-# レビューを1つ作る: <作成者> <state> <本文>
+# レビューを1つ作る: <作成者> <state> <本文> [<日時>]
 review() {
-  jq -nc --arg a "$1" --arg s "$2" --arg b "$3" \
-    '{ author: { login: $a }, state: $s, submittedAt: "2026-01-01T00:00:00Z", body: $b }'
+  jq -nc --arg a "$1" --arg s "$2" --arg b "$3" --arg at "${4:-2026-01-01T00:00:00Z}" \
+    '{ author: { login: $a, __typename: "User" }, state: $s, submittedAt: $at, body: $b }'
 }
 
-# PRコメントを1つ作る: <作成者> <本文>
+# PRコメントを1つ作る: <作成者> <本文> [<日時>]
 comment() {
-  jq -nc --arg a "$1" --arg b "$2" \
-    '{ databaseId: 100, author: { login: $a }, body: $b, createdAt: "2026-01-01T00:00:00Z", url: "c" }'
+  jq -nc --arg a "$1" --arg b "$2" --arg at "${3:-2026-01-01T00:00:00Z}" \
+    '{ databaseId: 100, author: { login: $a, __typename: "User" }, body: $b, createdAt: $at, url: "c" }'
+}
+
+# 標準入力のレビューやコメントを bot の投稿にする
+as_bot() {
+  jq -c '.author.__typename = "Bot"'
 }
 
 # 従来のテスト用: 未解決スレッド1つ（最初のコメントはレビュアー、2件目の本文を引数で指定）
@@ -264,6 +269,47 @@ checks "[$PASS_CHECK,$FAIL_CHECK]" "" 1
 run_status
 assert_verdict ci_failing false "CI失敗"
 checks "[$PASS_CHECK]" "" 0
+
+t "同一アカウント: 完了マーカーの後に質問があれば完了にしない"
+write_pr OPEN MERGEABLE "[$(review me COMMENTED "指摘はありません。
+
+$COMPLETE
+$BY_REVIEWER" 2026-01-01T00:00:00Z)]" '[]' \
+  "[$(comment me "もう一点、この変数名の意図は？" 2026-01-01T01:00:00Z)]"
+run_status
+assert_verdict review_in_progress false "完了マーカーの後の質問"
+assert_eq false "$(field .review.explicitCompletion)" "review.explicitCompletion"
+
+t "bot の投稿だけではレビュー待ちのまま"
+write_pr OPEN MERGEABLE "[$(review copilot-pull-request-reviewer COMMENTED "概要です" | as_bot)]" '[]' \
+  "[$(comment codecov "Coverage: 90%" | as_bot)]"
+run_status
+assert_verdict waiting_for_review false "bot のみ"
+assert_eq false "$(field .hasOtherReviewer)" "bot は別アカウントのレビュアーに数えない"
+
+t "同一アカウント: bot のレビューがあっても完了マーカーで終了できる"
+write_pr OPEN MERGEABLE "[$(review me COMMENTED "指摘はありません。
+
+$COMPLETE
+$BY_REVIEWER"),$(review copilot-pull-request-reviewer COMMENTED "概要です" 2026-01-01T02:00:00Z | as_bot)]" '[]' '[]'
+run_status
+assert_verdict ready true "bot のレビューと完了マーカー"
+
+t "別アカウント: PRコメントの完了マーカーだけでは終了しない"
+write_pr OPEN MERGEABLE '[]' '[]' "[$(comment alice "LGTM $COMPLETE")]"
+run_status
+assert_verdict review_in_progress false "別アカウントの完了マーカー"
+assert_eq other_account "$(field .review.mode)" "review.mode"
+
+t "別アカウント: Approve済みなら未解決スレッドがあっても終了できる（Approveはレビュアーの判断）"
+write_pr OPEN MERGEABLE "[$(review alice APPROVED "LGTM")]" "[$(thread false alice "[P3] 任意です")]" '[]'
+run_status
+assert_verdict ready true "Approveと未解決スレッド"
+
+t "mergeable が未計算なら終了しない"
+write_pr OPEN UNKNOWN "[$(review alice APPROVED "LGTM")]" '[]' '[]'
+run_status
+assert_verdict mergeable_unknown false "mergeable UNKNOWN"
 
 t "コンフリクトしていれば終了しない"
 write_pr OPEN CONFLICTING "[$(review alice APPROVED "LGTM")]" '[]' '[]'
