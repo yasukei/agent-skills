@@ -1,6 +1,6 @@
 # agent-skills
 
-Claude Code と Codex で共通に使うエージェントスキル集。
+Claude Code・ChatGPT・Codex で共通に使うエージェントスキル集。
 
 ## スキル一覧
 
@@ -17,7 +17,7 @@ Claude Code と Codex で共通に使うエージェントスキル集。
 このリポジトリは Claude のプラグインマーケットプレイス（`yasukei-agent-skills`）でもある。
 リポジトリ全体が1つのプラグイン `agent-skills` で、スキルは `agent-skills:<スキル名>`（例: `agent-skills:issue-to-pr`）として使える。
 
-`plugin.json` に `version` を書いていないので、バージョンはコミット SHA で決まり、`main` へのコミットごとに更新が配布される。
+`.claude-plugin/plugin.json` に `version` を書いていないので、バージョンはコミット SHA で決まり、`main` へのコミットごとに更新が配布される。
 
 ### Claude Code
 
@@ -37,6 +37,36 @@ Web 版 Claude Code での確認結果は「[Web 版 Claude Code とプラグイ
 
 登録したら、以前 claude.ai に手で取り込んだスキルのコピー（`create-issue` など）は削除する。
 残しておくと同じ description のスキルが2つ並び、古いほうが使われることがある。
+
+## ChatGPT / Codex のプラグインとしての導入
+
+ルートの [plugin.json](plugin.json) は Agent Plugins 1.0 形式のプラグイン定義、
+[.agents/plugins/marketplace.json](.agents/plugins/marketplace.json) は配布カタログ。
+リポジトリ全体を1つのプラグイン `agent-skills` として登録し、Claude 用と同じ `skills/` の3つのスキルを配布する。
+`version` は省略している（[公式スキーマ](https://agent-plugins.org/schemas/1.0.0/plugin.schema.json)では任意）。
+
+### ローカルのマーケットプレイスを登録する
+
+```bash
+codex plugin marketplace add yasukei/agent-skills
+```
+
+登録後、ChatGPT デスクトップアプリのプラグイン一覧で `Yasukei Agent Skills` をソースとして選び、`agent-skills` をインストールする。
+詳しくは[公式のパッケージ化・ローカル導入手順](https://developers.openai.com/plugins/build/plugins)を参照。
+
+### ChatGPT のワークスペースに取り込む
+
+ワークスペース管理者が Admin → Plugins → Add → Import marketplace を開き、次を指定する。
+
+- Source: `https://github.com/yasukei/agent-skills`
+- Path: 空欄（リポジトリルート）
+- Branch, tag, or commit: `main`
+
+取り込み後にプラグインのインストールポリシーを設定する。更新は日次同期、または `Sync now` で取り込む。
+詳しくは[公式のインポート・同期手順](https://help.openai.com/en/articles/20001504-importing-and-syncing-plugin-marketplaces-from-github)を参照。
+
+スキルの実行には、作業対象のリポジトリを操作できる環境と `git`・`gh` などのコマンド、GitHub の認証が必要。
+プラグインを導入した環境では、同じスキルを `.agents/skills/` にも置くと重複するため、導入方法はどちらか一方にする。
 
 ## 各リポジトリへの導入
 

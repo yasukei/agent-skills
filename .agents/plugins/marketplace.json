@@ -1,0 +1,15 @@
+{
+  "name": "yasukei-agent-skills",
+  "interface": {
+    "displayName": "Yasukei Agent Skills"
+  },
+  "plugins": [
+    {
+      "name": "agent-skills",
+      "source": {
+        "source": "local",
+        "path": "./"
+      }
+    }
+  ]
+}
