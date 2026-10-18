@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-""".claude-plugin/ のマニフェストが、このリポジトリの方針に沿っているかを確かめる。
+"""Claude / ChatGPT / Codex のマニフェストが、リポジトリの方針に沿っているかを確かめる。
 
-  scripts/check-plugin-policy.py         リポジトリの .claude-plugin/ を検証する
-  scripts/check-plugin-policy.py <root>  <root>/.claude-plugin/ を検証する（テスト用）
+  scripts/check-plugin-policy.py         リポジトリの4つのマニフェストを検証する
+  scripts/check-plugin-policy.py <root>  <root> 内のマニフェストを検証する（テスト用）
 
-スキーマの検証は `claude plugin validate .` に任せ、ここではそれでは検出できない方針だけを見る。
-- marketplace.json の name が予約名 agent-skills ではない（claude.ai のマーケットプレイス同期で拒否される）
+完全なスキーマ検証ではなく、配布に必要な項目とこのリポジトリの方針を見る。
+Claude のスキーマ検証は引き続き `claude plugin validate .` で行う。
+- Claude の marketplace.json の name が予約名 agent-skills ではない
 - plugin.json と marketplace.json のプラグインエントリに version がない
-  （書くとその文字列を変えるまで更新が配布されない。書かなければコミット SHA で更新される）
+- Claude と Agent Plugins のプラグイン名・説明文、および各カタログのエントリ名が一致する
+- Codex のカタログの各エントリに policy.installation / policy.authentication / category がある
 
 問題があれば「どのファイルのどの項目か」と理由を標準エラーに出し、終了コード 1 で終わる。
 """
@@ -20,9 +22,15 @@ import sys
 RESERVED_MARKETPLACE_NAMES = {"agent-skills"}
 
 VERSION_REASON = (
-    "このリポジトリでは version を書きません。書くとその文字列を変えるまで更新が配布されません"
-    "（書かなければコミット SHA で決まり、main へのコミットごとに配布されます）"
+    "このリポジトリでは version を書きません。Claude では、書くとその文字列を変えるまで"
+    "更新が配布されません。ChatGPT / Codex 用も省略する方針に統一しています"
 )
+
+CLAUDE_MARKETPLACE = os.path.join(".claude-plugin", "marketplace.json")
+CLAUDE_PLUGIN = os.path.join(".claude-plugin", "plugin.json")
+CODEX_MARKETPLACE = os.path.join(".agents", "plugins", "marketplace.json")
+PORTABLE_PLUGIN = "plugin.json"
+MANIFESTS = (CLAUDE_MARKETPLACE, CLAUDE_PLUGIN, CODEX_MARKETPLACE, PORTABLE_PLUGIN)
 
 
 def load_json(path, rel, errors):
@@ -41,39 +49,68 @@ def load_json(path, rel, errors):
     return data
 
 
-def check_marketplace(data, rel, errors):
+def check_marketplace(data, rel, errors, plugin=None):
     name = data.get("name")
-    if isinstance(name, str) and name.lower() in RESERVED_MARKETPLACE_NAMES:
+    if rel == CLAUDE_MARKETPLACE and isinstance(name, str) and name.lower() in RESERVED_MARKETPLACE_NAMES:
         errors.append(
             f"{rel}: name: {name!r} は予約名で、claude.ai のマーケットプレイス同期で拒否されます。"
             "別の名前（例: 'yasukei-agent-skills'）にしてください"
         )
     plugins = data.get("plugins")
-    if not isinstance(plugins, list):
+    if not isinstance(plugins, list) or not plugins:
+        errors.append(f"{rel}: plugins: 空でない配列にしてください")
         return
     for i, entry in enumerate(plugins):
-        if isinstance(entry, dict) and "version" in entry:
+        label = f"plugins[{i}]"
+        if not isinstance(entry, dict):
+            errors.append(f"{rel}: {label}: オブジェクトにしてください")
+            continue
+        if plugin is not None and entry.get("name") != plugin.get("name"):
+            errors.append(f"{rel}: {label}.name: プラグイン定義の name と一致させてください")
+        if "version" in entry:
             label = entry.get("name", i)
             errors.append(f"{rel}: plugins[{i}]（{label}）: version: {VERSION_REASON}")
+        if rel == CODEX_MARKETPLACE:
+            policy = entry.get("policy")
+            if not isinstance(policy, dict):
+                policy = {}
+            for key, values in (
+                ("installation", ("AVAILABLE", "INSTALLED_BY_DEFAULT", "NOT_AVAILABLE")),
+                ("authentication", ("ON_INSTALL", "ON_USE")),
+            ):
+                if policy.get(key) not in values:
+                    errors.append(
+                        f"{rel}: plugins[{i}].policy.{key}: {', '.join(values)} のいずれかを指定してください"
+                    )
+            category = entry.get("category")
+            if not isinstance(category, str) or not category.strip():
+                errors.append(f"{rel}: plugins[{i}].category: 空でない文字列を指定してください")
 
 
 def check_plugin(data, rel, errors):
+    for key in ("name", "description"):
+        value = data.get(key)
+        if not isinstance(value, str) or not value.strip():
+            errors.append(f"{rel}: {key}: 空でない文字列を指定してください")
     if "version" in data:
         errors.append(f"{rel}: version: {VERSION_REASON}")
 
 
 def check(root):
     errors = []
-    marketplace_rel = os.path.join(".claude-plugin", "marketplace.json")
-    plugin_rel = os.path.join(".claude-plugin", "plugin.json")
-
-    marketplace = load_json(os.path.join(root, marketplace_rel), marketplace_rel, errors)
-    if marketplace is not None:
-        check_marketplace(marketplace, marketplace_rel, errors)
-
-    plugin = load_json(os.path.join(root, plugin_rel), plugin_rel, errors)
-    if plugin is not None:
-        check_plugin(plugin, plugin_rel, errors)
+    manifests = {rel: load_json(os.path.join(root, rel), rel, errors) for rel in MANIFESTS}
+    for rel in (CLAUDE_PLUGIN, PORTABLE_PLUGIN):
+        if manifests[rel] is not None:
+            check_plugin(manifests[rel], rel, errors)
+    for rel, plugin_rel in ((CLAUDE_MARKETPLACE, CLAUDE_PLUGIN), (CODEX_MARKETPLACE, PORTABLE_PLUGIN)):
+        if manifests[rel] is not None:
+            check_marketplace(manifests[rel], rel, errors, manifests[plugin_rel])
+    claude = manifests[CLAUDE_PLUGIN]
+    portable = manifests[PORTABLE_PLUGIN]
+    if claude is not None and portable is not None:
+        for key in ("name", "description"):
+            if portable.get(key) != claude.get(key):
+                errors.append(f"{PORTABLE_PLUGIN}: {key}: {CLAUDE_PLUGIN} の {key} と一致させてください")
     return errors
 
 
@@ -96,7 +133,7 @@ def main(argv):
     if errors:
         print(f"{len(errors)} 件の問題があります", file=sys.stderr)
         return 1
-    print("plugin policy ok: .claude-plugin/marketplace.json, .claude-plugin/plugin.json")
+    print(f"plugin policy ok: {', '.join(MANIFESTS)}")
     return 0
 
 

@@ -11,13 +11,13 @@ SCRIPT="$ROOT/scripts/check-plugin-policy.py"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-# 方針に沿ったマニフェストを $WORK/.claude-plugin に作り直す。
-# 引数は marketplace.json の name（省略時は my-marketplace）と、marketplace.json のプラグインエントリ・
-# plugin.json に足す JSON（省略時は何も足さない）
+# 方針に沿った4つのマニフェストを $WORK に作り直す。
+# 引数は Claude の marketplace.json の name（省略時は my-marketplace）と、
+# Claude の marketplace.json のプラグインエントリ・plugin.json に足す JSON。
 make_manifests() {
   local market_name="${1:-my-marketplace}" entry_extra="${2:-}" plugin_extra="${3:-}"
-  rm -rf "$WORK/.claude-plugin"
-  mkdir -p "$WORK/.claude-plugin"
+  rm -rf "$WORK/.claude-plugin" "$WORK/.agents" "$WORK/plugin.json"
+  mkdir -p "$WORK/.claude-plugin" "$WORK/.agents/plugins"
   cat >"$WORK/.claude-plugin/marketplace.json" <<EOF
 {
   "name": "$market_name",
@@ -29,9 +29,33 @@ make_manifests() {
 EOF
   cat >"$WORK/.claude-plugin/plugin.json" <<EOF
 {
-  "name": "agent-skills"$plugin_extra
+  "name": "agent-skills",
+  "description": "Shared skills"$plugin_extra
 }
 EOF
+  cat >"$WORK/plugin.json" <<'EOF'
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "agent-skills",
+  "description": "Shared skills"
+}
+EOF
+  cat >"$WORK/.agents/plugins/marketplace.json" <<'EOF'
+{
+  "name": "my-marketplace",
+  "plugins": [{
+    "name": "agent-skills",
+    "source": {"source": "local", "path": "./"},
+    "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+    "category": "Productivity"
+  }]
+}
+EOF
+}
+
+# jq で1項目を変更する。入力ファイルを直接上書きしない。
+edit_manifest() {
+  jq "$2" "$WORK/$1" >"$WORK/edited.json" && mv "$WORK/edited.json" "$WORK/$1"
 }
 
 # 検証を実行し、OUT・ERR・RC に結果を入れる。引数はリポジトリのルート（省略時は $WORK）
@@ -118,6 +142,117 @@ make_manifests
 printf '\xff\xfe' >"$WORK/.claude-plugin/plugin.json"
 run_check
 assert_fails_with ".claude-plugin/plugin.json: JSON として解析できません"
+
+# ---------------------------------------------------------------------------
+for rel in plugin.json .agents/plugins/marketplace.json; do
+  t "$rel がない"
+  make_manifests
+  rm "$WORK/$rel"
+  run_check
+  assert_fails_with "$rel: ありません"
+
+  t "$rel が不正な JSON"
+  make_manifests
+  echo '{' >"$WORK/$rel"
+  run_check
+  assert_fails_with "$rel: JSON として解析できません"
+
+  t "$rel がオブジェクトでない"
+  make_manifests
+  echo '[]' >"$WORK/$rel"
+  run_check
+  assert_fails_with "$rel: JSON のオブジェクトになっていません"
+
+  t "$rel に version がある"
+  make_manifests
+  if [ "$rel" = plugin.json ]; then
+    edit_manifest "$rel" '.version = "1.0.0"'
+  else
+    edit_manifest "$rel" '.plugins[0].version = "1.0.0"'
+  fi
+  run_check
+  assert_fails_with "version: このリポジトリでは version を書きません"
+  assert_contains "$ERR" "$rel:" "対象のファイル"
+done
+
+# ---------------------------------------------------------------------------
+for field in name description; do
+  t "両形式の $field が一致しない"
+  make_manifests
+  edit_manifest plugin.json ".$field = \"different\""
+  run_check
+  assert_fails_with "plugin.json: $field: .claude-plugin/plugin.json の $field と一致させてください"
+
+  for rel in plugin.json .claude-plugin/plugin.json; do
+    for value in 'null' '""' '"   "' '[]'; do
+      t "$rel の $field が空または文字列でない: $value"
+      make_manifests
+      edit_manifest "$rel" ".$field = $value"
+      run_check
+      assert_fails_with "$rel: $field: 空でない文字列を指定してください"
+    done
+  done
+done
+
+# ---------------------------------------------------------------------------
+for rel in .claude-plugin/marketplace.json .agents/plugins/marketplace.json; do
+  t "$rel のエントリ名がプラグイン定義と一致しない"
+  make_manifests
+  edit_manifest "$rel" '.plugins[0].name = "different"'
+  run_check
+  assert_fails_with "$rel: plugins[0].name: プラグイン定義の name と一致させてください"
+
+  for value in 'null' '[]' '{}'; do
+    t "$rel の plugins が空または配列でない: $value"
+    make_manifests
+    edit_manifest "$rel" ".plugins = $value"
+    run_check
+    assert_fails_with "$rel: plugins: 空でない配列にしてください"
+  done
+
+  t "$rel のエントリがオブジェクトでない"
+  make_manifests
+  edit_manifest "$rel" '.plugins = [null]'
+  run_check
+  assert_fails_with "$rel: plugins[0]: オブジェクトにしてください"
+done
+
+# ---------------------------------------------------------------------------
+rel=.agents/plugins/marketplace.json
+for field in installation authentication; do
+  t "Codex の policy.$field がない"
+  make_manifests
+  edit_manifest "$rel" "del(.plugins[0].policy.$field)"
+  run_check
+  assert_fails_with "$rel: plugins[0].policy.$field:"
+
+  t "Codex の policy.$field が不正"
+  make_manifests
+  edit_manifest "$rel" ".plugins[0].policy.$field = []"
+  run_check
+  assert_fails_with "$rel: plugins[0].policy.$field:"
+done
+for value in 'null' '[]' '""'; do
+  t "Codex の policy がオブジェクトでない: $value"
+  make_manifests
+  edit_manifest "$rel" ".plugins[0].policy = $value"
+  run_check
+  assert_fails_with "$rel: plugins[0].policy.installation:"
+  assert_contains "$ERR" "plugins[0].policy.authentication:" "認証ポリシーのエラー"
+done
+for value in 'null' '""' '"   "' '[]'; do
+  t "Codex の category が空または文字列でない: $value"
+  make_manifests
+  edit_manifest "$rel" ".plugins[0].category = $value"
+  run_check
+  assert_fails_with "$rel: plugins[0].category: 空でない文字列を指定してください"
+done
+
+t "Codex の各エントリのポリシーを検証する"
+make_manifests
+edit_manifest "$rel" '.plugins += [.plugins[0]] | del(.plugins[1].policy)'
+run_check
+assert_fails_with "$rel: plugins[1].policy.installation:"
 
 # ---------------------------------------------------------------------------
 t "問題が複数あればすべて出力する"

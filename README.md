@@ -47,7 +47,7 @@ Web 版 Claude Code での確認結果は「[Web 版 Claude Code とプラグイ
 リポジトリ全体を1つのプラグイン `agent-skills` として登録し、Claude 用と同じ `skills/` の3つのスキルを配布する。
 `version` は省略している（[公式スキーマ](https://agent-plugins.org/schemas/1.0.0/plugin.schema.json)では任意）。
 
-#### ローカルのマーケットプレイスを登録する
+#### Codex にマーケットプレイスを登録する
 
 ```bash
 codex plugin marketplace add yasukei/agent-skills
@@ -154,7 +154,7 @@ git commit -m "chore: update shared agent skills"
 
 ```bash
 scripts/validate-skills.py      # SKILL.md の検証
-scripts/check-plugin-policy.py  # .claude-plugin/ のマニフェストがこのリポジトリの方針に沿っているかの検証
+scripts/check-plugin-policy.py  # Claude / ChatGPT / Codex の4つのマニフェストの方針チェック
 claude plugin validate .        # .claude-plugin/ のマニフェストのスキーマの検証（Claude Code が必要）
 tests/run.sh                    # lint とすべてのテスト
 tests/run.sh lint               # bash -n と shellcheck だけ
@@ -166,9 +166,11 @@ tests/run.sh test               # テストだけ
   - `name` がディレクトリ名と一致し、英小文字・数字・ハイフンだけで64文字以内（先頭・末尾のハイフンとハイフンの連続は不可）。`description` が空でなく1024文字以内（[Agent Skills の仕様](https://agentskills.io/specification)に合わせている）
   - 本文で参照している `references/`・`scripts/`・`assets/` のパスと Markdown のリンク先（相対パス）が、そのスキルのディレクトリに実在する
   - `scripts/` 配下のファイルに実行権限がある
-- `check-plugin-policy.py` は、`claude plugin validate` では検出できないこのリポジトリの方針を確かめ、違反していれば理由を出力して終了コード 1 で終わる
-  - `marketplace.json` の `name` が `agent-skills` ではない（予約名で、claude.ai のマーケットプレイス同期で拒否される）
-  - `plugin.json` と `marketplace.json` のプラグインエントリに `version` がない（書くとその文字列を変えるまで更新が配布されない）
+- `check-plugin-policy.py` は、`.claude-plugin/` の2ファイル、ルートの `plugin.json`、`.agents/plugins/marketplace.json` を検証し、違反していれば理由を出力して終了コード 1 で終わる。完全なスキーマ検証ではなく、次の項目を確認する
+  - Claude の `marketplace.json` の `name` が `agent-skills` ではない（予約名で、claude.ai のマーケットプレイス同期で拒否される）
+  - 両形式の `plugin.json` とカタログのプラグインエントリに `version` がない（Claude での更新方針に合わせ、ChatGPT / Codex 用も省略する）
+  - 両形式のプラグイン定義に空でない `name` と `description` があり、それぞれ一致する。各カタログのエントリ名も対応するプラグイン定義と一致する
+  - Codex のカタログの各エントリに、有効な `policy.installation`・`policy.authentication` と空でない `category` がある
 - `claude plugin validate .` は認証なしで動くので、CI に API キーなどは設定していない。検証ルールの変更で突然失敗しないよう、CI の Claude Code のバージョンは固定している（[ci.yml](.github/workflows/ci.yml) の `CLAUDE_CODE_VERSION`）。`version` がない警告が出るが、上の方針どおりなので `--strict` は付けていない
 - `setup.sh` のテストは、一時ディレクトリに共有リポジトリ役のローカル bare リポジトリを作り、`AGENT_SKILLS_URL` で指定して実行する
 - `pr_status.sh` のテストは、`PATH` の先頭に偽の `gh`（[tests/fake-bin/gh](tests/fake-bin/gh)）を置いて出力と終了コードを差し替える

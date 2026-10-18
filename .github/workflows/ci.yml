@@ -47,7 +47,7 @@ jobs:
       - name: Validate SKILL.md
         run: scripts/validate-skills.py
 
-  # .claude-plugin/ のマニフェストの検証。
+  # Claude / ChatGPT / Codex のマニフェストの方針チェックと、Claude のスキーマ検証。
   # claude plugin validate は認証なしで動くので、API キーなどは設定しない
   plugin:
     runs-on: ubuntu-latest
