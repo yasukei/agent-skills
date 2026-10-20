@@ -59,12 +59,12 @@ write_rest_from_graphql() {
 #   write_pr <state> <mergeable> <reviews> <reviewThreads> <comments>
 # 後ろ3つは nodes の JSON 配列。PR の作成者は "me"
 write_pr() {
-  jq -n --arg state "$1" --arg mergeable "$2" \
+  jq -n --arg state "$1" --arg mergeable "$2" --arg sha "$SHA" \
     --argjson reviews "$3" --argjson threads "$4" --argjson comments "$5" '{
     data: { repository: { pullRequest: {
       url: "https://github.com/o/r/pull/1",
       state: $state, isDraft: false, mergeable: $mergeable, reviewDecision: null,
-      author: { login: "me" }, headRefName: "feat/1-x", baseRefName: "main",
+      author: { login: "me" }, headRefName: "feat/1-x", headRefOid: $sha, baseRefName: "main",
       reviews: { nodes: $reviews },
       reviewThreads: { nodes: $threads },
       comments: { nodes: $comments }
@@ -167,7 +167,8 @@ checks() {
   jq -n --argjson r "$runs" '{ total_count: ($r | length), check_runs: $r }' \
     >"$(rest_file "repos/o/r/commits/$SHA/check-runs")"
   echo '{ "state": "pending", "statuses": [] }' >"$(rest_file "repos/o/r/commits/$SHA/status")"
-  echo '{ "workflow_runs": [{ "check_suite_id": 1, "name": "CI" }] }' >"$(rest_file repos/o/r/actions/runs)"
+  echo '{ "workflow_runs": [{ "check_suite_id": 1, "name": "CI", "event": "pull_request" }] }' \
+    >"$(rest_file repos/o/r/actions/runs)"
 }
 
 field() {
@@ -511,5 +512,46 @@ echo '[
 run_rest
 assert_verdict review_in_progress false "一覧にないコメント"
 assert_eq "21,22" "$(field '.threads | map(.comments | map(.databaseId) | join(",")) | join("|")')" "一覧にないコメントとスレッドを除く"
+
+t "REST: 再実行された古い check suite の結果は除く"
+write_pr OPEN MERGEABLE "[$(review me COMMENTED "指摘はありません。
+
+$COMPLETE
+$BY_REVIEWER")]" '[]' '[]'
+jq -n '{ check_runs: [
+  { name: "test", status: "completed", conclusion: "cancelled", started_at: "2026-01-01T01:00:00Z", details_url: "old", check_suite: { id: 1 } },
+  { name: "test", status: "completed", conclusion: "success",   started_at: "2026-01-01T02:00:00Z", details_url: "new", check_suite: { id: 2 } }
+] }' >"$(rest_file "repos/o/r/commits/$SHA/check-runs")"
+jq -n '{ workflow_runs: [
+  { check_suite_id: 1, name: "CI", event: "pull_request" },
+  { check_suite_id: 2, name: "CI", event: "pull_request" },
+  { check_suite_id: 3, name: "Lint", event: "push" },
+  { check_suite_id: 4, name: "Lint", event: "pull_request" }
+] }' >"$(rest_file repos/o/r/actions/runs)"
+run_rest
+assert_verdict ready true "古いキャンセルと新しい成功"
+assert_eq passing "$(field .ci.summary)" "ci.summary"
+# イベントが異なれば別のチェックとして残す（gh pr checks と同じ）
+jq -n '{ check_runs: [
+  { name: "lint", status: "completed", conclusion: "failure", started_at: "2026-01-01T03:00:00Z", details_url: "l1", check_suite: { id: 3 } },
+  { name: "lint", status: "completed", conclusion: "success", started_at: "2026-01-01T02:00:00Z", details_url: "l2", check_suite: { id: 4 } },
+  { name: "test", status: "completed", conclusion: "success", started_at: "2026-01-01T02:00:00Z", details_url: "new", check_suite: { id: 2 } }
+] }' >"$(rest_file "repos/o/r/commits/$SHA/check-runs")"
+run_rest
+assert_verdict ci_failing false "push の失敗"
+assert_eq "lint l1 Lint" "$(field '.ci.failing | map("\(.name) \(.link) \(.workflow)") | join(",")')" "ci.failing"
+
+t "gh pr checks に --json がない古い gh では、CI を REST で取得する"
+checks "[$PASS_CHECK]" "" 0
+export FAKE_CHECKS_OUT="" FAKE_CHECKS_ERR="unknown flag: --json
+
+Usage:  gh pr checks [<number> | <url> | <branch>] [flags]" FAKE_CHECKS_RC=1
+: >"$FAKE_GH_LOG"
+run_once
+assert_verdict ready true "古い gh"
+assert_eq passing "$(field .ci.summary)" "ci.summary"
+assert_contains "$(cat "$FAKE_GH_LOG")" "repos/o/r/commits/$SHA/check-runs" "headRefOid の check runs を取得する"
+if grep -q "ccr/review_threads" "$FAKE_GH_LOG"; then fail "PR の情報まで REST に切り替えている"; else pass; fi
+checks "[$PASS_CHECK]" "" 0
 
 done_testing

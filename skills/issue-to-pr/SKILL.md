@@ -57,6 +57,7 @@ issueを実装し、PRを出し、CIとレビューに対応して「マージ�
 - `{owner}/{repo}` は `gh api` がカレントディレクトリのリポジトリに置き換える。
 - `-F body=@<ファイル>` でファイルの内容を本文にする。
 - `scripts/pr_status.sh` の REST の経路では、`reviewDecision` と `threads[].id`（GraphQL のスレッド ID）が `null` になる。終了条件の判定（`verdict`）には影響しない。
+- `gh pr checks` に `--json` がない古い gh（2.46 など）では、`scripts/pr_status.sh` は CI の状態だけを REST で取得する。
 
 ## 1. issueを読む
 
