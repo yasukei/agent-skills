@@ -173,7 +173,7 @@ tests/run.sh test               # テストだけ
   - Codex のカタログの各エントリに、有効な `policy.installation`・`policy.authentication` と空でない `category` がある
 - `claude plugin validate .` は認証なしで動くので、CI に API キーなどは設定していない。検証ルールの変更で突然失敗しないよう、CI の Claude Code のバージョンは固定している（[ci.yml](.github/workflows/ci.yml) の `CLAUDE_CODE_VERSION`）。`version` がない警告が出るが、上の方針どおりなので `--strict` は付けていない
 - `setup.sh` のテストは、一時ディレクトリに共有リポジトリ役のローカル bare リポジトリを作り、`AGENT_SKILLS_URL` で指定して実行する
-- `pr_status.sh` のテストは、`PATH` の先頭に偽の `gh`（[tests/fake-bin/gh](tests/fake-bin/gh)）を置いて出力と終了コードを差し替える
+- `pr_status.sh` のテストは、`PATH` の先頭に偽の `gh`（[tests/fake-bin/gh](tests/fake-bin/gh)）を置いて出力と終了コードを差し替える。各ケースを GraphQL の経路と、GraphQL が 403 になる環境での REST・CCR ルートの経路の両方で実行し、出力が同じになることを確かめる
 - `validate-skills.py` のテストは、一時ディレクトリに作ったスキルを1か所ずつ壊し、検証が失敗して問題の箇所が出力されることを確かめる
 - `check-plugin-policy.py` のテストも同様に、一時ディレクトリに作ったマニフェストを1か所ずつ壊して確かめる
 - CI のジョブの結果は `ci-ok` ジョブにまとまる。ブランチ保護の必須チェックには `ci-ok` だけを指定すればよい
@@ -193,6 +193,13 @@ Web 版 Claude Code で、claude.ai から同期されたプラグイン（`agen
 - 3つのスキルが `agent-skills:create-issue`、`agent-skills:issue-to-pr`、`agent-skills:pr-review` として使える
 - 同期された `skills/` は `main` の最新と一致していた
 - claude.ai に手で取り込んだスキルの同期先（`~/.claude/skills/synced/`）に同名のスキルは無く、重複していない
+
+### GitHub の GraphQL が使えない環境
+
+Web 版 Claude Code のセッションでは、GitHub の GraphQL API が `HTTP 403: GitHub GraphQL is not available from Claude Code sessions` で拒否される（2026-10-20 確認）。`gh api graphql` のほか、内部で GraphQL を使う `gh pr view`・`gh pr checks`・`gh pr list`・`gh issue view`・`gh repo view` なども失敗する。REST（`gh api repos/...`）と、レビュースレッド用の CCR ルート（`gh api repos/{owner}/{repo}/pulls/{n}/ccr/review_threads` など）は使える。
+
+- `skills/issue-to-pr/scripts/pr_status.sh` は、GraphQL が 403 のときに自動で REST と CCR ルートに切り替える
+- 各スキルの SKILL.md と [github-commands.md](skills/pr-review/references/github-commands.md) に、GraphQL が使えない環境での代替コマンドを載せている
 
 ### submodule の初期化
 

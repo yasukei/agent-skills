@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # skills/issue-to-pr/scripts/pr_status.sh のテスト。
 # PATH の先頭に偽の gh（tests/fake-bin/gh）を置き、GitHub の認証やネットワークに依存せずに実行する。
+# 各ケースは GraphQL の経路と、GraphQL が 403 になる環境での REST・CCR ルートの経路の両方で実行し、
+# 同じ結果になることを確かめる（run_status）。
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -14,6 +16,44 @@ trap 'rm -rf "$WORK"' EXIT
 export PATH="$ROOT/tests/fake-bin:$PATH"
 export FAKE_GRAPHQL="$WORK/graphql.json"
 export FAKE_GH_LOG="$WORK/gh.log"
+export FAKE_REST_DIR="$WORK/rest"
+mkdir -p "$FAKE_REST_DIR"
+
+# GraphQL が使えない環境（クラウド版 Claude Code）での gh api graphql のエラー
+GRAPHQL_403='gh: GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). (HTTP 403)'
+# REST の経路で使う PR の head SHA
+SHA=abc123
+
+# 偽の gh api <パス> が返すファイルのパス
+rest_file() {
+  printf '%s/%s.json' "$FAKE_REST_DIR" "$(printf '%s' "$1" | tr / _)"
+}
+
+# GraphQL の応答（$FAKE_GRAPHQL）から、同じ内容の REST・CCR ルートの応答を作る
+write_rest_from_graphql() {
+  local pr
+  pr="$(jq '.data.repository.pullRequest' "$FAKE_GRAPHQL")"
+  jq --arg sha "$SHA" '{
+    html_url: .url,
+    state: (if .state == "OPEN" then "open" else "closed" end),
+    merged: (.state == "MERGED"),
+    draft: .isDraft,
+    mergeable: (if .mergeable == "MERGEABLE" then true elif .mergeable == "CONFLICTING" then false else null end),
+    user: { login: .author.login, type: "User" },
+    head: { ref: .headRefName, sha: $sha },
+    base: { ref: .baseRefName }
+  }' <<<"$pr" >"$(rest_file repos/o/r/pulls/1)"
+  local user='{ login: .author.login, type: (if .author.__typename == "Bot" then "Bot" else "User" end) }'
+  jq "[ .reviews.nodes[] | { user: $user, state, submitted_at: .submittedAt, body } ]" <<<"$pr" \
+    >"$(rest_file repos/o/r/pulls/1/reviews)"
+  jq "[ .reviewThreads.nodes[].comments.nodes[] | { id: .databaseId, user: $user, body, created_at: .createdAt, html_url: .url } ]" \
+    <<<"$pr" >"$(rest_file repos/o/r/pulls/1/comments)"
+  jq "[ .comments.nodes[] | { id: .databaseId, user: $user, body, created_at: .createdAt, html_url: .url } ]" <<<"$pr" \
+    >"$(rest_file repos/o/r/issues/1/comments)"
+  jq '[ .reviewThreads.nodes[] | { resolved: .isResolved, outdated: .isOutdated, path, line,
+        comment_ids: [ .comments.nodes[].databaseId ] } ]' <<<"$pr" \
+    >"$(rest_file repos/o/r/pulls/1/ccr/review_threads)"
+}
 
 # gh api graphql の出力を作る。
 #   write_pr <state> <mergeable> <reviews> <reviewThreads> <comments>
@@ -30,6 +70,7 @@ write_pr() {
       comments: { nodes: $comments }
     } } }
   }' >"$FAKE_GRAPHQL"
+  write_rest_from_graphql
 }
 
 # レビュースレッドを1つ作る: <isResolved> <作成者> <最初のコメント本文> [<作成者> <本文>]...
@@ -39,7 +80,7 @@ thread() {
   local comments='[]' i=1
   while [ $# -ge 2 ]; do
     comments="$(jq -c --arg a "$1" --arg b "$2" --argjson i "$i" \
-      '. + [{ databaseId: $i, author: { login: $a }, body: $b, createdAt: "2026-01-01T00:00:00Z", url: "u\($i)" }]' \
+      '. + [{ databaseId: $i, author: { login: $a, __typename: "User" }, body: $b, createdAt: "2026-01-01T00:00:00Z", url: "u\($i)" }]' \
       <<<"$comments")"
     i=$((i + 1))
     shift 2
@@ -70,17 +111,63 @@ write_graphql() {
   write_pr OPEN MERGEABLE '[]' "[$(thread false me "[P2] 直してください" me "$1")]" '[]'
 }
 
-# pr_status.sh を実行し、OUT・ERR・RC に結果を入れる
-run_status() {
+# pr_status.sh を1回実行し、OUT・ERR・RC に結果を入れる
+run_once() {
   RC=0
   "$SCRIPT" 1 o/r >"$WORK/out" 2>"$WORK/err" || RC=$?
   OUT="$(cat "$WORK/out")"
   ERR="$(cat "$WORK/err")"
 }
 
+# GraphQL が 403 になる環境（REST・CCR ルートの経路）で pr_status.sh を実行する
+run_rest() {
+  FAKE_GRAPHQL_RC=1 FAKE_GRAPHQL_ERR="$GRAPHQL_403" run_once
+}
+
+# pr_status.sh を GraphQL の経路と REST の経路の両方で実行し、結果が同じことを確かめる。
+# OUT・ERR・RC には GraphQL の経路の結果を入れる。
+# スレッドの ID は REST の経路では取得できない（null になる）ので比べない
+run_status() {
+  local rc out err
+  run_rest
+  rc="$RC" out="$OUT"
+  run_once
+  err="$ERR"
+  assert_eq "$RC" "$rc" "REST の経路でも終了コードが同じ"
+  if [ -z "$OUT" ] || [ -z "$out" ]; then
+    assert_eq "$OUT" "$out" "REST の経路でも標準出力が同じ"
+  elif jq -e -n --argjson g "$OUT" --argjson r "$out" \
+    '($g | del(.threads[].id)) == ($r | del(.threads[].id))' >/dev/null; then
+    pass
+  else
+    fail "REST の経路の出力が GraphQL の経路と異なる: $(diff <(jq -S 'del(.threads[].id)' <<<"$OUT") <(jq -S 'del(.threads[].id)' <<<"$out"))"
+  fi
+  ERR="$err"
+}
+
 # 偽の gh pr checks の結果を設定する: <標準出力> <標準エラー> <終了コード>
+# REST の経路用に、同じ内容の check runs も作る。gh pr checks がエラーになる場合は、check runs も取得できなくする
 checks() {
   export FAKE_CHECKS_OUT="$1" FAKE_CHECKS_ERR="$2" FAKE_CHECKS_RC="$3"
+  local runs
+  if [ -n "$1" ]; then
+    runs="$(jq -c '[ .[] | {
+      name,
+      status: (if .bucket == "pending" then "in_progress" else "completed" end),
+      conclusion: ({ pass: "success", fail: "failure", cancel: "cancelled", skipping: "skipped" }[.bucket]),
+      details_url: .link,
+      check_suite: { id: 1 }
+    } ]' <<<"$1")"
+  elif [[ "$2" == *"no checks reported"* ]]; then
+    runs='[]'
+  else
+    rm -f "$(rest_file "repos/o/r/commits/$SHA/check-runs")"
+    return
+  fi
+  jq -n --argjson r "$runs" '{ total_count: ($r | length), check_runs: $r }' \
+    >"$(rest_file "repos/o/r/commits/$SHA/check-runs")"
+  echo '{ "state": "pending", "statuses": [] }' >"$(rest_file "repos/o/r/commits/$SHA/status")"
+  echo '{ "workflow_runs": [{ "check_suite_id": 1, "name": "CI" }] }' >"$(rest_file repos/o/r/actions/runs)"
 }
 
 field() {
@@ -104,6 +191,8 @@ assert_eq passing "$(field .ci.summary)" "ci.summary"
 assert_eq 0 "$(field '.ci.failing | length')" "ci.failing"
 assert_contains "$(cat "$FAKE_GH_LOG")" "pr checks 1 --repo o/r --json" "gh pr checks に PR 番号とリポジトリを渡す"
 assert_contains "$(cat "$FAKE_GH_LOG")" "-F owner=o -F name=r -F pr=1" "GraphQL に owner・name・PR 番号を渡す"
+assert_contains "$(cat "$FAKE_GH_LOG")" "repos/o/r/pulls/1/ccr/review_threads" "REST の経路ではスレッドを CCR ルートで取得する"
+assert_contains "$(cat "$FAKE_GH_LOG")" "repos/o/r/commits/$SHA/check-runs" "REST の経路では head SHA の check runs を取得する"
 
 # ---------------------------------------------------------------------------
 t "CI 失敗"
@@ -324,5 +413,93 @@ assert_verdict merged true "マージ"
 write_pr CLOSED UNKNOWN '[]' '[]' '[]'
 run_status
 assert_verdict closed true "クローズ"
+
+# ---------------------------------------------------------------------------
+# REST・CCR ルートの経路に固有のケース
+
+checks "[$PASS_CHECK]" "" 0
+write_pr OPEN MERGEABLE '[]' '[]' '[]'
+
+t "REST: GraphQL が 403 のときは gh pr checks を呼ばない"
+: >"$FAKE_GH_LOG"
+run_rest
+assert_verdict waiting_for_review false "REST の経路"
+assert_contains "$(cat "$FAKE_GH_LOG")" "api graphql" "最初に GraphQL を試す"
+if grep -q "^pr checks" "$FAKE_GH_LOG"; then fail "gh pr checks を呼んでいる"; else pass; fi
+
+t "REST: GraphQL の 403 以外のエラーでは REST に切り替えない"
+: >"$FAKE_GH_LOG"
+FAKE_GRAPHQL_RC=1 FAKE_GRAPHQL_ERR="HTTP 502: Bad Gateway" run_once
+assert_eq 1 "$RC" "終了コード"
+assert_eq "" "$OUT" "標準出力に結果を出さない"
+assert_contains "$ERR" "HTTP 502: Bad Gateway" "エラー内容を標準エラーに出す"
+if grep -q "ccr/review_threads" "$FAKE_GH_LOG"; then fail "REST に切り替えている"; else pass; fi
+
+t "REST: CCR ルートでスレッドを取得できなければエラーにする"
+rm "$(rest_file repos/o/r/pulls/1/ccr/review_threads)"
+run_rest
+assert_eq 1 "$RC" "終了コード"
+assert_eq "" "$OUT" "標準出力に結果を出さない"
+assert_contains "$ERR" "HTTP 404" "エラー内容を標準エラーに出す"
+write_pr OPEN MERGEABLE '[]' '[]' '[]'
+
+t "REST: check runs とコミットステータスの state と bucket"
+jq -n '{ check_runs: [
+  { name: "ok",       status: "completed",   conclusion: "success",         details_url: "d1", check_suite: { id: 1 } },
+  { name: "skip",     status: "completed",   conclusion: "skipped",         details_url: "d2", check_suite: { id: 1 } },
+  { name: "neutral",  status: "completed",   conclusion: "neutral",         details_url: "d3", check_suite: { id: 2 } },
+  { name: "timeout",  status: "completed",   conclusion: "timed_out",       details_url: "d4", check_suite: { id: 1 } },
+  { name: "action",   status: "completed",   conclusion: "action_required", details_url: "d5", check_suite: { id: 1 } },
+  { name: "cancel",   status: "completed",   conclusion: "cancelled",       details_url: "d6", check_suite: { id: 1 } },
+  { name: "queued",   status: "queued",      conclusion: null,              details_url: "d7", check_suite: { id: 1 } },
+  { name: "running",  status: "in_progress", conclusion: null,              html_url: "h8",    check_suite: { id: 1 } }
+] }' >"$(rest_file "repos/o/r/commits/$SHA/check-runs")"
+jq -n '{ state: "failure", statuses: [
+  { context: "ci/ext-ok",   state: "success", target_url: "s1" },
+  { context: "ci/ext-err",  state: "error",   target_url: "s2" },
+  { context: "ci/ext-fail", state: "failure", target_url: null },
+  { context: "ci/ext-wait", state: "pending", target_url: "s4" }
+] }' >"$(rest_file "repos/o/r/commits/$SHA/status")"
+run_rest
+assert_eq 0 "$RC" "終了コード"
+assert_eq failing "$(field .ci.summary)" "ci.summary"
+assert_eq "timeout,action,cancel,ci/ext-err,ci/ext-fail" "$(field '.ci.failing | map(.name) | join(",")')" "ci.failing"
+assert_eq "queued,running,ci/ext-wait" "$(field '.ci.pending | join(",")')" "ci.pending"
+assert_eq "TIMED_OUT fail d4 CI" "$(field '.ci.failing[0] | "\(.state) \(.bucket) \(.link) \(.workflow)"')" "check run の変換"
+assert_eq "ERROR fail s2 " "$(field '.ci.failing[3] | "\(.state) \(.bucket) \(.link) \(.workflow)"')" "コミットステータスの変換"
+assert_eq "" "$(field '.ci.failing[4].link')" "target_url が null なら空文字"
+checks "[$PASS_CHECK]" "" 0
+
+t "REST: ワークフローの実行を取得できなくても、ワークフロー名を空にして続ける"
+checks "[$FAIL_CHECK]" "" 1
+rm "$(rest_file repos/o/r/actions/runs)"
+run_rest
+assert_eq 0 "$RC" "終了コード"
+assert_eq failing "$(field .ci.summary)" "ci.summary"
+assert_eq "" "$(field '.ci.failing[0].workflow')" "ワークフロー名"
+checks "[$PASS_CHECK]" "" 0
+
+t "REST: 複数のスレッドを comment_ids の順に組み立てる"
+write_pr OPEN MERGEABLE '[]' '[]' '[]'
+jq -n --arg mine "$MINE" '[
+  { id: 11, user: { login: "me", type: "User" }, body: "[P1] 1つめ", created_at: "2026-01-01T00:00:00Z", html_url: "u11" },
+  { id: 21, user: { login: "me", type: "User" }, body: "[P2] 2つめ", created_at: "2026-01-01T00:01:00Z", html_url: "u21" },
+  { id: 12, user: { login: "me", type: "User" }, body: ("直しました\n\n" + $mine), created_at: "2026-01-01T00:02:00Z", html_url: "u12" },
+  { id: 22, user: { login: "me", type: "User" }, body: "まだです", created_at: "2026-01-01T00:03:00Z", html_url: "u22" }
+]' >"$(rest_file repos/o/r/pulls/1/comments)"
+echo '[
+  { "resolved": true,  "outdated": true,  "path": "a.sh", "line": null, "comment_ids": [11, 12] },
+  { "resolved": false, "outdated": false, "path": "b.sh", "line": 3,    "comment_ids": [21, 22] }
+]' >"$(rest_file repos/o/r/pulls/1/ccr/review_threads)"
+run_rest
+assert_verdict review_in_progress false "未解決スレッドあり"
+assert_eq "11,12|21,22" "$(field '.threads | map(.comments | map(.databaseId) | join(",")) | join("|")')" "スレッドごとのコメント"
+assert_eq "11,21" "$(field '.threads | map(.rootCommentId) | join(",")')" "rootCommentId"
+assert_eq "true,false" "$(field '.threads | map(.lastCommentByMe) | join(",")')" "lastCommentByMe"
+assert_eq "true b.sh 3" "$(field '.threads[0].isOutdated, .threads[1].path, .threads[1].line' | paste -sd' ')" "isOutdated・path・line"
+assert_eq 1 "$(field .unresolvedThreadCount)" "unresolvedThreadCount"
+assert_eq 2 "$(field .review.reviewerThreadCount)" "review.reviewerThreadCount"
+assert_eq null "$(field '.threads[0].id')" "スレッドの ID は REST では取得できない"
+assert_eq null "$(field .reviewDecision)" "reviewDecision は REST では取得できない"
 
 done_testing

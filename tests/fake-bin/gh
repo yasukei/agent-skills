@@ -1,21 +1,48 @@
 #!/usr/bin/env bash
 # pr_status.sh のテスト用の偽 gh。出力と終了コードを環境変数で差し替える。
 #   FAKE_GRAPHQL       gh api graphql の標準出力にするファイル
+#   FAKE_GRAPHQL_ERR   gh api graphql の標準エラー（FAKE_GRAPHQL_RC が 0 以外のとき）
+#   FAKE_GRAPHQL_RC    gh api graphql の終了コード（0 以外なら FAKE_GRAPHQL は出力しない）
 #   FAKE_CHECKS_OUT    gh pr checks の標準出力
 #   FAKE_CHECKS_ERR    gh pr checks の標準エラー
 #   FAKE_CHECKS_RC     gh pr checks の終了コード
+#   FAKE_REST_DIR      gh api <パス>（REST）の応答を置くディレクトリ。パスからクエリ文字列を除き、
+#                      / を _ に置き換えた名前に .json を付けたファイルを出力する
+#                      （例: repos/o/r/pulls/1/reviews?per_page=100 → repos_o_r_pulls_1_reviews.json）。
+#                      ファイルがなければ HTTP 404 として終了コード 1 で終わる
 #   FAKE_GH_LOG        指定されていれば、呼び出されたときの引数を1行ずつ追記する
 if [ -n "${FAKE_GH_LOG:-}" ]; then
   echo "$*" >>"$FAKE_GH_LOG"
 fi
 case "$1 ${2:-}" in
   "api graphql")
+    if [ "${FAKE_GRAPHQL_RC:-0}" -ne 0 ]; then
+      printf '%s' "${FAKE_GRAPHQL_ERR:-}" >&2
+      exit "$FAKE_GRAPHQL_RC"
+    fi
     cat "$FAKE_GRAPHQL"
     ;;
   "pr checks")
     printf '%s' "${FAKE_CHECKS_OUT:-}"
     printf '%s' "${FAKE_CHECKS_ERR:-}" >&2
     exit "${FAKE_CHECKS_RC:-0}"
+    ;;
+  api\ *)
+    # --paginate などのオプションを飛ばし、最初の引数をパスとして扱う
+    shift
+    path=""
+    for arg in "$@"; do
+      case "$arg" in
+        -*) ;;
+        *) path="$arg"; break ;;
+      esac
+    done
+    file="${FAKE_REST_DIR:-/nonexistent}/$(printf '%s' "${path%%\?*}" | tr / _).json"
+    if [ ! -f "$file" ]; then
+      echo "gh: Not Found (HTTP 404)" >&2
+      exit 1
+    fi
+    cat "$file"
     ;;
   *)
     echo "fake gh: 想定外の呼び出し: $*" >&2

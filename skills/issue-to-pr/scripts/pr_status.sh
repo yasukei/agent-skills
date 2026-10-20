@@ -3,6 +3,12 @@
 # 使い方: pr_status.sh <PR番号> [owner/repo]
 #   owner/repo を省略するとカレントディレクトリのリポジトリを使う。
 # 必要: gh（認証済み）, jq
+#
+# 通常は GraphQL と gh pr checks で取得する。GraphQL が 403 で拒否される環境
+# （クラウド版 Claude Code など）では、REST API とレビュースレッド用の CCR ルート
+# （GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads）に切り替える。
+# どちらの経路でも出力の JSON の形は同じ。ただし REST の経路では、
+# reviewDecision は常に null、threads[].id（GraphQL のスレッド ID）は null になる。
 set -euo pipefail
 
 if [ $# -lt 1 ]; then
@@ -11,9 +17,14 @@ if [ $# -lt 1 ]; then
 fi
 
 PR="$1"
-REPO="${2:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}"
+# gh repo view は GraphQL を使うので、REST で現在のリポジトリを解決する
+# shellcheck disable=SC2016
+REPO="${2:-$(gh api 'repos/{owner}/{repo}' --jq .full_name)}"
 OWNER="${REPO%%/*}"
 NAME="${REPO##*/}"
+
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
 
 # $owner などは GraphQL の変数で、シェルで展開するものではない
 # shellcheck disable=SC2016
@@ -51,22 +62,103 @@ query($owner: String!, $name: String!, $pr: Int!) {
   }
 }'
 
-PR_JSON="$(gh api graphql -f query="$QUERY" -F owner="$OWNER" -F name="$NAME" -F pr="$PR" \
-  | jq '.data.repository.pullRequest')"
+# REST の応答を GraphQL の pullRequest と同じ形に変換して出力する。
+# 引数: PR・レビュー・レビューコメント・PRコメント・CCR ルートのスレッドの JSON が入ったファイル
+rest_pr_json() {
+  jq -n --slurpfile pr "$1" --slurpfile reviews "$2" --slurpfile comments "$3" \
+    --slurpfile issueComments "$4" --slurpfile threads "$5" '
+    $pr[0] as $pr
+    | def author: { login: (.user.login // "ghost"), __typename: (if .user.type == "Bot" then "Bot" else "User" end) };
+      def node: { databaseId: .id, author: author, body: (.body // ""), createdAt: .created_at, url: .html_url };
+    ($comments[0] | map({ key: (.id | tostring), value: node }) | from_entries) as $byId
+    | {
+        url: $pr.html_url,
+        state: (if $pr.merged then "MERGED" elif $pr.state == "closed" then "CLOSED" else "OPEN" end),
+        isDraft: $pr.draft,
+        mergeable: (if $pr.mergeable == true then "MERGEABLE"
+                    elif $pr.mergeable == false then "CONFLICTING"
+                    else "UNKNOWN" end),
+        reviewDecision: null,
+        author: { login: $pr.user.login },
+        headRefName: $pr.head.ref,
+        baseRefName: $pr.base.ref,
+        reviews: { nodes: [ $reviews[0][] | { author: author, state, submittedAt: .submitted_at, body: (.body // "") } ] },
+        # CCR ルートはスレッドごとにコメントの ID だけを返すので、レビューコメントの一覧から本文などを引く
+        reviewThreads: { nodes: [ $threads[0][] | {
+          id: null, isResolved: .resolved, isOutdated: .outdated, path, line,
+          comments: { nodes: [ .comment_ids[] | tostring | $byId[.] | select(. != null) ] }
+        } ] },
+        comments: { nodes: [ $issueComments[0][] | node ] }
+      }'
+}
 
-# CI。gh pr checks は失敗時に1、pending時に8で終わるが、どちらもJSONは出力するので
-# 終了コードではなく出力で判断する。チェックがひとつもない場合だけ空配列として扱う
-CHECKS_ERR="$(mktemp)"
-trap 'rm -f "$CHECKS_ERR"' EXIT
-CHECKS_RC=0
-CHECKS_JSON="$(gh pr checks "$PR" --repo "$REPO" --json name,state,bucket,link,workflow 2>"$CHECKS_ERR")" || CHECKS_RC=$?
-if [ -n "$CHECKS_JSON" ] && jq -e 'type == "array"' >/dev/null 2>&1 <<<"$CHECKS_JSON"; then
-  :
-elif grep -q "no checks reported" "$CHECKS_ERR"; then
-  CHECKS_JSON='[]'
+# REST のチェック（check runs とコミットステータス）を gh pr checks --json name,state,bucket,link,workflow と
+# 同じ形に変換して出力する。bucket の分け方は gh pr checks に合わせる。
+# 引数: check runs・コミットステータス・ワークフローの実行の JSON が入ったファイル
+rest_checks_json() {
+  jq -n --slurpfile runs "$1" --slurpfile statuses "$2" --slurpfile workflowRuns "$3" '
+    def bucket:
+      if . == "SUCCESS" then "pass"
+      elif IN("SKIPPED", "NEUTRAL") then "skipping"
+      elif IN("FAILURE", "ERROR", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE") then "fail"
+      elif . == "CANCELLED" then "cancel"
+      else "pending" end;
+    ($workflowRuns[0] | map({ key: (.check_suite_id | tostring), value: .name }) | from_entries) as $workflow
+    | [ $runs[0][]
+        | ((if .status == "completed" then .conclusion else .status end) // "" | ascii_upcase) as $state
+        | { name, state: $state, bucket: ($state | bucket), link: (.details_url // .html_url // ""),
+            workflow: ($workflow[.check_suite.id | tostring] // "") } ]
+    + [ $statuses[0][]
+        | (.state | ascii_upcase) as $state
+        | { name: .context, state: $state, bucket: ($state | bucket), link: (.target_url // ""), workflow: "" } ]'
+}
+
+# gh api --paginate は、ページごとの JSON を連結して出力する。各ページの <フィールド>（省略時はページ全体）の
+# 配列をつなげて、1つの配列にする
+paginate() {
+  local field="$1"
+  shift
+  gh api --paginate "$@" | jq -s --arg f "$field" 'map(if $f == "" then . else .[$f] end) | add // []'
+}
+
+# まず GraphQL で取得し、403 で拒否されたら REST に切り替える
+if gh api graphql -f query="$QUERY" -F owner="$OWNER" -F name="$NAME" -F pr="$PR" \
+  >"$TMP/graphql.json" 2>"$TMP/graphql.err"; then
+  PR_JSON="$(jq '.data.repository.pullRequest' "$TMP/graphql.json")"
+
+  # CI。gh pr checks は失敗時に1、pending時に8で終わるが、どちらもJSONは出力するので
+  # 終了コードではなく出力で判断する。チェックがひとつもない場合だけ空配列として扱う
+  CHECKS_RC=0
+  CHECKS_JSON="$(gh pr checks "$PR" --repo "$REPO" --json name,state,bucket,link,workflow 2>"$TMP/checks.err")" || CHECKS_RC=$?
+  if [ -n "$CHECKS_JSON" ] && jq -e 'type == "array"' >/dev/null 2>&1 <<<"$CHECKS_JSON"; then
+    :
+  elif grep -q "no checks reported" "$TMP/checks.err"; then
+    CHECKS_JSON='[]'
+  else
+    echo "gh pr checks に失敗しました（終了コード $CHECKS_RC）:" >&2
+    cat "$TMP/checks.err" >&2
+    exit 1
+  fi
+elif grep -Eq 'HTTP 403|GraphQL is not available' "$TMP/graphql.err"; then
+  BASE="repos/$OWNER/$NAME"
+  gh api "$BASE/pulls/$PR" >"$TMP/pr.json"
+  paginate "" "$BASE/pulls/$PR/reviews?per_page=100" >"$TMP/reviews.json"
+  paginate "" "$BASE/pulls/$PR/comments?per_page=100" >"$TMP/comments.json"
+  paginate "" "$BASE/issues/$PR/comments?per_page=100" >"$TMP/issue-comments.json"
+  gh api "$BASE/pulls/$PR/ccr/review_threads" >"$TMP/threads.json"
+  PR_JSON="$(rest_pr_json "$TMP/pr.json" "$TMP/reviews.json" "$TMP/comments.json" \
+    "$TMP/issue-comments.json" "$TMP/threads.json")"
+
+  SHA="$(jq -r '.head.sha' "$TMP/pr.json")"
+  paginate check_runs "$BASE/commits/$SHA/check-runs?per_page=100" >"$TMP/check-runs.json"
+  paginate statuses "$BASE/commits/$SHA/status?per_page=100" >"$TMP/statuses.json"
+  # ワークフロー名は check run に含まれないので、ワークフローの実行から引く。取れなければ空文字にする
+  paginate workflow_runs "$BASE/actions/runs?head_sha=$SHA&per_page=100" >"$TMP/workflow-runs.json" 2>/dev/null \
+    || echo '[]' >"$TMP/workflow-runs.json"
+  CHECKS_JSON="$(rest_checks_json "$TMP/check-runs.json" "$TMP/statuses.json" "$TMP/workflow-runs.json")"
 else
-  echo "gh pr checks に失敗しました（終了コード $CHECKS_RC）:" >&2
-  cat "$CHECKS_ERR" >&2
+  echo "GraphQL での PR の取得に失敗しました:" >&2
+  cat "$TMP/graphql.err" >&2
   exit 1
 fi
 

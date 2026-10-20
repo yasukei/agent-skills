@@ -132,3 +132,25 @@ gh issue create --repo <owner>/<repo> \
 - 親issueがあれば、本文の `Part of #N.` に加えて GitHub の sub-issue としても紐付ける（`gh api` で `POST /repos/<owner>/<repo>/issues/<親番号>/sub_issues`、`sub_issue_id` には子issueの番号ではなく `id` を渡す）。API が使えなければ本文の記述だけで十分。
 - 複数issueに分割して作るときは、依存される側から順に作り、Depends on に実際の番号が入るようにする。
 - 作成後は issue の URL を伝える。
+
+## GraphQL が使えない環境
+
+クラウド版 Claude Code などでは、GitHub の GraphQL API が `HTTP 403: GitHub GraphQL is not available ...` で拒否され、内部で GraphQL を使う `gh issue create`・`gh issue list`・`gh pr list`・`gh label list` が失敗する。その場合は REST の `gh api` で代替する（`gh api repos/...` は使える）。
+
+| 用途 | 通常 | GraphQL が使えない環境 |
+|---|---|---|
+| ラベルの一覧 | `gh label list` | `gh api --paginate "repos/<owner>/<repo>/labels?per_page=100" --jq '.[].name'` |
+| 既存のissue | `gh issue list --state all --limit 10` | `gh api "repos/<owner>/<repo>/issues?state=all&per_page=20" --jq '.[] \| select(.pull_request == null) \| .title'`（PRも含まれるので除く） |
+| 既存のPR | `gh pr list --state all --limit 10` | `gh api "repos/<owner>/<repo>/pulls?state=all&per_page=10" --jq '.[].title'` |
+| issueの作成 | `gh issue create ...` | 下記 |
+
+```bash
+gh api repos/<owner>/<repo>/issues -X POST \
+  -f title="<title>" -F body=@/tmp/issue-body.md \
+  -f 'labels[]=<label>' -F milestone=<マイルストーンの番号> \
+  --jq '{number, id, url: .html_url}'
+```
+
+- `-F body=@<ファイル>` でファイルの内容を本文にする。
+- マイルストーンは名前ではなく番号で指定する（`gh api repos/<owner>/<repo>/milestones --jq '.[] | {number, title}'` で調べる）。
+- 出力の `id` は、sub-issue の紐付けの `sub_issue_id` に使える。
