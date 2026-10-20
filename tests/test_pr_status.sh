@@ -441,6 +441,7 @@ run_rest
 assert_eq 1 "$RC" "終了コード"
 assert_eq "" "$OUT" "標準出力に結果を出さない"
 assert_contains "$ERR" "HTTP 404" "エラー内容を標準エラーに出す"
+assert_contains "$ERR" "GraphQL is not available" "切り替える前の GraphQL のエラーも出す"
 write_pr OPEN MERGEABLE '[]' '[]' '[]'
 
 t "REST: check runs とコミットステータスの state と bucket"
@@ -501,5 +502,14 @@ assert_eq 1 "$(field .unresolvedThreadCount)" "unresolvedThreadCount"
 assert_eq 2 "$(field .review.reviewerThreadCount)" "review.reviewerThreadCount"
 assert_eq null "$(field '.threads[0].id')" "スレッドの ID は REST では取得できない"
 assert_eq null "$(field .reviewDecision)" "reviewDecision は REST では取得できない"
+
+t "REST: レビューコメントの一覧にないコメントだけのスレッドは除く"
+echo '[
+  { "resolved": false, "outdated": false, "path": "c.sh", "line": 1, "comment_ids": [99] },
+  { "resolved": false, "outdated": false, "path": "b.sh", "line": 3, "comment_ids": [21, 99, 22] }
+]' >"$(rest_file repos/o/r/pulls/1/ccr/review_threads)"
+run_rest
+assert_verdict review_in_progress false "一覧にないコメント"
+assert_eq "21,22" "$(field '.threads | map(.comments | map(.databaseId) | join(",")) | join("|")')" "一覧にないコメントとスレッドを除く"
 
 done_testing

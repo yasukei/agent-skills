@@ -24,7 +24,18 @@ OWNER="${REPO%%/*}"
 NAME="${REPO##*/}"
 
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+API=graphql
+# REST の経路で失敗したときは、切り替えのきっかけになった GraphQL のエラーも出す。
+# 403 の原因が GraphQL の拒否ではなかった場合（SAML SSO など）に、原因を追えるようにするため
+on_exit() {
+  local rc=$?
+  if [ "$rc" -ne 0 ] && [ "$API" = rest ]; then
+    echo "REST での取得に失敗しました。REST に切り替える前の GraphQL のエラー:" >&2
+    cat "$TMP/graphql.err" >&2
+  fi
+  rm -rf "$TMP"
+}
+trap on_exit EXIT
 
 # $owner などは GraphQL の変数で、シェルで展開するものではない
 # shellcheck disable=SC2016
@@ -83,11 +94,12 @@ rest_pr_json() {
         headRefName: $pr.head.ref,
         baseRefName: $pr.base.ref,
         reviews: { nodes: [ $reviews[0][] | { author: author, state, submittedAt: .submitted_at, body: (.body // "") } ] },
-        # CCR ルートはスレッドごとにコメントの ID だけを返すので、レビューコメントの一覧から本文などを引く
+        # CCR ルートはスレッドごとにコメントの ID だけを返すので、レビューコメントの一覧から本文などを引く。
+        # 一覧にないコメント（未送信のレビューのものなど）は除き、コメントが残らないスレッドも除く
         reviewThreads: { nodes: [ $threads[0][] | {
           id: null, isResolved: .resolved, isOutdated: .outdated, path, line,
           comments: { nodes: [ .comment_ids[] | tostring | $byId[.] | select(. != null) ] }
-        } ] },
+        } | select(.comments.nodes | length > 0) ] },
         comments: { nodes: [ $issueComments[0][] | node ] }
       }'
 }
@@ -140,6 +152,7 @@ if gh api graphql -f query="$QUERY" -F owner="$OWNER" -F name="$NAME" -F pr="$PR
     exit 1
   fi
 elif grep -Eq 'HTTP 403|GraphQL is not available' "$TMP/graphql.err"; then
+  API=rest
   BASE="repos/$OWNER/$NAME"
   gh api "$BASE/pulls/$PR" >"$TMP/pr.json"
   paginate "" "$BASE/pulls/$PR/reviews?per_page=100" >"$TMP/reviews.json"
