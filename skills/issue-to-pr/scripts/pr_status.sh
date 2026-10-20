@@ -3,6 +3,13 @@
 # 使い方: pr_status.sh <PR番号> [owner/repo]
 #   owner/repo を省略するとカレントディレクトリのリポジトリを使う。
 # 必要: gh（認証済み）, jq
+#
+# 通常は GraphQL と gh pr checks で取得する。GraphQL が 403 で拒否される環境
+# （クラウド版 Claude Code など）では、REST API とレビュースレッド用の CCR ルート
+# （GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads）に切り替える。
+# gh pr checks に --json がない古い gh（2.46 など）では、CI だけ REST で取得する。
+# どちらの経路でも出力の JSON の形は同じ。ただし REST の経路では、
+# reviewDecision は常に null、threads[].id（GraphQL のスレッド ID）は null になる。
 set -euo pipefail
 
 if [ $# -lt 1 ]; then
@@ -11,9 +18,25 @@ if [ $# -lt 1 ]; then
 fi
 
 PR="$1"
-REPO="${2:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}"
+# gh repo view は GraphQL を使うので、REST で現在のリポジトリを解決する
+# shellcheck disable=SC2016
+REPO="${2:-$(gh api 'repos/{owner}/{repo}' --jq .full_name)}"
 OWNER="${REPO%%/*}"
 NAME="${REPO##*/}"
+
+TMP="$(mktemp -d)"
+API=graphql
+# REST の経路で失敗したときは、切り替えのきっかけになった GraphQL のエラーも出す。
+# 403 の原因が GraphQL の拒否ではなかった場合（SAML SSO など）に、原因を追えるようにするため
+on_exit() {
+  local rc=$?
+  if [ "$rc" -ne 0 ] && [ "$API" = rest ]; then
+    echo "REST での取得に失敗しました。REST に切り替える前の GraphQL のエラー:" >&2
+    cat "$TMP/graphql.err" >&2
+  fi
+  rm -rf "$TMP"
+}
+trap on_exit EXIT
 
 # $owner などは GraphQL の変数で、シェルで展開するものではない
 # shellcheck disable=SC2016
@@ -28,6 +51,7 @@ query($owner: String!, $name: String!, $pr: Int!) {
       reviewDecision
       author { login }
       headRefName
+      headRefOid
       baseRefName
       reviews(last: 50) {
         nodes { author { login __typename } state submittedAt body }
@@ -51,22 +75,129 @@ query($owner: String!, $name: String!, $pr: Int!) {
   }
 }'
 
-PR_JSON="$(gh api graphql -f query="$QUERY" -F owner="$OWNER" -F name="$NAME" -F pr="$PR" \
-  | jq '.data.repository.pullRequest')"
+# REST の応答を GraphQL の pullRequest と同じ形に変換して出力する。
+# 引数: PR・レビュー・レビューコメント・PRコメント・CCR ルートのスレッドの JSON が入ったファイル
+rest_pr_json() {
+  jq -n --slurpfile pr "$1" --slurpfile reviews "$2" --slurpfile comments "$3" \
+    --slurpfile issueComments "$4" --slurpfile threads "$5" '
+    $pr[0] as $pr
+    | def author: { login: (.user.login // "ghost"), __typename: (if .user.type == "Bot" then "Bot" else "User" end) };
+      def node: { databaseId: .id, author: author, body: (.body // ""), createdAt: .created_at, url: .html_url };
+    ($comments[0] | map({ key: (.id | tostring), value: node }) | from_entries) as $byId
+    | {
+        url: $pr.html_url,
+        state: (if $pr.merged then "MERGED" elif $pr.state == "closed" then "CLOSED" else "OPEN" end),
+        isDraft: $pr.draft,
+        mergeable: (if $pr.mergeable == true then "MERGEABLE"
+                    elif $pr.mergeable == false then "CONFLICTING"
+                    else "UNKNOWN" end),
+        reviewDecision: null,
+        author: { login: $pr.user.login },
+        headRefName: $pr.head.ref,
+        baseRefName: $pr.base.ref,
+        reviews: { nodes: [ $reviews[0][] | { author: author, state, submittedAt: .submitted_at, body: (.body // "") } ] },
+        # CCR ルートはスレッドごとにコメントの ID だけを返すので、レビューコメントの一覧から本文などを引く。
+        # 一覧にないコメント（未送信のレビューのものなど）は除き、コメントが残らないスレッドも除く
+        reviewThreads: { nodes: [ $threads[0][] | {
+          id: null, isResolved: .resolved, isOutdated: .outdated, path, line,
+          comments: { nodes: [ .comment_ids[] | tostring | $byId[.] | select(. != null) ] }
+        } | select(.comments.nodes | length > 0) ] },
+        comments: { nodes: [ $issueComments[0][] | node ] }
+      }'
+}
 
-# CI。gh pr checks は失敗時に1、pending時に8で終わるが、どちらもJSONは出力するので
-# 終了コードではなく出力で判断する。チェックがひとつもない場合だけ空配列として扱う
-CHECKS_ERR="$(mktemp)"
-trap 'rm -f "$CHECKS_ERR"' EXIT
-CHECKS_RC=0
-CHECKS_JSON="$(gh pr checks "$PR" --repo "$REPO" --json name,state,bucket,link,workflow 2>"$CHECKS_ERR")" || CHECKS_RC=$?
-if [ -n "$CHECKS_JSON" ] && jq -e 'type == "array"' >/dev/null 2>&1 <<<"$CHECKS_JSON"; then
-  :
-elif grep -q "no checks reported" "$CHECKS_ERR"; then
-  CHECKS_JSON='[]'
+# REST のチェック（check runs とコミットステータス）を gh pr checks --json name,state,bucket,link,workflow と
+# 同じ形に変換して出力する。bucket の分け方と重複の除き方は gh pr checks に合わせる。
+# 引数: check runs・コミットステータス・ワークフローの実行の JSON が入ったファイル
+rest_checks_json() {
+  jq -n --slurpfile runs "$1" --slurpfile statuses "$2" --slurpfile workflowRuns "$3" '
+    def bucket:
+      if . == "SUCCESS" then "pass"
+      elif IN("SKIPPED", "NEUTRAL") then "skipping"
+      elif IN("FAILURE", "ERROR", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE") then "fail"
+      elif . == "CANCELLED" then "cancel"
+      else "pending" end;
+    ($workflowRuns[0] | map({ key: (.check_suite_id | tostring), value: { name, event } }) | from_entries) as $workflow
+    # 同じコミットでワークフローが再実行されると、check-runs は古い check suite の同名のチェックも返す。
+    # gh pr checks と同じく、チェック名・ワークフロー名・イベントごとに開始が最も新しいものだけを残す。
+    # ワークフローの実行が分からない check suite（取得の失敗、Actions 以外のアプリなど）は、別のワークフローの
+    # 失敗を消さないよう、check suite ごとに別のチェックとして扱う
+    | [ $runs[0] | to_entries[]
+        | .key as $i | .value
+        | (.check_suite.id | tostring) as $suite
+        | ($workflow[$suite] // { name: "", event: "" }) as $wf
+        | ((if .status == "completed" then .conclusion else .status end) // "" | ascii_upcase) as $state
+        | { i: $i,
+            key: (if $workflow[$suite] then [.name, $wf.name, $wf.event] else [.name, "", "", $suite] end),
+            startedAt: (.started_at // ""),
+            check: { name, state: $state, bucket: ($state | bucket), link: (.details_url // .html_url // ""),
+                     workflow: $wf.name } } ]
+    | group_by(.key) | map(max_by([.startedAt, -.i])) | sort_by(.i) | map(.check)
+    # コミットステータスは、コンテキストごとの最新だけが返る
+    + [ $statuses[0][]
+        | (.state | ascii_upcase) as $state
+        | { name: .context, state: $state, bucket: ($state | bucket), link: (.target_url // ""), workflow: "" } ]'
+}
+
+# gh api --paginate は、ページごとの JSON を連結して出力する。各ページの <フィールド>（省略時はページ全体）の
+# 配列をつなげて、1つの配列にする
+paginate() {
+  local field="$1"
+  shift
+  gh api --paginate "$@" | jq -s --arg f "$field" 'map(if $f == "" then . else .[$f] end) | add // []'
+}
+
+# REST でコミットのチェックを取得し、gh pr checks --json と同じ形で $TMP/checks.json に書く。
+# 取得の失敗で止まるよう、コマンド置換の中ではなく、そのまま呼び出す
+# 引数: repos/<owner>/<repo>、コミットの SHA
+rest_checks() {
+  local base="$1" sha="$2"
+  paginate check_runs "$base/commits/$sha/check-runs?per_page=100" >"$TMP/check-runs.json"
+  paginate statuses "$base/commits/$sha/status?per_page=100" >"$TMP/statuses.json"
+  # ワークフロー名とイベントは check run に含まれないので、ワークフローの実行から引く。取れなければ空文字にする
+  paginate workflow_runs "$base/actions/runs?head_sha=$sha&per_page=100" >"$TMP/workflow-runs.json" 2>/dev/null \
+    || echo '[]' >"$TMP/workflow-runs.json"
+  rest_checks_json "$TMP/check-runs.json" "$TMP/statuses.json" "$TMP/workflow-runs.json" >"$TMP/checks.json"
+}
+
+# まず GraphQL で取得し、403 で拒否されたら REST に切り替える
+if gh api graphql -f query="$QUERY" -F owner="$OWNER" -F name="$NAME" -F pr="$PR" \
+  >"$TMP/graphql.json" 2>"$TMP/graphql.err"; then
+  PR_JSON="$(jq '.data.repository.pullRequest' "$TMP/graphql.json")"
+
+  # CI。gh pr checks は失敗時に1、pending時に8で終わるが、どちらもJSONは出力するので
+  # 終了コードではなく出力で判断する。チェックがひとつもない場合だけ空配列として扱う
+  CHECKS_RC=0
+  CHECKS_JSON="$(gh pr checks "$PR" --repo "$REPO" --json name,state,bucket,link,workflow 2>"$TMP/checks.err")" || CHECKS_RC=$?
+  if [ -n "$CHECKS_JSON" ] && jq -e 'type == "array"' >/dev/null 2>&1 <<<"$CHECKS_JSON"; then
+    :
+  elif grep -q "no checks reported" "$TMP/checks.err"; then
+    CHECKS_JSON='[]'
+  elif grep -q "unknown flag: --json" "$TMP/checks.err"; then
+    # gh pr checks に --json がない古い gh では、REST で取得する
+    rest_checks "repos/$OWNER/$NAME" "$(jq -r '.headRefOid' <<<"$PR_JSON")"
+    CHECKS_JSON="$(cat "$TMP/checks.json")"
+  else
+    echo "gh pr checks に失敗しました（終了コード $CHECKS_RC）:" >&2
+    cat "$TMP/checks.err" >&2
+    exit 1
+  fi
+elif grep -Eq 'HTTP 403|GraphQL is not available' "$TMP/graphql.err"; then
+  API=rest
+  BASE="repos/$OWNER/$NAME"
+  gh api "$BASE/pulls/$PR" >"$TMP/pr.json"
+  paginate "" "$BASE/pulls/$PR/reviews?per_page=100" >"$TMP/reviews.json"
+  paginate "" "$BASE/pulls/$PR/comments?per_page=100" >"$TMP/comments.json"
+  paginate "" "$BASE/issues/$PR/comments?per_page=100" >"$TMP/issue-comments.json"
+  gh api "$BASE/pulls/$PR/ccr/review_threads" >"$TMP/threads.json"
+  PR_JSON="$(rest_pr_json "$TMP/pr.json" "$TMP/reviews.json" "$TMP/comments.json" \
+    "$TMP/issue-comments.json" "$TMP/threads.json")"
+
+  rest_checks "$BASE" "$(jq -r '.head.sha' "$TMP/pr.json")"
+  CHECKS_JSON="$(cat "$TMP/checks.json")"
 else
-  echo "gh pr checks に失敗しました（終了コード $CHECKS_RC）:" >&2
-  cat "$CHECKS_ERR" >&2
+  echo "GraphQL での PR の取得に失敗しました:" >&2
+  cat "$TMP/graphql.err" >&2
   exit 1
 fi
 

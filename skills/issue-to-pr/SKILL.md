@@ -41,6 +41,24 @@ issueを実装し、PRを出し、CIとレビューに対応して「マージ�
 - レビュー指摘同士が矛盾している、またはissueの要件と矛盾している
 - 大規模・複雑なコンフリクト（後述）
 
+## GraphQL が使えない環境
+
+クラウド版 Claude Code などでは、GitHub の GraphQL API が `HTTP 403: GitHub GraphQL is not available ...` で拒否され、内部で GraphQL を使う `gh issue view`・`gh pr list`・`gh repo view`・`gh pr create`・`gh pr comment`・`gh pr view`・`gh pr checks` が失敗する。その場合は、以下の手順の中のコマンドを REST の `gh api` で代替する（`gh api repos/...`、`gh pr diff`、`gh run ...` は使える）。
+
+| 用途 | 通常 | GraphQL が使えない環境 |
+|---|---|---|
+| issueを読む | `gh issue view <番号> --comments` | `gh api repos/{owner}/{repo}/issues/<番号>` と `gh api --paginate "repos/{owner}/{repo}/issues/<番号>/comments?per_page=100"` |
+| 既存のPR | `gh pr list --state all --limit 10` | `gh api "repos/{owner}/{repo}/pulls?state=all&per_page=10" --jq '.[] \| {number, title}'` |
+| デフォルトブランチ | `gh repo view --json defaultBranchRef` | `gh api repos/{owner}/{repo} --jq .default_branch` |
+| PRの作成 | `gh pr create ...` | `gh api repos/{owner}/{repo}/pulls -X POST -f title="<タイトル>" -f head=<ブランチ名> -f base=<ベースブランチ> -F body=@<本文ファイル> --jq .html_url` |
+| PRへのコメント | `gh pr comment <PR番号> --body "..."` | `gh api repos/{owner}/{repo}/issues/<PR番号>/comments -X POST -f body="..."` |
+| PRの状態の監視 | `scripts/pr_status.sh` | そのまま使える（GraphQL が 403 なら、自動で REST とレビュースレッド用の CCR ルートに切り替える） |
+
+- `{owner}/{repo}` は `gh api` がカレントディレクトリのリポジトリに置き換える。
+- `-F body=@<ファイル>` でファイルの内容を本文にする。
+- `scripts/pr_status.sh` の REST の経路では、`reviewDecision` と `threads[].id`（GraphQL のスレッド ID）が `null` になる。終了条件の判定（`verdict`）には影響しない。
+- `gh pr checks` に `--json` がない古い gh（2.46 など）では、`scripts/pr_status.sh` は CI の状態だけを REST で取得する。
+
 ## 1. issueを読む
 
 ```bash
@@ -95,7 +113,7 @@ gh pr create --base <ベースブランチ> --title "<タイトル>" --body-file
 
 ## 6. PRを監視する
 
-`scripts/pr_status.sh <PR番号>` で、CIの状態・レビュー・未解決スレッドと、終了条件の判定（`verdict`）をまとめて取得できる。これを定期的に実行して変化を見る。
+`scripts/pr_status.sh <PR番号>` で、CIの状態・レビュー・未解決スレッドと、終了条件の判定（`verdict`）をまとめて取得できる。これを定期的に実行して変化を見る。GraphQL が使えない環境では、自動で REST と CCR ルートに切り替える（「GraphQL が使えない環境」を参照）。
 
 **7章の終了条件を満たすまで（原則として `verdict.done` が `true` になるまで）監視を続ける。** CIが成功し、`mergeable` が `MERGEABLE` で、未解決スレッドが0件でも、レビューがまだなければ「レビュー待ち」であり、終わりではない。
 

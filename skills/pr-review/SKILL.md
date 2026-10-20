@@ -28,6 +28,26 @@ PRをレビューし、指摘をPRに投稿し、作者の対応を監視して�
 
 GitHubの操作に使う具体的なコマンドは `references/github-commands.md` にまとめてある。必要になったら読むこと。
 
+### GraphQL が使えない環境
+
+クラウド版 Claude Code などでは、GitHub の GraphQL API が `HTTP 403: GitHub GraphQL is not available ...` で拒否され、`gh api graphql` と、内部で GraphQL を使う `gh pr view`・`gh pr checks`・`gh pr list`・`gh pr review`・`gh pr comment`・`gh pr merge`・`gh issue view` が失敗する。その場合は REST の `gh api repos/...` で代替する（`gh pr diff` は使える）。主な代替は次のとおりで、詳しい手順は `references/github-commands.md` の各章の「GraphQL が使えない環境では」にある。
+
+| 用途 | 通常 | GraphQL が使えない環境 |
+|---|---|---|
+| PRの情報 | `gh pr view` | `gh api repos/OWNER/REPO/pulls/NUMBER` |
+| CIの状態 | `gh pr checks` | `gh api repos/OWNER/REPO/commits/HEAD_SHA/check-runs` と `.../commits/HEAD_SHA/status` |
+| 最近のPR | `gh pr list` | `gh api "repos/OWNER/REPO/pulls?state=all&per_page=5"` |
+| スレッドの一覧 | GraphQL の `reviewThreads` | `gh api repos/OWNER/REPO/pulls/NUMBER/ccr/review_threads`（CCR ルート） |
+| スレッドへの返信 | GraphQL の `addPullRequestReviewThreadReply` | `gh api repos/OWNER/REPO/pulls/NUMBER/comments/ROOT_COMMENT_ID/replies -X POST -f body=...` |
+| resolve | GraphQL の `resolveReviewThread` | `gh api repos/OWNER/REPO/pulls/NUMBER/ccr/comments/ROOT_COMMENT_ID/resolve -X POST`（CCR ルート） |
+| PRへのコメント | `gh pr comment` | `gh api repos/OWNER/REPO/issues/NUMBER/comments -X POST -f body=...` |
+| Approve | `gh pr review --approve` | `gh api repos/OWNER/REPO/pulls/NUMBER/reviews -X POST -f event=APPROVE -f body=...` |
+| issueの確認 | `gh issue view` | `gh api repos/OWNER/REPO/issues/ISSUE_NUMBER` |
+| issueに対応するPR | GraphQL の `closedByPullRequestsReferences` | `gh api repos/OWNER/REPO/issues/ISSUE_NUMBER/timeline` の `cross-referenced` イベント |
+| マージ | `gh pr merge` | `gh api repos/OWNER/REPO/pulls/NUMBER/merge -X PUT -f merge_method=... -f sha=HEAD_SHA` |
+
+CCR ルートはクラウドのプロキシ経由でしか使えない。GraphQL が使える環境では、従来どおりの手順を使う。
+
 ## 0. issueを渡された場合: PRができるまで待つ
 
 PRではなくissueの番号やURLを渡された場合は、そのissueに対応するPRが作られるまで監視し、PRが見つかったら1章から進める。
