@@ -541,6 +541,24 @@ run_rest
 assert_verdict ci_failing false "push の失敗"
 assert_eq "lint l1 Lint" "$(field '.ci.failing | map("\(.name) \(.link) \(.workflow)") | join(",")')" "ci.failing"
 
+t "REST: ワークフローの実行が分からない check suite の同名チェックは、別のチェックとして残す"
+# CI の test はキャンセル、別ワークフロー Lint の test はより新しい成功
+jq -n '{ check_runs: [
+  { name: "test", status: "completed", conclusion: "cancelled", started_at: "2026-01-01T01:00:00Z", details_url: "ci",   check_suite: { id: 1 } },
+  { name: "test", status: "completed", conclusion: "success",   started_at: "2026-01-01T02:00:00Z", details_url: "lint", check_suite: { id: 3 } }
+] }' >"$(rest_file "repos/o/r/commits/$SHA/check-runs")"
+# ワークフローの実行を取得できない場合
+rm "$(rest_file repos/o/r/actions/runs)"
+run_rest
+assert_verdict ci_failing false "ワークフローの実行を取得できない"
+assert_eq "test ci" "$(field '.ci.failing | map("\(.name) \(.link)") | join(",")')" "ci.failing"
+# 一覧に該当する check suite がない場合
+echo '{ "workflow_runs": [{ "check_suite_id": 3, "name": "Lint", "event": "pull_request" }] }' \
+  >"$(rest_file repos/o/r/actions/runs)"
+run_rest
+assert_verdict ci_failing false "一覧に check suite がない"
+assert_eq "test ci" "$(field '.ci.failing | map("\(.name) \(.link)") | join(",")')" "ci.failing"
+
 t "gh pr checks に --json がない古い gh では、CI を REST で取得する"
 checks "[$PASS_CHECK]" "" 0
 export FAKE_CHECKS_OUT="" FAKE_CHECKS_ERR="unknown flag: --json

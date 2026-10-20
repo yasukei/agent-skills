@@ -119,12 +119,17 @@ rest_checks_json() {
       else "pending" end;
     ($workflowRuns[0] | map({ key: (.check_suite_id | tostring), value: { name, event } }) | from_entries) as $workflow
     # 同じコミットでワークフローが再実行されると、check-runs は古い check suite の同名のチェックも返す。
-    # gh pr checks と同じく、チェック名・ワークフロー名・イベントごとに開始が最も新しいものだけを残す
+    # gh pr checks と同じく、チェック名・ワークフロー名・イベントごとに開始が最も新しいものだけを残す。
+    # ワークフローの実行が分からない check suite（取得の失敗、Actions 以外のアプリなど）は、別のワークフローの
+    # 失敗を消さないよう、check suite ごとに別のチェックとして扱う
     | [ $runs[0] | to_entries[]
         | .key as $i | .value
-        | ($workflow[.check_suite.id | tostring] // { name: "", event: "" }) as $wf
+        | (.check_suite.id | tostring) as $suite
+        | ($workflow[$suite] // { name: "", event: "" }) as $wf
         | ((if .status == "completed" then .conclusion else .status end) // "" | ascii_upcase) as $state
-        | { i: $i, key: [.name, $wf.name, $wf.event], startedAt: (.started_at // ""),
+        | { i: $i,
+            key: (if $workflow[$suite] then [.name, $wf.name, $wf.event] else [.name, "", "", $suite] end),
+            startedAt: (.started_at // ""),
             check: { name, state: $state, bucket: ($state | bucket), link: (.details_url // .html_url // ""),
                      workflow: $wf.name } } ]
     | group_by(.key) | map(max_by([.startedAt, -.i])) | sort_by(.i) | map(.check)
