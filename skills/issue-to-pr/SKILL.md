@@ -52,6 +52,7 @@ issueを実装し、PRを出し、CIとレビューに対応して「マージ�
 | デフォルトブランチ | `gh repo view --json defaultBranchRef` | `gh api repos/{owner}/{repo} --jq .default_branch` |
 | PRの作成 | `gh pr create ...` | `gh api repos/{owner}/{repo}/pulls -X POST -f title="<タイトル>" -f head=<ブランチ名> -f base=<ベースブランチ> -F body=@<本文ファイル> --jq .html_url` |
 | PRへのコメント | `gh pr comment <PR番号> --body "..."` | `gh api repos/{owner}/{repo}/issues/<PR番号>/comments -X POST -f body="..."` |
+| PRのタイトル・本文の取得 | `gh pr view <PR番号> --json title,body` | `gh api repos/{owner}/{repo}/pulls/<PR番号> --jq '{title, body}'` |
 | PRのタイトル・本文の更新 | `gh pr edit <PR番号> --title "<タイトル>" --body-file <本文ファイル>` | `gh api repos/{owner}/{repo}/pulls/<PR番号> -X PATCH -f title="<タイトル>" -F body=@<本文ファイル>` |
 | PRの状態の監視 | `scripts/pr_status.sh` | そのまま使える（GraphQL が 403 なら、自動で REST とレビュースレッド用の CCR ルートに切り替える） |
 
@@ -179,15 +180,17 @@ gh pr comment <PR番号> --body "...
 
 修正をpushしたら、**PRのタイトルと本文が実装と食い違っていないか見直し、食い違っていれば更新する。** squashマージではPRの本文がコミットメッセージになるため、古いままだと誤った記録が残る。また、本文と実装の食い違いはそれ自体がレビュー指摘になり、やり取りが1往復増える。
 
-- 見直す対象は、タイトルと本文のすべてのセクション（変更内容、テスト、レビューで特に見てほしい点、補足など）
+- 見直す対象は、タイトルと本文のすべてのセクション（概要、変更内容、テスト、レビューで特に見てほしい点、補足など）
+- PR上の現在のタイトルと本文を取得し、それを書き直す。作成時のローカルの本文ファイルは古かったり、PR作成後に人がGitHub上で本文を編集していたりするため
 - 本文は、最終的な実装の説明として書き直す。どのコミットで何を直したかという変更履歴は追記しない（それはスレッドへの返信とコミットで追える）
 - スレッドへの返信と同じく、pushと同じタイミングで更新する。レビュアーが次に確認するときに、本文が実装と一致しているようにするため
 
 ```bash
+gh pr view <PR番号> --json title,body
 gh pr edit <PR番号> --title "<タイトル>" --body-file <本文ファイル>
 ```
 
-GraphQL が使えない環境では REST で更新する（「GraphQL が使えない環境」を参照）。
+GraphQL が使えない環境では REST で取得・更新する（「GraphQL が使えない環境」を参照）。
 
 修正をpushしたら、**レビューの再依頼はしない**。代わりに、対応内容のサマリをチャットで伝える（どの指摘を直したか、どれを理由付きで見送ったか、何に回答したか）。
 
