@@ -56,6 +56,14 @@ codex plugin marketplace add yasukei/agent-skills
 登録後、ChatGPT デスクトップアプリのプラグイン一覧で `Yasukei Agent Skills` をソースとして選び、`agent-skills` をインストールする。
 詳しくは[公式のパッケージ化・ローカル導入手順](https://developers.openai.com/plugins/build/plugins)を参照。
 
+#### Codex のプラグインを更新する
+
+導入済みのプラグインを最新に更新するには、次を実行する。
+
+```bash
+codex plugin marketplace upgrade yasukei-agent-skills
+```
+
 #### ChatGPT のワークスペースに取り込む
 
 ワークスペース管理者が Admin → Plugins → Add → Import marketplace を開き、次を指定する。
