@@ -3,7 +3,7 @@
 CI ([.github/workflows/ci.yml](../.github/workflows/ci.yml)) runs these on every PR and on pushes to `main`. Run the same commands locally from the repository root:
 
 ```bash
-scripts/validate-skills.py      # validate SKILL.md
+scripts/validate-skills.py      # validate SKILL.md and the files shared between skills
 scripts/check-plugin-policy.py  # policy check of the four Claude / ChatGPT / Codex manifests
 tests/run.sh                    # lint and all tests
 tests/run.sh lint               # bash -n and shellcheck only
@@ -17,12 +17,14 @@ claude plugin validate .        # schema validation of the manifests in .claude-
 
 ## `scripts/validate-skills.py`
 
-Checks each skill directly under `skills/`. On problems, prints the file and field and exits with status 1.
+Checks each skill directly under `skills/`. On problems, prints the file and field (with the measured value and the limit, for limits) and exits with status 1.
 
 - `SKILL.md` exists and starts with a YAML frontmatter.
 - `name` matches the directory name and uses only lowercase letters, digits and hyphens, at most 64 characters (no leading, trailing or consecutive hyphens). `description` is non-empty and at most 1024 characters. These follow the [Agent Skills spec](https://agentskills.io/specification).
 - The `references/`, `scripts/` and `assets/` paths and the relative Markdown link targets in the body exist in that skill's directory; a link pointing outside it is an error, because skills are installed one directory at a time.
 - Files under `scripts/` are executable.
+- `SKILL.md` is at most 200 lines and 10,000 bytes (`SKILL_MAX_LINES` and `SKILL_MAX_BYTES`), the budget in [AGENTS.md](../AGENTS.md). Bytes and lines stand in for tokens.
+- Files shared between skills are byte-identical. Each skill is installed on its own, so a shared file is copied into each skill that uses it; `SHARED_FILES` lists the groups (currently `references/review-protocol.md` of `issue-to-pr` and `pr-review`). A missing copy is an error; a group is skipped only when none of its skills exists.
 
 ## `scripts/check-plugin-policy.py`
 
