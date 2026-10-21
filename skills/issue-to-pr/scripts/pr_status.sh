@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# PRの状態（CI・レビュー・レビュースレッド・PRコメント）をまとめてJSONで出力する。
-# 使い方: pr_status.sh <PR番号> [owner/repo]
-#   owner/repo を省略するとカレントディレクトリのリポジトリを使う。
-# 必要: gh（認証済み）, jq
+# Print the state of a PR (CI, reviews, review threads, PR comments) as one JSON object.
+# Usage: pr_status.sh <PR number> [owner/repo]
+#   Without owner/repo, the repository of the current directory is used.
+# Requires: gh (authenticated), jq
 #
-# 通常は GraphQL と gh pr checks で取得する。GraphQL が 403 で拒否される環境
-# （クラウド版 Claude Code など）では、REST API とレビュースレッド用の CCR ルート
-# （GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads）に切り替える。
-# gh pr checks に --json がない古い gh（2.46 など）では、CI だけ REST で取得する。
-# どちらの経路でも出力の JSON の形は同じ。ただし REST の経路では、
-# reviewDecision は常に null、threads[].id（GraphQL のスレッド ID）は null になる。
+# Normally uses GraphQL and gh pr checks. Where GraphQL is rejected with 403
+# (Claude Code on the web, etc.), it switches to the REST API and the CCR route for review threads
+# (GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads).
+# With an old gh whose gh pr checks has no --json (such as 2.46), only CI is fetched through REST.
+# The JSON has the same shape on both paths, except that on the REST path
+# reviewDecision is always null and threads[].id (the GraphQL thread ID) is null.
 set -euo pipefail
 
 if [ $# -lt 1 ]; then
-  echo "usage: $0 <PR番号> [owner/repo]" >&2
+  echo "usage: $0 <PR number> [owner/repo]" >&2
   exit 1
 fi
 

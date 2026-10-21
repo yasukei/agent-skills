@@ -1,28 +1,28 @@
-## 概要
-<!-- このPRで何をするか、1〜3行で -->
+## Summary
+<!-- What this PR does, in 1–3 lines -->
 
-## 関連Issue
+## Related issue
 Closes #
 
-## 変更内容
+## Changes
 -
 -
 
-## 変更の理由・背景
-<!-- なぜこの変更が必要か -->
+## Why
+<!-- Why this change is needed -->
 
-## テスト
-- [ ] ローカルで動作確認した
-- [ ] テストを追加・更新した
-- [ ] 既存のテストが通る
+## Testing
+- [ ] Checked the behavior locally
+- [ ] Added or updated tests
+- [ ] Existing tests pass
 
-## スクリーンショット（UI変更がある場合）
+## Screenshots (if the UI changes)
 | Before | After |
 |---|---|
 |  |  |
 
-## レビューで特に見てほしい点
-<!-- 不安な箇所や設計判断など -->
+## Review focus
+<!-- Parts you are unsure about, design decisions, etc. -->
 
-## 補足
-<!-- 破壊的変更、マイグレーション、リリース時の注意など -->
+## Notes
+<!-- Breaking changes, migrations, release notes, etc. -->
