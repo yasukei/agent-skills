@@ -2,6 +2,8 @@
 
 Use the `gh` CLI. Replace `OWNER`, `REPO`, `NUMBER` and `PR_URL` with the target PR's values.
 
+The comment bodies below are English examples; write the real ones in the comment language (see "Language" in SKILL.md), keeping the labels and markers as they are.
+
 ## When GraphQL is not available (Claude Code on the web, etc.)
 
 In some environments `gh api graphql` and every `gh` command that uses GraphQL internally fail with `HTTP 403: GitHub GraphQL is not available ...`: `gh pr view`, `gh pr checks`, `gh pr list`, `gh pr review`, `gh pr comment`, `gh pr merge`, `gh issue view` and `gh repo view`. Then use the REST (`gh api repos/...`) commands under "Without GraphQL" in each section. `gh pr diff` and `gh api repos/...` still work.

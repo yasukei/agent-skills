@@ -22,7 +22,7 @@ When unsure, ask the user in chat, not on the PR. Stopping to ask beats going on
 
 Read these when the step needs them:
 
-- `references/review-protocol.md`: the contract with `issue-to-pr` (markers, priority labels and what the reviewer accepts for each, replies, completion signals, the rules that keep the signals reliable). Read it before posting.
+- `references/review-protocol.md`: the contract with `issue-to-pr` (markers, priority labels and what the reviewer accepts for each, replies, completion signals, the rules that keep the signals reliable). Read it before reviewing.
 - `references/review-guidelines.md`: what to look at and how to set priorities. Read it before reviewing.
 - `references/comment-format.md`: formats of inline comments, the summary, the no-findings review and replies.
 - `references/monitoring.md`: how to receive updates (event subscription or polling) and when to stop.
@@ -86,7 +86,7 @@ After posting, wait for updates as described in `references/monitoring.md` (even
 
 ### On replies in threads
 
-Handle each reply as in "Replies" in `references/review-protocol.md`: check a fix in the code; for a deferral, check that the issue exists and covers the finding (a `P0` cannot be deferred; for a `P1`, check the reason), and never create the issue yourself; resolve a decline if convinced, otherwise reply with the reason, and ask the user if you cannot judge; resolve a `Question` when the answer settles it, posting any problem it reveals as a new finding first.
+Handle each reply as in "Replies" in `references/review-protocol.md`. Also: a `P0` cannot be deferred, so reply saying so and leave the thread open; never create the deferral issue yourself; ask the user when you cannot judge a decline.
 
 Resolve only threads this skill opened (with the marker). Do not touch other reviewers' threads.
 
