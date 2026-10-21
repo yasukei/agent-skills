@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# pr_status.sh のテスト用の偽 gh。出力と終了コードを環境変数で差し替える。
-#   FAKE_GRAPHQL       gh api graphql の標準出力にするファイル
-#   FAKE_GRAPHQL_ERR   gh api graphql の標準エラー（FAKE_GRAPHQL_RC が 0 以外のとき）
-#   FAKE_GRAPHQL_RC    gh api graphql の終了コード（0 以外なら FAKE_GRAPHQL は出力しない）
-#   FAKE_CHECKS_OUT    gh pr checks の標準出力
-#   FAKE_CHECKS_ERR    gh pr checks の標準エラー
-#   FAKE_CHECKS_RC     gh pr checks の終了コード
-#   FAKE_REST_DIR      gh api <パス>（REST）の応答を置くディレクトリ。パスからクエリ文字列を除き、
-#                      / を _ に置き換えた名前に .json を付けたファイルを出力する
-#                      （例: repos/o/r/pulls/1/reviews?per_page=100 → repos_o_r_pulls_1_reviews.json）。
-#                      ファイルがなければ HTTP 404 として終了コード 1 で終わる
-#   FAKE_GH_LOG        指定されていれば、呼び出されたときの引数を1行ずつ追記する
+# Fake gh for the pr_status.sh tests. Output and exit status are set through environment variables.
+#   FAKE_GRAPHQL       file printed to stdout by gh api graphql
+#   FAKE_GRAPHQL_ERR   stderr of gh api graphql (when FAKE_GRAPHQL_RC is non-zero)
+#   FAKE_GRAPHQL_RC    exit status of gh api graphql (when non-zero, FAKE_GRAPHQL is not printed)
+#   FAKE_CHECKS_OUT    stdout of gh pr checks
+#   FAKE_CHECKS_ERR    stderr of gh pr checks
+#   FAKE_CHECKS_RC     exit status of gh pr checks
+#   FAKE_REST_DIR      directory holding the responses for gh api <path> (REST). Prints the file named
+#                      after the path without its query string, with / replaced by _ and .json appended
+#                      (e.g. repos/o/r/pulls/1/reviews?per_page=100 → repos_o_r_pulls_1_reviews.json).
+#                      If the file does not exist, exits with status 1 as HTTP 404
+#   FAKE_GH_LOG        if set, append the arguments of each call as one line
 if [ -n "${FAKE_GH_LOG:-}" ]; then
   echo "$*" >>"$FAKE_GH_LOG"
 fi
@@ -28,7 +28,7 @@ case "$1 ${2:-}" in
     exit "${FAKE_CHECKS_RC:-0}"
     ;;
   api\ *)
-    # --paginate などのオプションを飛ばし、最初の引数をパスとして扱う
+    # Skip options such as --paginate and treat the first argument as the path
     shift
     path=""
     for arg in "$@"; do
@@ -45,7 +45,7 @@ case "$1 ${2:-}" in
     cat "$file"
     ;;
   *)
-    echo "fake gh: 想定外の呼び出し: $*" >&2
+    echo "fake gh: unexpected call: $*" >&2
     exit 99
     ;;
 esac

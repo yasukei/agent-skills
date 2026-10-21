@@ -18,7 +18,7 @@ if [ $# -lt 1 ]; then
 fi
 
 PR="$1"
-# gh repo view は GraphQL を使うので、REST で現在のリポジトリを解決する
+# gh repo view uses GraphQL, so resolve the current repository through REST
 # shellcheck disable=SC2016
 REPO="${2:-$(gh api 'repos/{owner}/{repo}' --jq .full_name)}"
 OWNER="${REPO%%/*}"
@@ -26,19 +26,19 @@ NAME="${REPO##*/}"
 
 TMP="$(mktemp -d)"
 API=graphql
-# REST の経路で失敗したときは、切り替えのきっかけになった GraphQL のエラーも出す。
-# 403 の原因が GraphQL の拒否ではなかった場合（SAML SSO など）に、原因を追えるようにするため
+# When the REST path fails, also print the GraphQL error that triggered the switch,
+# so the cause can be traced when the 403 was not a GraphQL rejection (SAML SSO, etc.)
 on_exit() {
   local rc=$?
   if [ "$rc" -ne 0 ] && [ "$API" = rest ]; then
-    echo "REST での取得に失敗しました。REST に切り替える前の GraphQL のエラー:" >&2
+    echo "Failed to fetch through REST. The GraphQL error before switching to REST:" >&2
     cat "$TMP/graphql.err" >&2
   fi
   rm -rf "$TMP"
 }
 trap on_exit EXIT
 
-# $owner などは GraphQL の変数で、シェルで展開するものではない
+# $owner etc. are GraphQL variables, not shell expansions
 # shellcheck disable=SC2016
 QUERY='
 query($owner: String!, $name: String!, $pr: Int!) {
@@ -75,8 +75,8 @@ query($owner: String!, $name: String!, $pr: Int!) {
   }
 }'
 
-# REST の応答を GraphQL の pullRequest と同じ形に変換して出力する。
-# 引数: PR・レビュー・レビューコメント・PRコメント・CCR ルートのスレッドの JSON が入ったファイル
+# Convert the REST responses into the same shape as GraphQL's pullRequest and print it.
+# Arguments: files with the JSON of the PR, reviews, review comments, PR comments and the CCR route's threads
 rest_pr_json() {
   jq -n --slurpfile pr "$1" --slurpfile reviews "$2" --slurpfile comments "$3" \
     --slurpfile issueComments "$4" --slurpfile threads "$5" '
@@ -96,8 +96,8 @@ rest_pr_json() {
         headRefName: $pr.head.ref,
         baseRefName: $pr.base.ref,
         reviews: { nodes: [ $reviews[0][] | { author: author, state, submittedAt: .submitted_at, body: (.body // "") } ] },
-        # CCR ルートはスレッドごとにコメントの ID だけを返すので、レビューコメントの一覧から本文などを引く。
-        # 一覧にないコメント（未送信のレビューのものなど）は除き、コメントが残らないスレッドも除く
+        # The CCR route returns only comment IDs per thread, so look up bodies etc. in the review comment list.
+        # Drop comments missing from the list (e.g. from a pending review), and threads left with no comments
         reviewThreads: { nodes: [ $threads[0][] | {
           id: null, isResolved: .resolved, isOutdated: .outdated, path, line,
           comments: { nodes: [ .comment_ids[] | tostring | $byId[.] | select(. != null) ] }
@@ -106,9 +106,9 @@ rest_pr_json() {
       }'
 }
 
-# REST のチェック（check runs とコミットステータス）を gh pr checks --json name,state,bucket,link,workflow と
-# 同じ形に変換して出力する。bucket の分け方と重複の除き方は gh pr checks に合わせる。
-# 引数: check runs・コミットステータス・ワークフローの実行の JSON が入ったファイル
+# Convert the REST checks (check runs and commit statuses) into the same shape as
+# gh pr checks --json name,state,bucket,link,workflow and print them. Bucketing and deduplication follow gh pr checks.
+# Arguments: files with the JSON of the check runs, commit statuses and workflow runs
 rest_checks_json() {
   jq -n --slurpfile runs "$1" --slurpfile statuses "$2" --slurpfile workflowRuns "$3" '
     def bucket:
@@ -118,10 +118,10 @@ rest_checks_json() {
       elif . == "CANCELLED" then "cancel"
       else "pending" end;
     ($workflowRuns[0] | map({ key: (.check_suite_id | tostring), value: { name, event } }) | from_entries) as $workflow
-    # 同じコミットでワークフローが再実行されると、check-runs は古い check suite の同名のチェックも返す。
-    # gh pr checks と同じく、チェック名・ワークフロー名・イベントごとに開始が最も新しいものだけを残す。
-    # ワークフローの実行が分からない check suite（取得の失敗、Actions 以外のアプリなど）は、別のワークフローの
-    # 失敗を消さないよう、check suite ごとに別のチェックとして扱う
+    # When a workflow is re-run on the same commit, check-runs also returns same-named checks from the old check suite.
+    # Like gh pr checks, keep only the most recently started one per check name, workflow name and event.
+    # A check suite whose workflow run is unknown (fetch failure, an app other than Actions, etc.) is treated as
+    # separate checks per check suite, so it does not hide failures in another workflow
     | [ $runs[0] | to_entries[]
         | .key as $i | .value
         | (.check_suite.id | tostring) as $suite
@@ -133,40 +133,40 @@ rest_checks_json() {
             check: { name, state: $state, bucket: ($state | bucket), link: (.details_url // .html_url // ""),
                      workflow: $wf.name } } ]
     | group_by(.key) | map(max_by([.startedAt, -.i])) | sort_by(.i) | map(.check)
-    # コミットステータスは、コンテキストごとの最新だけが返る
+    # Commit statuses come back with only the latest per context
     + [ $statuses[0][]
         | (.state | ascii_upcase) as $state
         | { name: .context, state: $state, bucket: ($state | bucket), link: (.target_url // ""), workflow: "" } ]'
 }
 
-# gh api --paginate は、ページごとの JSON を連結して出力する。各ページの <フィールド>（省略時はページ全体）の
-# 配列をつなげて、1つの配列にする
+# gh api --paginate prints the JSON of each page concatenated. Join the arrays at <field> (the whole page if omitted)
+# of each page into one array
 paginate() {
   local field="$1"
   shift
   gh api --paginate "$@" | jq -s --arg f "$field" 'map(if $f == "" then . else .[$f] end) | add // []'
 }
 
-# REST でコミットのチェックを取得し、gh pr checks --json と同じ形で $TMP/checks.json に書く。
-# 取得の失敗で止まるよう、コマンド置換の中ではなく、そのまま呼び出す
-# 引数: repos/<owner>/<repo>、コミットの SHA
+# Fetch the commit's checks through REST and write them to $TMP/checks.json in the same shape as gh pr checks --json.
+# Call it directly, not inside a command substitution, so a fetch failure stops the script
+# Arguments: repos/<owner>/<repo>, the commit SHA
 rest_checks() {
   local base="$1" sha="$2"
   paginate check_runs "$base/commits/$sha/check-runs?per_page=100" >"$TMP/check-runs.json"
   paginate statuses "$base/commits/$sha/status?per_page=100" >"$TMP/statuses.json"
-  # ワークフロー名とイベントは check run に含まれないので、ワークフローの実行から引く。取れなければ空文字にする
+  # Workflow name and event are not in check runs, so look them up in the workflow runs. Use an empty string if unavailable
   paginate workflow_runs "$base/actions/runs?head_sha=$sha&per_page=100" >"$TMP/workflow-runs.json" 2>/dev/null \
     || echo '[]' >"$TMP/workflow-runs.json"
   rest_checks_json "$TMP/check-runs.json" "$TMP/statuses.json" "$TMP/workflow-runs.json" >"$TMP/checks.json"
 }
 
-# まず GraphQL で取得し、403 で拒否されたら REST に切り替える
+# Try GraphQL first, and switch to REST when it is rejected with 403
 if gh api graphql -f query="$QUERY" -F owner="$OWNER" -F name="$NAME" -F pr="$PR" \
   >"$TMP/graphql.json" 2>"$TMP/graphql.err"; then
   PR_JSON="$(jq '.data.repository.pullRequest' "$TMP/graphql.json")"
 
-  # CI。gh pr checks は失敗時に1、pending時に8で終わるが、どちらもJSONは出力するので
-  # 終了コードではなく出力で判断する。チェックがひとつもない場合だけ空配列として扱う
+  # CI. gh pr checks exits with 1 on failure and 8 on pending, but prints JSON in both cases, so
+  # decide by the output, not the exit status. Treat only "no checks at all" as an empty array
   CHECKS_RC=0
   CHECKS_JSON="$(gh pr checks "$PR" --repo "$REPO" --json name,state,bucket,link,workflow 2>"$TMP/checks.err")" || CHECKS_RC=$?
   if [ -n "$CHECKS_JSON" ] && jq -e 'type == "array"' >/dev/null 2>&1 <<<"$CHECKS_JSON"; then
@@ -174,11 +174,11 @@ if gh api graphql -f query="$QUERY" -F owner="$OWNER" -F name="$NAME" -F pr="$PR
   elif grep -q "no checks reported" "$TMP/checks.err"; then
     CHECKS_JSON='[]'
   elif grep -q "unknown flag: --json" "$TMP/checks.err"; then
-    # gh pr checks に --json がない古い gh では、REST で取得する
+    # With an old gh whose gh pr checks has no --json, fetch through REST
     rest_checks "repos/$OWNER/$NAME" "$(jq -r '.headRefOid' <<<"$PR_JSON")"
     CHECKS_JSON="$(cat "$TMP/checks.json")"
   else
-    echo "gh pr checks に失敗しました（終了コード $CHECKS_RC）:" >&2
+    echo "gh pr checks failed (exit status $CHECKS_RC):" >&2
     cat "$TMP/checks.err" >&2
     exit 1
   fi
@@ -196,14 +196,14 @@ elif grep -Eq 'HTTP 403|GraphQL is not available' "$TMP/graphql.err"; then
   rest_checks "$BASE" "$(jq -r '.head.sha' "$TMP/pr.json")"
   CHECKS_JSON="$(cat "$TMP/checks.json")"
 else
-  echo "GraphQL での PR の取得に失敗しました:" >&2
+  echo "Failed to fetch the PR through GraphQL:" >&2
   cat "$TMP/graphql.err" >&2
   exit 1
 fi
 
-# このスキルが投稿したコメントに付けるマーカー。作者とレビュアーが同じアカウントでも区別できる
+# Marker on comments this skill posts, so the author and reviewer can be told apart even on the same account
 MARKER='<!-- issue-to-pr -->'
-# レビュアーが「指摘なしでレビューを完了した」ことを明示するマーカー（同一アカウントでの完了の合図）
+# Marker by which the reviewer states "review finished with no findings" (the completion signal on the same account)
 COMPLETE_MARKER='<!-- review-complete -->'
 
 jq -n --argjson pr "$PR_JSON" --argjson checks "$CHECKS_JSON" \
@@ -213,9 +213,9 @@ jq -n --argjson pr "$PR_JSON" --argjson checks "$CHECKS_JSON" \
      elif any($checks[]; .bucket == "fail" or .bucket == "cancel") then "failing"
      elif any($checks[]; .bucket == "pending") then "pending"
      else "passing" end) as $ci
-  # レビュー側の活動（マーカーのないもの）。このスキル自身の返信やPR本文は含めない。
-  # スレッドへの返信をすると、本文が空の COMMENTED レビューが作者名義で作られるため、それも除く。
-  # bot（Copilot、カバレッジの報告など）はApproveも完了の合図もしないので、レビュアーとして数えない
+  # Reviewer activity (items without the marker). Excludes the replies of this skill itself and the PR body.
+  # Replying to a thread creates a COMMENTED review with an empty body in the name of the author, so exclude those too.
+  # Bots (Copilot, coverage reports, etc.) never Approve or signal completion, so they do not count as reviewers
   | def human: (.author.__typename // "User") != "Bot" and (.author.login // "" | endswith("[bot]") | not);
     def notMine: .body // "" | contains($marker) | not;
   [ $pr.reviews.nodes[]
@@ -230,24 +230,24 @@ jq -n --argjson pr "$PR_JSON" --argjson checks "$CHECKS_JSON" \
   | ([ $pr.reviews.nodes[] | select(human and .author.login != $author and .state != "COMMENTED") ]
      | group_by(.author.login) | map(max_by(.submittedAt))) as $latestOthers
   | ([ $reviewerThreads[] | select(.isResolved | not) ] | length) as $unresolvedReviewer
-  # 完了マーカーは、それより後にレビュー側の活動（質問など）がない場合だけ有効にする
+  # The completion marker counts only when there is no reviewer activity (a question, etc.) after it
   | ([ ($reviewerReviews + $reviewerIssueComments)[] | select(.body // "" | contains($complete)) | .at ] | max) as $completedAt
   | ($completedAt != null and all($reviewerActivity[]; .at <= $completedAt)) as $explicit
-  | (if $pr.state == "MERGED" then ["merged", "PRがマージされた"]
-     elif $pr.state == "CLOSED" then ["closed", "PRがクローズされた"]
-     elif $ci == "failing" then ["ci_failing", "CIが失敗している"]
-     elif $ci == "pending" then ["ci_pending", "CIが実行中"]
-     elif $pr.mergeable == "CONFLICTING" then ["conflicting", "ベースブランチとコンフリクトしている"]
-     elif $pr.mergeable != "MERGEABLE" then ["mergeable_unknown", "マージできるかをGitHubが計算中"]
-     elif ($activity | not) then ["waiting_for_review", "レビュー側の活動がまだない"]
+  | (if $pr.state == "MERGED" then ["merged", "The PR was merged"]
+     elif $pr.state == "CLOSED" then ["closed", "The PR was closed"]
+     elif $ci == "failing" then ["ci_failing", "CI is failing"]
+     elif $ci == "pending" then ["ci_pending", "CI is running"]
+     elif $pr.mergeable == "CONFLICTING" then ["conflicting", "The PR conflicts with the base branch"]
+     elif $pr.mergeable != "MERGEABLE" then ["mergeable_unknown", "GitHub is still computing whether the PR can be merged"]
+     elif ($activity | not) then ["waiting_for_review", "No reviewer activity yet"]
      elif $hasOther then
        (if ($latestOthers | length) > 0 and all($latestOthers[]; .state == "APPROVED")
-        then ["ready", "作成者以外の最新レビューがApprove"]
-        else ["review_in_progress", "作成者以外のアカウントのApprove待ち"] end)
-     elif $unresolvedReviewer > 0 then ["review_in_progress", "未解決のレビュースレッドがある"]
-     elif ($reviewerThreads | length) > 0 then ["ready", "レビュースレッドがすべてresolve済み"]
-     elif $explicit then ["ready", "レビュー完了・指摘なしの合図がある"]
-     else ["review_in_progress", "レビュー完了の合図（スレッドのresolveまたは完了マーカー）がまだない"] end
+        then ["ready", "The latest review from a non-author account is Approve"]
+        else ["review_in_progress", "Waiting for Approve from a non-author account"] end)
+     elif $unresolvedReviewer > 0 then ["review_in_progress", "There are unresolved review threads"]
+     elif ($reviewerThreads | length) > 0 then ["ready", "All review threads are resolved"]
+     elif $explicit then ["ready", "The reviewer signaled review complete with no findings"]
+     else ["review_in_progress", "No review completion signal yet (all threads resolved or the completion marker)"] end
     ) as $v
   | {
       url: $pr.url,
@@ -257,7 +257,7 @@ jq -n --argjson pr "$PR_JSON" --argjson checks "$CHECKS_JSON" \
       author: $author,
       head: $pr.headRefName,
       base: $pr.baseRefName,
-      # 終了条件の判定。done が true になるまで監視を続ける（SKILL.md の「終了条件」）
+      # Exit decision. Keep monitoring until done is true (see references/exit-conditions.md)
       verdict: { status: $v[0], done: ($v[0] | IN("ready", "merged", "closed")), reason: $v[1] },
       ci: {
         summary: $ci,
@@ -265,9 +265,9 @@ jq -n --argjson pr "$PR_JSON" --argjson checks "$CHECKS_JSON" \
         pending: [ $checks[] | select(.bucket == "pending") | .name ]
       },
       review: {
-        # マーカーのないレビュー・スレッドのコメント・PRコメントがあるか。false なら「レビュー待ち」
+        # Whether there is a review, thread comment or PR comment without the marker. false means "waiting for review"
         activity: $activity,
-        # 作成者以外のアカウントがレビューしているか（終了条件の判定に使う）
+        # Whether a non-author account is reviewing (used by the exit decision)
         mode: (if $hasOther then "other_account" elif $activity then "same_account" else "none" end),
         explicitCompletion: $explicit,
         reviewerThreadCount: ($reviewerThreads | length),
@@ -282,7 +282,7 @@ jq -n --argjson pr "$PR_JSON" --argjson checks "$CHECKS_JSON" \
           id, isResolved, isOutdated, path, line,
           rootCommentId: .comments.nodes[0].databaseId,
           comments: .comments.nodes,
-          # 最後のコメントにマーカーがなければ、レビュアーのコメントに未返信の可能性がある
+          # If the last comment has no marker, a reviewer comment may still be unanswered
           lastCommentByMe: (.comments.nodes[-1].body | contains($marker))
         }
       ],

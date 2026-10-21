@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-# agent-skills を submodule として導入し、.claude/skills と .agents/skills に
-# スキル単位のシンボリックリンクを張る。何度実行してもよい。
-# 使い方（導入先リポジトリの中で実行する）:
-#   初回:   curl -fsSL https://raw.githubusercontent.com/yasukei/agent-skills/main/scripts/setup.sh | bash
-#   2回目以降: .agent-skills/scripts/setup.sh [--update] [--codex-only | --claude-only]
-#     --update      submodule を main の最新に更新してからリンクを張り直す
-#     --codex-only  .agents/skills にだけリンクを張る（Claude 側はプラグインで導入する場合）。
-#                   以前このスクリプトが .claude/skills に張ったリンクは削除する
-#     --claude-only .claude/skills にだけリンクを張る（Codex 側はプラグインで導入する場合）。
-#                   以前このスクリプトが .agents/skills に張ったリンクは削除する
-#     --codex-only と --claude-only は同時に指定できない。
-# 変更はステージするだけで、コミットはしない。
+# Add agent-skills as a submodule and create per-skill symbolic links in
+# .claude/skills and .agents/skills. Safe to run any number of times.
+# Usage (run inside the target repository):
+#   First time:  curl -fsSL https://raw.githubusercontent.com/yasukei/agent-skills/main/scripts/setup.sh | bash
+#   After that:  .agent-skills/scripts/setup.sh [--update] [--codex-only | --claude-only]
+#     --update      update the submodule to the latest main, then recreate the links
+#     --codex-only  link only into .agents/skills (when Claude gets the skills from the plugin).
+#                   Removes links this script created earlier in .claude/skills
+#     --claude-only link only into .claude/skills (when Codex gets the skills from the plugin).
+#                   Removes links this script created earlier in .agents/skills
+#     --codex-only and --claude-only cannot be used together.
+# Changes are only staged, never committed.
 set -euo pipefail
 
 URL="${AGENT_SKILLS_URL:-https://github.com/yasukei/agent-skills.git}"
 SUBMODULE="${AGENT_SKILLS_PATH:-.agent-skills}"
 LINK_DIRS=(.claude/skills .agents/skills)
-# リンクを張らず、このスクリプトが張ったリンクを削除するディレクトリ
+# Directories where no links are created and links this script created are removed
 UNLINK_DIRS=()
 
 UPDATE=0
@@ -32,7 +32,7 @@ for arg in "$@"; do
 done
 
 if [ "$CODEX_ONLY" -eq 1 ] && [ "$CLAUDE_ONLY" -eq 1 ]; then
-  echo "--codex-only と --claude-only は同時に指定できません" >&2
+  echo "--codex-only and --claude-only cannot be used together" >&2
   exit 1
 fi
 if [ "$CODEX_ONLY" -eq 1 ]; then
@@ -45,9 +45,9 @@ fi
 
 cd "$(git rev-parse --show-toplevel)"
 
-# submodule の追加・初期化
+# Add and initialize the submodule
 if ! git config -f .gitmodules --get "submodule.$SUBMODULE.path" >/dev/null 2>&1; then
-  echo "submodule を追加します: $SUBMODULE"
+  echo "Adding submodule: $SUBMODULE"
   git submodule add -b main "$URL" "$SUBMODULE"
 elif [ ! -d "$SUBMODULE/skills" ]; then
   git submodule update --init "$SUBMODULE"
@@ -57,18 +57,18 @@ if [ "$UPDATE" -eq 1 ]; then
   git submodule update --remote "$SUBMODULE"
 fi
 
-# リンクは <dir>/<name> に置くので、リポジトリルートまで2階層上がる
+# Links live at <dir>/<name>, so go up two levels to the repository root
 PREFIX="../../$SUBMODULE/skills"
 STAGE=(.gitmodules "$SUBMODULE")
 
-# ${arr[@]+...} は bash 3.2 で空配列を set -u で参照してもエラーにしないため
+# ${arr[@]+...} keeps bash 3.2 with set -u from failing on an empty array
 for dir in ${UNLINK_DIRS[@]+"${UNLINK_DIRS[@]}"}; do
-  # このスクリプトが張ったリンクだけを削除し、リポジトリ固有のスキルには触れない
+  # Remove only links this script created; never touch the repository's own skills
   for link in "$dir"/*; do
     [ -L "$link" ] || continue
     case "$(readlink "$link")" in
       "$PREFIX"/*)
-        echo "削除: $link"
+        echo "Removed: $link"
         rm "$link"
         git rm -q --cached --ignore-unmatch "$link"
         ;;
@@ -79,13 +79,13 @@ done
 for dir in "${LINK_DIRS[@]}"; do
   mkdir -p "$dir"
 
-  # 共有スキルから消えたスキルのリンクを削除する
+  # Remove links to skills that are gone from the shared skills
   for link in "$dir"/*; do
     [ -L "$link" ] || continue
     case "$(readlink "$link")" in
       "$PREFIX"/*)
         if [ ! -e "$link" ]; then
-          echo "削除: $link（リンク先がありません）"
+          echo "Removed: $link (target does not exist)"
           rm "$link"
           git rm -q --cached --ignore-unmatch "$link"
         fi
@@ -97,12 +97,12 @@ for dir in "${LINK_DIRS[@]}"; do
     name="$(basename "$skill")"
     dest="$dir/$name"
     if [ -e "$dest" ] || [ -L "$dest" ]; then
-      # 張り直してよいのはこのスクリプトが張ったリンクだけ。
-      # リポジトリ固有のスキル（実ディレクトリや別の場所へのリンク）は上書きしない
+      # Only links this script created may be recreated.
+      # Never overwrite the repository's own skills (real directories or links elsewhere)
       case "$(readlink "$dest" 2>/dev/null)" in
         "$PREFIX/$name") ;;
         *)
-          echo "警告: $dest は既に存在するためスキップします" >&2
+          echo "Warning: $dest already exists, skipping" >&2
           continue
           ;;
       esac
@@ -112,6 +112,6 @@ for dir in "${LINK_DIRS[@]}"; do
   done
 done
 
-# リポジトリ固有のスキルは巻き込まないよう、このスクリプトが張ったリンクだけをステージする
+# Stage only the links this script created, so the repository's own skills are left alone
 git add "${STAGE[@]}"
-echo "完了しました。git status で確認してからコミットしてください。"
+echo "Done. Check with git status before committing."

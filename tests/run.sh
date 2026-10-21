@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# すべてのテストを実行する。CI でもローカルでもこのコマンドを使う。
-#   tests/run.sh          lint とすべてのテスト
-#   tests/run.sh lint     lint（bash -n と shellcheck）だけ
-#   tests/run.sh test     テストだけ
+# Run all tests. CI and local runs both use this command.
+#   tests/run.sh          lint and all tests
+#   tests/run.sh lint     lint only (bash -n and shellcheck)
+#   tests/run.sh test     tests only
 set -uo pipefail
 
 cd "$(dirname "$0")" || exit 1
@@ -30,7 +30,7 @@ if [ "$what" != lint ]; then
 fi
 
 if [ "${#failed[@]}" -gt 0 ]; then
-  echo "失敗: ${failed[*]}" >&2
+  echo "Failed: ${failed[*]}" >&2
   exit 1
 fi
-echo "すべて成功しました"
+echo "All passed"

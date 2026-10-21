@@ -8,14 +8,14 @@ on:
 permissions:
   contents: read
 
-# 同じ PR に新しい push があったら、古い実行を取り消す
+# Cancel older runs when the same PR gets a new push
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # シェルスクリプトの静的チェックとテスト。
-  # プラグインの検証などのジョブを足したら、ci-ok の needs にも足す
+  # Static checks and tests of the shell scripts.
+  # When adding a job, also add it to ci-ok's needs
   scripts:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -34,7 +34,7 @@ jobs:
       - name: Test (setup.sh, pr_status.sh, validate-skills.py, check-plugin-policy.py)
         run: tests/run.sh test
 
-  # skills/*/SKILL.md の frontmatter と参照ファイルの検証
+  # Validate the frontmatter of skills/*/SKILL.md and the files it references
   skills:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -47,14 +47,14 @@ jobs:
       - name: Validate SKILL.md
         run: scripts/validate-skills.py
 
-  # Claude / ChatGPT / Codex のマニフェストの方針チェックと、Claude のスキーマ検証。
-  # claude plugin validate は認証なしで動くので、API キーなどは設定しない
+  # Policy check of the Claude / ChatGPT / Codex manifests, and Claude's schema validation.
+  # claude plugin validate runs without authentication, so no API key etc. is configured
   plugin:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      # 最新版を使うと、検証ルールの変更で突然失敗することがあるので固定する。
-      # 上げるときは、ローカルで同じバージョンの claude plugin validate . が通ることを確かめてから
+      # Pinned, because the latest version can suddenly fail on changed validation rules.
+      # Before bumping it, check that claude plugin validate . passes locally with the same version
       CLAUDE_CODE_VERSION: 2.1.302
       DISABLE_AUTOUPDATER: 1
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: 1
@@ -72,15 +72,15 @@ jobs:
       - name: Check plugin policy
         run: scripts/check-plugin-policy.py
       - name: Validate plugin (claude plugin validate)
-        # 方針チェックが失敗しても実行し、スキーマの問題も同じ実行で見られるようにする
+        # Run even if the policy check fails, so schema problems show up in the same run
         if: ${{ !cancelled() }}
         run: claude plugin validate .
 
-  # すべてのジョブが成功したときだけ成功する。
-  # ブランチ保護の必須チェックにはこのジョブだけを指定すれば、ジョブを足しても設定を変えずに済む
+  # Succeeds only when all jobs succeed.
+  # Branch protection only needs this job as the required check, so adding jobs needs no settings change
   ci-ok:
     needs: [scripts, skills, plugin]
-    # needs のジョブが失敗しても skipped にならず、このジョブ自体が失敗するように常に実行する
+    # Run always, so that this job fails instead of being skipped when a job in needs fails
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

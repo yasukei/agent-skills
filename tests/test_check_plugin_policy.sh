@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# scripts/check-plugin-policy.py のテスト。
-# 一時ディレクトリに方針に沿ったマニフェストを作り、1か所ずつ壊して検証が失敗し、理由が出力されることを確かめる。
+# Tests for scripts/check-plugin-policy.py.
+# Create policy-compliant manifests in a temporary directory, break one field at a time, and check that validation fails with the reason.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -11,9 +11,9 @@ SCRIPT="$ROOT/scripts/check-plugin-policy.py"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-# 方針に沿った4つのマニフェストを $WORK に作り直す。
-# 引数は Claude の marketplace.json の name（省略時は my-marketplace）と、
-# Claude の marketplace.json のプラグインエントリ・plugin.json に足す JSON。
+# Recreate the four policy-compliant manifests in $WORK.
+# Arguments: the name in Claude's marketplace.json (default my-marketplace), and
+# JSON to append to the plugin entry in Claude's marketplace.json and to plugin.json.
 make_manifests() {
   local market_name="${1:-my-marketplace}" entry_extra="${2:-}" plugin_extra="${3:-}"
   rm -rf "$WORK/.claude-plugin" "$WORK/.agents" "$WORK/plugin.json"
@@ -53,12 +53,12 @@ EOF
 EOF
 }
 
-# jq で1項目を変更する。入力ファイルを直接上書きしない。
+# Change one field with jq, without overwriting the input file in place.
 edit_manifest() {
   jq "$2" "$WORK/$1" >"$WORK/edited.json" && mv "$WORK/edited.json" "$WORK/$1"
 }
 
-# 検証を実行し、OUT・ERR・RC に結果を入れる。引数はリポジトリのルート（省略時は $WORK）
+# Run the check and store the results in OUT, ERR and RC. The argument is the repository root (default $WORK)
 run_check() {
   RC=0
   "$SCRIPT" "${1:-$WORK}" >"$WORK/out" 2>"$WORK/err" || RC=$?
@@ -67,103 +67,103 @@ run_check() {
 }
 
 assert_fails_with() {
-  assert_eq 1 "$RC" "終了コード"
-  assert_contains "$ERR" "$1" "エラー出力"
+  assert_eq 1 "$RC" "exit status"
+  assert_contains "$ERR" "$1" "stderr"
 }
 
 # ---------------------------------------------------------------------------
-t "このリポジトリのマニフェスト"
+t "this repository's manifests"
 run_check "$ROOT"
-assert_eq 0 "$RC" "終了コード（$ERR）"
-assert_contains "$OUT" "plugin policy ok" "標準出力"
+assert_eq 0 "$RC" "exit status ($ERR)"
+assert_contains "$OUT" "plugin policy ok" "stdout"
 
 # ---------------------------------------------------------------------------
-t "引数なしでリポジトリのマニフェストを検証する"
-# マニフェストのない $WORK を cwd にしても、cwd ではなくスクリプトの場所を基準にリポジトリを検証する
+t "checks the repository's manifests when given no argument"
+# Even with $WORK (no manifests) as cwd, the repository is located from the script, not from cwd
 RC=0
 (cd "$WORK" && "$SCRIPT") >"$WORK/out" 2>"$WORK/err" || RC=$?
-assert_eq 0 "$RC" "終了コード（$(cat "$WORK/err")）"
+assert_eq 0 "$RC" "exit status ($(cat "$WORK/err"))"
 
 # ---------------------------------------------------------------------------
-t "方針に沿ったマニフェスト"
+t "policy-compliant manifests"
 make_manifests
 run_check
-assert_eq 0 "$RC" "終了コード（$ERR）"
+assert_eq 0 "$RC" "exit status ($ERR)"
 
 # ---------------------------------------------------------------------------
-t "marketplace.json の name が予約名 agent-skills"
+t "marketplace.json name is the reserved name agent-skills"
 make_manifests agent-skills
 run_check
-assert_fails_with ".claude-plugin/marketplace.json: name: 'agent-skills' は予約名で、claude.ai のマーケットプレイス同期で拒否されます"
+assert_fails_with ".claude-plugin/marketplace.json: name: 'agent-skills' is a reserved name and is rejected by claude.ai's marketplace sync"
 
 # ---------------------------------------------------------------------------
-t "marketplace.json の name が大文字小文字違いの予約名"
+t "marketplace.json name is the reserved name in different case"
 make_manifests Agent-Skills
 run_check
-assert_fails_with ".claude-plugin/marketplace.json: name: 'Agent-Skills' は予約名で"
+assert_fails_with ".claude-plugin/marketplace.json: name: 'Agent-Skills' is a reserved name"
 
 # ---------------------------------------------------------------------------
-t "plugin.json に version がある"
+t "plugin.json has version"
 make_manifests my-marketplace "" ', "version": "1.0.0"'
 run_check
-assert_fails_with ".claude-plugin/plugin.json: version: このリポジトリでは version を書きません"
-assert_contains "$ERR" "更新が配布されません" "理由"
+assert_fails_with ".claude-plugin/plugin.json: version: this repository does not set version"
+assert_contains "$ERR" "updates are not distributed" "reason"
 
 # ---------------------------------------------------------------------------
-t "marketplace.json のプラグインエントリに version がある"
+t "marketplace.json plugin entry has version"
 make_manifests my-marketplace ', "version": "1.0.0"'
 run_check
-assert_fails_with ".claude-plugin/marketplace.json: plugins[0]（agent-skills）: version: このリポジトリでは version を書きません"
+assert_fails_with ".claude-plugin/marketplace.json: plugins[0] (agent-skills): version: this repository does not set version"
 
 # ---------------------------------------------------------------------------
-t "マニフェストがない"
+t "manifest is missing"
 make_manifests
 rm "$WORK/.claude-plugin/plugin.json"
 run_check
-assert_fails_with ".claude-plugin/plugin.json: ありません"
+assert_fails_with ".claude-plugin/plugin.json: not found"
 
 # ---------------------------------------------------------------------------
-t "JSON として解析できない"
+t "cannot parse as JSON"
 make_manifests
 echo '{' >"$WORK/.claude-plugin/marketplace.json"
 run_check
-assert_fails_with ".claude-plugin/marketplace.json: JSON として解析できません"
+assert_fails_with ".claude-plugin/marketplace.json: cannot parse as JSON"
 
 # ---------------------------------------------------------------------------
-t "name が文字列でなくても落ちない"
+t "does not crash when name is not a string"
 make_manifests
 sed -i 's/"name": "my-marketplace"/"name": ["agent-skills"]/' "$WORK/.claude-plugin/marketplace.json"
 run_check
-assert_eq 0 "$RC" "終了コード（$ERR）"
+assert_eq 0 "$RC" "exit status ($ERR)"
 
 # ---------------------------------------------------------------------------
-t "UTF-8 として読めない"
+t "not readable as UTF-8"
 make_manifests
 printf '\xff\xfe' >"$WORK/.claude-plugin/plugin.json"
 run_check
-assert_fails_with ".claude-plugin/plugin.json: JSON として解析できません"
+assert_fails_with ".claude-plugin/plugin.json: cannot parse as JSON"
 
 # ---------------------------------------------------------------------------
 for rel in plugin.json .agents/plugins/marketplace.json; do
-  t "$rel がない"
+  t "$rel is missing"
   make_manifests
   rm "$WORK/$rel"
   run_check
-  assert_fails_with "$rel: ありません"
+  assert_fails_with "$rel: not found"
 
-  t "$rel が不正な JSON"
+  t "$rel is invalid JSON"
   make_manifests
   echo '{' >"$WORK/$rel"
   run_check
-  assert_fails_with "$rel: JSON として解析できません"
+  assert_fails_with "$rel: cannot parse as JSON"
 
-  t "$rel がオブジェクトでない"
+  t "$rel is not an object"
   make_manifests
   echo '[]' >"$WORK/$rel"
   run_check
-  assert_fails_with "$rel: JSON のオブジェクトになっていません"
+  assert_fails_with "$rel: not a JSON object"
 
-  t "$rel に version がある"
+  t "$rel has version"
   make_manifests
   if [ "$rel" = plugin.json ]; then
     edit_manifest "$rel" '.version = "1.0.0"'
@@ -171,101 +171,101 @@ for rel in plugin.json .agents/plugins/marketplace.json; do
     edit_manifest "$rel" '.plugins[0].version = "1.0.0"'
   fi
   run_check
-  assert_fails_with "version: このリポジトリでは version を書きません"
-  assert_contains "$ERR" "$rel:" "対象のファイル"
+  assert_fails_with "version: this repository does not set version"
+  assert_contains "$ERR" "$rel:" "target file"
 done
 
 # ---------------------------------------------------------------------------
 for field in name description; do
-  t "両形式の $field が一致しない"
+  t "$field differs between the two formats"
   make_manifests
   edit_manifest plugin.json ".$field = \"different\""
   run_check
-  assert_fails_with "plugin.json: $field: .claude-plugin/plugin.json の $field と一致させてください"
+  assert_fails_with "plugin.json: $field: must match the $field in .claude-plugin/plugin.json"
 
   for rel in plugin.json .claude-plugin/plugin.json; do
     for value in 'null' '""' '"   "' '[]'; do
-      t "$rel の $field が空または文字列でない: $value"
+      t "$rel $field is empty or not a string: $value"
       make_manifests
       edit_manifest "$rel" ".$field = $value"
       run_check
-      assert_fails_with "$rel: $field: 空でない文字列を指定してください"
+      assert_fails_with "$rel: $field: must be a non-empty string"
     done
   done
 done
 
 # ---------------------------------------------------------------------------
 for rel in .claude-plugin/marketplace.json .agents/plugins/marketplace.json; do
-  t "$rel のエントリ名がプラグイン定義と一致しない"
+  t "$rel entry name does not match the plugin definition"
   make_manifests
   edit_manifest "$rel" '.plugins[0].name = "different"'
   run_check
-  assert_fails_with "$rel: plugins[0].name: プラグイン定義の name と一致させてください"
+  assert_fails_with "$rel: plugins[0].name: must match the name in the plugin definition"
 
   for value in 'null' '[]' '{}'; do
-    t "$rel の plugins が空または配列でない: $value"
+    t "$rel plugins is empty or not an array: $value"
     make_manifests
     edit_manifest "$rel" ".plugins = $value"
     run_check
-    assert_fails_with "$rel: plugins: 空でない配列にしてください"
+    assert_fails_with "$rel: plugins: must be a non-empty array"
   done
 
-  t "$rel のエントリがオブジェクトでない"
+  t "$rel entry is not an object"
   make_manifests
   edit_manifest "$rel" '.plugins = [null]'
   run_check
-  assert_fails_with "$rel: plugins[0]: オブジェクトにしてください"
+  assert_fails_with "$rel: plugins[0]: must be an object"
 done
 
 # ---------------------------------------------------------------------------
 rel=.agents/plugins/marketplace.json
 for field in installation authentication; do
-  t "Codex の policy.$field がない"
+  t "Codex policy.$field is missing"
   make_manifests
   edit_manifest "$rel" "del(.plugins[0].policy.$field)"
   run_check
   assert_fails_with "$rel: plugins[0].policy.$field:"
 
-  t "Codex の policy.$field が不正"
+  t "Codex policy.$field is invalid"
   make_manifests
   edit_manifest "$rel" ".plugins[0].policy.$field = []"
   run_check
   assert_fails_with "$rel: plugins[0].policy.$field:"
 done
 for value in 'null' '[]' '""'; do
-  t "Codex の policy がオブジェクトでない: $value"
+  t "Codex policy is not an object: $value"
   make_manifests
   edit_manifest "$rel" ".plugins[0].policy = $value"
   run_check
   assert_fails_with "$rel: plugins[0].policy.installation:"
-  assert_contains "$ERR" "plugins[0].policy.authentication:" "認証ポリシーのエラー"
+  assert_contains "$ERR" "plugins[0].policy.authentication:" "authentication policy error"
 done
 for value in 'null' '""' '"   "' '[]'; do
-  t "Codex の category が空または文字列でない: $value"
+  t "Codex category is empty or not a string: $value"
   make_manifests
   edit_manifest "$rel" ".plugins[0].category = $value"
   run_check
-  assert_fails_with "$rel: plugins[0].category: 空でない文字列を指定してください"
+  assert_fails_with "$rel: plugins[0].category: must be a non-empty string"
 done
 
-t "Codex の各エントリのポリシーを検証する"
+t "checks the policy of every Codex entry"
 make_manifests
 edit_manifest "$rel" '.plugins += [.plugins[0]] | del(.plugins[1].policy)'
 run_check
 assert_fails_with "$rel: plugins[1].policy.installation:"
 
 # ---------------------------------------------------------------------------
-t "問題が複数あればすべて出力する"
+t "reports every problem when there are several"
 make_manifests agent-skills ', "version": "1.0.0"' ', "version": "1.0.0"'
 run_check
-assert_fails_with "name: 'agent-skills' は予約名"
-assert_contains "$ERR" "plugins[0]（agent-skills）: version" "エントリの version"
-assert_contains "$ERR" "plugin.json: version" "plugin.json の version"
-assert_contains "$ERR" "3 件の問題があります" "件数"
+assert_fails_with "name: 'agent-skills' is a reserved name"
+assert_contains "$ERR" "plugins[0] (agent-skills): version" "entry version"
+assert_contains "$ERR" "plugin.json: version" "plugin.json version"
+assert_contains "$ERR" "3 problem(s) found" "count"
 
 # ---------------------------------------------------------------------------
-t "不正な引数"
+t "invalid argument"
 run_check "$WORK/no-such-dir"
-assert_fails_with "ディレクトリがありません"
+assert_fails_with "directory not found"
 
 done_testing
