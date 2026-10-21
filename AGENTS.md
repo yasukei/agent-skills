@@ -4,7 +4,7 @@ Agent skills shared by Claude Code, ChatGPT and Codex. Most work here is editing
 
 ## Language
 
-- Write everything in this repository in English: skills, references, docs, scripts, tests, commits, PRs and issues.
+- Write everything in this repository in English: skills, references, docs, scripts, tests, commits, PRs and issues. This applies even though the existing history is in Japanese.
 - Exception: a skill's `description` may keep a few Japanese trigger phrases, because users ask in Japanese.
 - Do not hard-code a natural language in skill instructions. What a skill writes (commits, PRs, issues, comments) follows the target repository's existing language, else the user's language. Chat replies use the user's language.
 
