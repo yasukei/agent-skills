@@ -25,9 +25,10 @@ DESCRIPTION_MAX = 1024
 # Lowercase letters and digits joined by hyphens. No leading, trailing or consecutive hyphens
 NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
-# Size budget of SKILL.md, because agents load the whole file into context. Bytes and lines stand in for tokens
+# Size budget of SKILL.md, because agents load the whole file into context and Codex inserts only its first 8,000 bytes.
+# Bytes and lines stand in for tokens
 SKILL_MAX_LINES = 200
-SKILL_MAX_BYTES = 10000
+SKILL_MAX_BYTES = 7000
 
 # Groups of files, relative to skills/, that must stay byte-identical. Each skill is installed on its own,
 # so a file used by several skills is copied into each of them.
