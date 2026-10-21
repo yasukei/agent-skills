@@ -22,10 +22,11 @@ When unsure, ask the user in chat, not on the PR. Stopping to ask beats going on
 
 Read these when the step needs them:
 
-- `references/review-protocol.md`: the contract with `issue-to-pr` (markers, priority labels and what the reviewer accepts for each, replies, completion signals, the rules that keep the signals reliable). Read it before reviewing.
+- `references/review-protocol.md`: the contract with `issue-to-pr` (markers, priority labels, replies, completion signals). Read it before reviewing.
 - `references/review-guidelines.md`: what to look at and how to set priorities. Read it before reviewing.
-- `references/comment-format.md`: formats of inline comments, the summary, the no-findings review and replies.
-- `references/monitoring.md`: how to receive updates (event subscription or polling) and when to stop.
+- `references/comment-format.md`: how to post the review, and the formats of inline comments, the summary, the no-findings review and replies. Read it before posting.
+- `references/monitoring.md`: how to receive updates, how to check new commits and replies, and when to stop. Read it before monitoring.
+- `references/merging.md`: the merge conditions in detail, Approve, and the merge procedure. Read it before deciding (step 5).
 - `references/github-commands.md`: commands for each step. If `gh` fails with `HTTP 403` saying GraphQL is not available, use the REST commands there.
 
 ## Merging (`--merge`)
@@ -47,76 +48,37 @@ Use the issue during the review too: check that the PR meets the issue's require
 
 ## 1. Prepare
 
-- Get the PR description, base branch, head SHA, draft state and CI state (`gh pr view`).
-- Get the diff (`gh pr diff`) and read the surrounding code as needed; the diff alone hides broken callers and invariants.
-- Check the repository's conventions: `CLAUDE.md`, `CONTRIBUTING.md`, templates under `.github/`, linter and formatter settings. They take precedence over general review criteria.
+- Get the PR description, base branch, head SHA, draft state, CI state and diff, and read the surrounding code as needed; the diff alone hides broken callers and invariants.
+- The repository's conventions (`CLAUDE.md`, `CONTRIBUTING.md`, templates under `.github/`, linter and formatter settings) take precedence over general review criteria.
 - Decide the comment language (see "Language").
 - If the PR is a draft, or already merged or closed, ask the user before reviewing.
 
 ## 2. Review
 
-Read `references/review-guidelines.md` before starting. In short:
-
-- Point out only real problems. Do not invent findings; if there is no problem, "no findings" is the correct result. Padding buries the findings that matter.
-- Do not point out what linters or formatters catch.
-- For each finding, write what the problem is, why (which input or situation causes what), and what to do.
-- Check that the PR description does not contradict the implementation (see step 5).
-- Label each finding with a priority (`P0 (Critical)` to `P3 (Low)`, or `Question`) as defined in `references/review-protocol.md`. Every finding thread, `Question` included, must be resolved in the end.
+Read `references/review-guidelines.md` before starting. Point out only real problems, with what, why and what to do; if there is none, "no findings" is the correct result. Padding buries the findings that matter.
+Label each finding with a priority (`P0 (Critical)` to `P3 (Low)`, or `Question`) as defined in `references/review-protocol.md`. Every finding thread, `Question` included, must be resolved in the end.
 
 ## 3. Post
 
-Post the inline comments and the summary as **one review** with the event `COMMENT`, so the author gets one notification. Formats are in `references/comment-format.md`.
+Post the inline comments and the summary as **one review** with the event `COMMENT`, as in "Posting the review" in `references/comment-format.md`.
 
-- Use `COMMENT`: when the author and the reviewer are the same account, Approve and Request changes are not available. With different accounts, Approve is posted later (step 5).
-- Put each finding as an inline comment on its line. A finding not tied to a line (a contradiction with the PR description, the layout of a whole file) goes on the most related changed line or as a file-level comment, so it becomes a thread that can be resolved; plain PR comments cannot.
-- A `suggestion` block is fine for a short, clear fix. It is a proposal the author can accept; this skill still does not change the code.
-- **End every comment this skill posts** (inline, summary, replies) with `<!-- pr-review -->`. The author may be the same account, so the marker is how both sides tell comments apart; treat comments without it as the author's (or another reviewer's).
-- **Always post a review, even with no findings**, with the completion marker `<!-- review-complete -->` before `<!-- pr-review -->`. Never put the completion marker on a review with findings or questions.
+- **End every comment this skill posts** with `<!-- pr-review -->`; treat comments without it as the author's (or another reviewer's), because the author may be the same account.
+- **Always post a review, even with no findings**, with `<!-- review-complete -->` before `<!-- pr-review -->`. Never put the completion marker on a review with findings or questions.
 
 ## 4. Monitor
 
-After posting, wait for updates as described in `references/monitoring.md` (event subscription with a 15-minute poll, or a 15-minute poll alone), and check the whole PR state each time.
+Wait for updates as in `references/monitoring.md` (event subscription with a 15-minute poll, or a 15-minute poll alone), check the whole PR state each time, and handle new commits and replies as it describes. In short:
 
-### On new commits
-
-- Read the diff from the last checked SHA to the new one.
-- Check that unresolved findings are fixed and that the fixes add no new problems.
-- Post new problems as new findings with priorities, as one review again. **Post them before resolving existing threads**: with the same account, `issue-to-pr` treats "all threads resolved" as done, so resolving first could end its monitoring before the new findings arrive.
-- If an existing finding's fix is sound, reply with the commit that fixed it, then resolve the thread. If not, reply with the reason and leave it open.
-
-### On replies in threads
-
-Handle each reply as in "Replies" in `references/review-protocol.md`. Also: a `P0` cannot be deferred, so reply saying so and leave the thread open; never create the deferral issue yourself; ask the user when you cannot judge a decline.
-
-Resolve only threads this skill opened (with the marker). Do not touch other reviewers' threads.
+- Post new findings as one review **before resolving existing threads**: with the same account, `issue-to-pr` treats "all threads resolved" as done.
+- Resolve a thread only after confirming its fix and replying with the fixing commit, and only threads this skill opened.
+- A `P0` cannot be deferred. Never create the deferral issue yourself; ask the user when you cannot judge a decline.
 
 ## 5. Decide whether it can be merged
 
-The PR can be merged when all of these hold:
+Read `references/merging.md`. In short, the PR can be merged when every finding thread this skill opened is resolved, no other reviewer's thread or Request changes remains, all CI checks pass, there are no conflicts and branch protection is met, it is not a draft, its description matches the implementation, and its head SHA is the last one you checked.
 
-1. Every finding thread this skill opened is resolved (deferred ones too, after checking the issue).
-2. No other reviewer's thread is unresolved and no Request changes remains. If one does, do not merge; ask the user.
-3. All CI checks pass. Wait for pending checks to finish.
-4. No conflicts, and branch protection rules (required approvals, etc.) are met. A required approval may be met by the Approve below.
-5. The PR is not a draft.
-6. **The PR description matches the implementation.** With a squash merge it becomes the commit message, so a description left stale by review changes leaves a wrong record. If it contradicts the implementation, post a new finding (usually P2; P1 if it misleads about behavior or compatibility) and wait for the update.
-7. The head SHA at merge time is the last one you checked, so unchecked commits are never merged.
-
-### Approve
-
-When the PR author and the account running this skill differ, post an Approve review (a short record that the conditions are met, with the marker) once every condition except 4 is met, **whether or not `--merge` was given**: `issue-to-pr` takes the latest non-author Approve as its completion signal, and it may also satisfy a required approval in condition 4. On the same account, Approve is impossible; all threads resolved (or the no-findings review with the completion marker) is the signal instead.
-
-### Without `--merge`
-
-Report in chat that the PR can be merged and stop. Unsubscribe from PR events if subscribed.
-
-### With `--merge`
-
-1. Check which merge methods the repository allows.
-2. Infer the method used for existing merged PRs from the base branch history and use the same one.
-3. If it cannot be inferred, choose from the allowed methods in the order merge → squash → rebase.
-
-Before merging, leave a short PR comment (with the marker) that all conditions are met, so the history can be followed later. Merge pinned to the checked head SHA, then delete the branch (or leave it to the repository's automatic deletion). Unsubscribe from PR events if subscribed. If the merge fails (branch protection, missing approvals, etc.), do not work around it; report to the user.
+- When the author is a different account, post an Approve once every condition except conflicts and branch protection is met, **whether or not `--merge` was given**: it is `issue-to-pr`'s completion signal.
+- Without `--merge`, report in chat that it can be merged and stop. With `--merge`, merge as `references/merging.md` describes; if the merge fails, do not work around it, report to the user.
 
 ## Reporting to the user
 

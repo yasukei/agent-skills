@@ -1,6 +1,16 @@
-# Comment formats
+# Posting the review and comment formats
 
-Formats for what this skill posts on the PR. Write the content in the comment language (see "Language" in SKILL.md). Keep the labels (`P1 (High)`, `Question`) and the markers as they are, because the author's skill looks for them. End every comment with `<!-- pr-review -->` (see `review-protocol.md`).
+How to post the review, and formats for what this skill posts on the PR. Write the content in the comment language (see "Language" in SKILL.md). Keep the labels (`P1 (High)`, `Question`) and the markers as they are, because the author's skill looks for them. End every comment with `<!-- pr-review -->` (see `review-protocol.md`).
+
+## Posting the review
+
+Read this before posting (step 3 in SKILL.md). Post the inline comments and the summary as **one review** with the event `COMMENT`, so the author gets one notification.
+
+- Use `COMMENT`: when the author and the reviewer are the same account, Approve and Request changes are not available. With different accounts, Approve is posted later (step 5).
+- Put each finding as an inline comment on its line. A finding not tied to a line (a contradiction with the PR description, the layout of a whole file) goes on the most related changed line or as a file-level comment, so it becomes a thread that can be resolved; plain PR comments cannot.
+- A `suggestion` block is fine for a short, clear fix. It is a proposal the author can accept; this skill still does not change the code.
+- **End every comment this skill posts** (inline, summary, replies) with `<!-- pr-review -->`. The author may be the same account, so the marker is how both sides tell comments apart; treat comments without it as the author's (or another reviewer's).
+- **Always post a review, even with no findings**, with the completion marker `<!-- review-complete -->` before `<!-- pr-review -->` (see "Review with no findings"). Never put the completion marker on a review with findings or questions.
 
 ## Inline comment
 

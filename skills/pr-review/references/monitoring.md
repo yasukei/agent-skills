@@ -1,6 +1,6 @@
 # Receiving PR updates
 
-Read this when starting to monitor the PR after posting the review (step 4 in SKILL.md), and when waiting for a PR to be created from an issue (step 0).
+Read this when starting to monitor the PR after posting the review (step 4 in SKILL.md), when checking new commits and replies, and when waiting for a PR to be created from an issue (step 0).
 
 ## A. When PR event subscriptions are available (Claude Code on the web, etc.)
 
@@ -20,6 +20,21 @@ Check **every 15 minutes** with whatever waiting mechanism Claude Code offers (`
 
 - On every check, look at changes of the head SHA, new comments in threads, and the CI state. When woken by an event, look at the whole PR state, not only that event, because events can be duplicated or arrive out of order.
 - **Stop monitoring** when the PR is merged, when it is closed, when the merge conditions are met without `--merge`, or after 24 hours with no activity. When stopping, also unsubscribe, and report the state at that point (unresolved threads, responses still awaited) to the user.
+
+## Checking new commits and replies (step 4)
+
+### On new commits
+
+- Read the diff from the last checked SHA to the new one.
+- Check that unresolved findings are fixed and that the fixes add no new problems.
+- Post new problems as new findings with priorities, as one review again. **Post them before resolving existing threads**: with the same account, `issue-to-pr` treats "all threads resolved" as done, so resolving first could end its monitoring before the new findings arrive.
+- If an existing finding's fix is sound, reply with the commit that fixed it, then resolve the thread. If not, reply with the reason and leave it open.
+
+### On replies in threads
+
+Handle each reply as in "Replies" in `review-protocol.md`. Also: a `P0` cannot be deferred, so reply saying so and leave the thread open; never create the deferral issue yourself; ask the user when you cannot judge a decline.
+
+Resolve only threads this skill opened (with the marker). Do not touch other reviewers' threads.
 
 ## Waiting for a PR from an issue (step 0)
 
