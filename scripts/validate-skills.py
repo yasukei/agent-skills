@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the frontmatter of skills/*/SKILL.md and the files SKILL.md references.
+"""Validate skills/*/SKILL.md (frontmatter, referenced files, size) and the files shared between skills.
 
   scripts/validate-skills.py               validate the repository's skills/
   scripts/validate-skills.py <skills_dir>  validate the given directory (for tests)
@@ -24,6 +24,17 @@ NAME_MAX = 64
 DESCRIPTION_MAX = 1024
 # Lowercase letters and digits joined by hyphens. No leading, trailing or consecutive hyphens
 NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+
+# Size budget of SKILL.md, because agents load the whole file into context. Bytes and lines stand in for tokens
+SKILL_MAX_LINES = 200
+SKILL_MAX_BYTES = 10000
+
+# Groups of files, relative to skills/, that must stay byte-identical. Each skill is installed on its own,
+# so a file used by several skills is copied into each of them.
+# A group is skipped when none of its skills exists (e.g. a skills directory created by the tests)
+SHARED_FILES = [
+    ("issue-to-pr/references/review-protocol.md", "pr-review/references/review-protocol.md"),
+]
 
 # Pick up references/... scripts/... assets/... in the body.
 # Matches preceded by an ASCII letter, digit, dot, slash or hyphen (skills/x/scripts/..., .github/scripts/..., etc.)
@@ -112,6 +123,34 @@ def check_references(skill_dir, rel, body, errors):
             errors.append(f"{rel}: reference {ref}: file not found")
 
 
+def check_size(rel, data, errors):
+    lines = len(data.splitlines())
+    if lines > SKILL_MAX_LINES:
+        errors.append(f"{rel}: longer than {SKILL_MAX_LINES} lines ({lines})")
+    if len(data) > SKILL_MAX_BYTES:
+        errors.append(f"{rel}: larger than {SKILL_MAX_BYTES} bytes ({len(data)})")
+
+
+def check_shared_files(skills_dir, errors):
+    base = os.path.dirname(skills_dir)
+    for group in SHARED_FILES:
+        if not any(os.path.isdir(os.path.join(skills_dir, f.split("/")[0])) for f in group):
+            continue
+        contents = {}
+        for f in group:
+            path = os.path.join(skills_dir, f)
+            rel = os.path.relpath(path, base)
+            if not os.path.isfile(path):
+                errors.append(f"{rel}: shared file not found")
+                continue
+            with open(path, "rb") as fp:
+                contents[rel] = fp.read()
+        rels = list(contents)
+        for rel in rels[1:]:
+            if contents[rel] != contents[rels[0]]:
+                errors.append(f"{rels[0]} and {rel}: shared files differ (they must be byte-identical)")
+
+
 def check_scripts(skills_dir, skill_dir, errors):
     scripts_dir = os.path.join(skill_dir, "scripts")
     for root, dirs, files in os.walk(scripts_dir):
@@ -141,8 +180,10 @@ def validate(skills_dir):
         if not os.path.isfile(path):
             errors.append(f"{rel}: not found")
             continue
-        with open(path, encoding="utf-8-sig") as fp:
-            parts = split_frontmatter(fp.read())
+        with open(path, "rb") as fp:
+            data = fp.read()
+        check_size(rel, data, errors)
+        parts = split_frontmatter(data.decode("utf-8-sig"))
         if parts is None:
             errors.append(f"{rel}: does not start with a YAML frontmatter enclosed in '---'")
         else:
@@ -150,6 +191,7 @@ def validate(skills_dir):
             check_frontmatter(skill, rel, front, errors)
             check_references(skill_dir, rel, body, errors)
         check_scripts(skills_dir, skill_dir, errors)
+    check_shared_files(skills_dir, errors)
     return skills, errors
 
 

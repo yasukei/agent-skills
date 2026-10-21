@@ -34,6 +34,17 @@ EOF
   chmod +x "$WORK/skills/my-skill/scripts/run.sh"
 }
 
+# Add the skills issue-to-pr and pr-review to $WORK/skills, each with an identical references/review-protocol.md,
+# so that the shared-file check applies
+add_shared_skills() {
+  local skill
+  for skill in issue-to-pr pr-review; do
+    cp -r "$WORK/skills/my-skill" "$WORK/skills/$skill"
+    sed -i "s/^name: my-skill\$/name: $skill/" "$WORK/skills/$skill/SKILL.md"
+    echo protocol >"$WORK/skills/$skill/references/review-protocol.md"
+  done
+}
+
 # Run the validation and store the results in OUT, ERR and RC. The argument is the skills directory (default $WORK/skills)
 run_validate() {
   RC=0
@@ -183,6 +194,59 @@ make_skill
 chmod -x "$WORK/skills/my-skill/scripts/run.sh"
 run_validate
 assert_fails_with "skills/my-skill/scripts/run.sh: not executable"
+
+# ---------------------------------------------------------------------------
+t "SKILL.md at exactly the line and byte limits"
+make_skill
+lines="$(wc -l <"$WORK/skills/my-skill/SKILL.md")"
+for _ in $(seq $((200 - lines - 1))); do echo >>"$WORK/skills/my-skill/SKILL.md"; done
+bytes="$(wc -c <"$WORK/skills/my-skill/SKILL.md")"
+printf '%*s\n' $((10000 - bytes - 1)) '' | tr ' ' a >>"$WORK/skills/my-skill/SKILL.md"
+assert_eq "200 10000" "$(wc -l <"$WORK/skills/my-skill/SKILL.md") $(wc -c <"$WORK/skills/my-skill/SKILL.md")" "lines and bytes"
+run_validate
+assert_eq 0 "$RC" "exit status ($ERR)"
+
+# ---------------------------------------------------------------------------
+t "SKILL.md is longer than 200 lines"
+make_skill
+lines="$(wc -l <"$WORK/skills/my-skill/SKILL.md")"
+for _ in $(seq $((201 - lines))); do echo >>"$WORK/skills/my-skill/SKILL.md"; done
+run_validate
+assert_fails_with "skills/my-skill/SKILL.md: longer than 200 lines (201)"
+assert_eq "" "$(grep bytes <<<"$ERR")" "byte limit is not reported"
+
+# ---------------------------------------------------------------------------
+t "SKILL.md is larger than 10000 bytes"
+make_skill
+bytes="$(wc -c <"$WORK/skills/my-skill/SKILL.md")"
+printf '%*s\n' $((10001 - bytes - 1)) '' | tr ' ' a >>"$WORK/skills/my-skill/SKILL.md"
+run_validate
+assert_fails_with "skills/my-skill/SKILL.md: larger than 10000 bytes (10001)"
+assert_eq "" "$(grep lines <<<"$ERR")" "line limit is not reported"
+
+# ---------------------------------------------------------------------------
+t "identical shared files"
+make_skill
+add_shared_skills
+run_validate
+assert_eq 0 "$RC" "exit status ($ERR)"
+assert_contains "$OUT" "3 skills ok: issue-to-pr, my-skill, pr-review" "stdout"
+
+# ---------------------------------------------------------------------------
+t "shared files differ"
+make_skill
+add_shared_skills
+echo protocoL >"$WORK/skills/pr-review/references/review-protocol.md"
+run_validate
+assert_fails_with "skills/issue-to-pr/references/review-protocol.md and skills/pr-review/references/review-protocol.md: shared files differ"
+
+# ---------------------------------------------------------------------------
+t "shared file is missing"
+make_skill
+add_shared_skills
+rm "$WORK/skills/issue-to-pr/references/review-protocol.md"
+run_validate
+assert_fails_with "skills/issue-to-pr/references/review-protocol.md: shared file not found"
 
 # ---------------------------------------------------------------------------
 t "reports every problem when there are several"

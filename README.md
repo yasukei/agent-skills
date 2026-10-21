@@ -162,7 +162,7 @@ In cloud environments (Codex Cloud, Claude Code on the web), the submodule may n
 Rules for editing and adding skills are in [AGENTS.md](AGENTS.md). CI runs the same checks on every PR; run them locally before pushing:
 
 ```bash
-scripts/validate-skills.py      # validate SKILL.md frontmatter and referenced files
+scripts/validate-skills.py      # validate SKILL.md (frontmatter, references, size) and shared files
 scripts/check-plugin-policy.py  # check the four manifests against the repository's policy
 tests/run.sh                    # lint and all tests
 claude plugin validate .        # validate the Claude manifests (needs Claude Code)
