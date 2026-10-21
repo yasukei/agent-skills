@@ -1,243 +1,127 @@
 ---
 name: "pr-review"
-description: GitHubのPRをコードレビューし、優先度付き（P0〜P3・Question）のレビューコメントをPRに投稿したうえで、PRを監視して修正確認・スレッドのresolve・マージ可否の判定まで行うスキル。マージするのは `--merge` が指定されたときだけで、指定がなければマージ可能になったことを報告して終わる。PRのURLを渡されて「レビューして」「PRを見て」「/code-review」などと頼まれたとき、issueの番号やURLを渡されて「このissueのPRをレビューして」「PRができたらレビューして」など、レビューする側として頼まれたとき（PRができるまで待ってからレビューする）、またはPRのレビュー指摘への対応確認やマージ可否の判断を求められたときは必ず使うこと。コード修正は行わない。文章やドキュメントだけのレビュー依頼には使わない。
+description: Review a GitHub PR as the reviewer, post prioritized (P0–P3, Question) comments, then monitor it to check fixes, resolve threads and decide whether it can be merged. Merges only with `--merge`. Use when given a PR to review (e.g. 「レビューして」「PRを見て」), an issue whose PR to review once it exists (「このissueのPRをレビューして」), or when asked to check responses to review comments or whether a PR can be merged. Never changes code. Not for implementing or answering reviews as the author (use issue-to-pr), nor for reviewing prose-only documents.
 ---
 
-# PRレビュー
+# pr-review
 
-PRをレビューし、指摘をPRに投稿し、作者の対応を監視して、マージできる状態になったかを判定するまでを一貫して行う。`--merge` が指定されていれば、条件を満たしたところでマージまで行う。
+Review a PR, post the findings on it, monitor the author's responses, and decide whether it can be merged. With `--merge`, merge once the conditions are met.
 
-役割は**レビュアー**であり、作者ではない。コードの修正、コミット、push、作者に代わるissue作成はしない。手を動かすのは作者で、こちらは指摘・確認・判断（`--merge` 指定時はマージも）を担う。この役割分担があることで、レビューの独立性が保たれる。
+The role is **reviewer**, not author. Do not fix code, commit, push, or create issues on the author's behalf. The author does the work; this skill points out, checks and decides (and merges with `--merge`). Keeping the roles apart keeps the review independent.
 
-不明点や判断に迷う点は、PRには書かずにチャットでユーザーに聞く。迷ったまま進めるより、止まって聞く方がよい。
+When unsure, ask the user in chat, not on the PR. Stopping to ask beats going on unsure.
 
-## 全体の流れ
+## Workflow
 
-0. （issueを渡された場合）PRが作られるまで待つ
-1. 準備: PRとリポジトリの情報を集める
-2. レビュー: 差分を読み、指摘をまとめる
-3. 投稿: インラインコメントと全体サマリーを1つのレビューとして投稿する
-4. 監視: 新しいコミットや返信を待ち、対応を確認してresolveする
-5. マージ判定: 条件をすべて満たしたか判定する。`--merge` があればマージし、なければ報告して終わる
+0. (When given an issue) wait until its PR is created
+1. Prepare: gather information about the PR and the repository
+2. Review: read the diff and collect findings
+3. Post: post the inline comments and the summary as one review
+4. Monitor: wait for new commits and replies, check them and resolve threads
+5. Decide: check every merge condition. Merge with `--merge`; otherwise report and stop
 
-## マージするかどうか（`--merge`）
+Read these when the step needs them:
 
-- 引数に `--merge` があるとき（または「マージまでして」のように、マージを明示的に頼まれたとき）だけ、5章の条件を満たした時点でマージする。
-- それ以外は、5章の条件を満たしたら「マージ可能」と報告して終わる。マージもブランチの削除もしない。「レビューして」「PRを見て」「マージできるか見て」はマージの依頼ではない。
-- 迷ったらマージしない。マージは取り消しにくいため。
+- `references/review-protocol.md`: the contract with `issue-to-pr` (markers, priority labels and what the reviewer accepts for each, replies, completion signals, the rules that keep the signals reliable). Read it before posting.
+- `references/review-guidelines.md`: what to look at and how to set priorities. Read it before reviewing.
+- `references/comment-format.md`: formats of inline comments, the summary, the no-findings review and replies.
+- `references/monitoring.md`: how to receive updates (event subscription or polling) and when to stop.
+- `references/github-commands.md`: commands for each step. If `gh` fails with `HTTP 403` saying GraphQL is not available, use the REST commands there.
 
-GitHubの操作に使う具体的なコマンドは `references/github-commands.md` にまとめてある。必要になったら読むこと。
+## Merging (`--merge`)
 
-### GraphQL が使えない環境
+- Merge, once the conditions in step 5 are met, only when the arguments contain `--merge` or the user explicitly asks for the merge (e.g. "review and merge it").
+- Otherwise, report "ready to merge" when the conditions are met and stop, without merging or deleting the branch. "Review this", "look at the PR" and "check whether it can be merged" are not requests to merge.
+- When in doubt, do not merge: it is hard to undo.
 
-クラウド版 Claude Code などでは、GitHub の GraphQL API が `HTTP 403: GitHub GraphQL is not available ...` で拒否され、`gh api graphql` と、内部で GraphQL を使う `gh pr view`・`gh pr checks`・`gh pr list`・`gh pr review`・`gh pr comment`・`gh pr merge`・`gh issue view` が失敗する。その場合は REST の `gh api repos/...` で代替する（`gh pr diff` は使える）。主な代替は次のとおりで、詳しい手順は `references/github-commands.md` の各章の「GraphQL が使えない環境では」にある。
+## Language
 
-| 用途 | 通常 | GraphQL が使えない環境 |
-|---|---|---|
-| PRの情報 | `gh pr view` | `gh api repos/OWNER/REPO/pulls/NUMBER` |
-| CIの状態 | `gh pr checks` | `gh api repos/OWNER/REPO/commits/HEAD_SHA/check-runs` と `.../commits/HEAD_SHA/status` |
-| 最近のPR | `gh pr list` | `gh api "repos/OWNER/REPO/pulls?state=all&per_page=5"` |
-| スレッドの一覧 | GraphQL の `reviewThreads` | `gh api repos/OWNER/REPO/pulls/NUMBER/ccr/review_threads`（CCR ルート） |
-| スレッドへの返信 | GraphQL の `addPullRequestReviewThreadReply` | `gh api repos/OWNER/REPO/pulls/NUMBER/comments/ROOT_COMMENT_ID/replies -X POST -f body=...` |
-| resolve | GraphQL の `resolveReviewThread` | `gh api repos/OWNER/REPO/pulls/NUMBER/ccr/comments/ROOT_COMMENT_ID/resolve -X POST`（CCR ルート） |
-| PRへのコメント | `gh pr comment` | `gh api repos/OWNER/REPO/issues/NUMBER/comments -X POST -f body=...` |
-| Approve | `gh pr review --approve` | `gh api repos/OWNER/REPO/pulls/NUMBER/reviews -X POST -f event=APPROVE -f body=...` |
-| issueの確認 | `gh issue view` | `gh api repos/OWNER/REPO/issues/ISSUE_NUMBER` |
-| issueに対応するPR | GraphQL の `closedByPullRequestsReferences` | `gh api repos/OWNER/REPO/issues/ISSUE_NUMBER/timeline` の `cross-referenced` イベント |
-| マージ | `gh pr merge` | `gh api repos/OWNER/REPO/pulls/NUMBER/merge -X PUT -f merge_method=... -f sha=HEAD_SHA` |
+- Comments posted on the PR follow the language of the repository's recent PR descriptions and review comments; if there are none, use the user's language.
+- Chat reports and questions use the user's language, even when the PR comments are in another language. Finding titles may be quoted as they are.
 
-CCR ルートはクラウドのプロキシ経由でしか使えない。GraphQL が使える環境では、従来どおりの手順を使う。
+## 0. When given an issue: wait for its PR
 
-## 0. issueを渡された場合: PRができるまで待つ
+When given an issue number or URL instead of a PR, monitor until the PR for that issue is created, then continue from step 1. Read "Waiting for a PR from an issue" in `references/monitoring.md` for how to find the PR, the interval, drafts, several candidates and when to stop.
 
-PRではなくissueの番号やURLを渡された場合は、そのissueに対応するPRが作られるまで監視し、PRが見つかったら1章から進める。
+Use the issue during the review too: check that the PR meets the issue's requirements and has no unrelated changes.
 
-- **PRの見つけ方**: issueにリンクされたPR（`Closes #123` などでissueを閉じる予定のPR、issueのタイムラインで参照しているPR）を探す。コマンドは `references/github-commands.md` の「issueに対応するPRを探す」にある。
-- **確認の間隔**: PRの作成には時間がかかることが多いので、**30分ごと**を目安にする。issueの更新はPRのイベント通知では受け取れないため、定期確認で見る。
-- **見つかったPRがdraftの場合**: 作業中とみなし、ready for reviewになるまで待ち続ける。この場合はユーザーに確認しなくてよい（PRができるまで待つことを、すでに頼まれているため）。
-- **候補が複数ある場合**: オープンなPRが複数見つかったら、どれをレビューするかユーザーに聞く。
-- **終了条件**: 24時間たってもPRができない場合、またはPRがないままissueがクローズされた場合は、監視をやめてユーザーに報告する。
-- PRが見つかったら、どのPRをレビューするかをチャットで短く報告してから、レビューに入る。
+## 1. Prepare
 
-issueの内容は、レビューのときにも使う。PRがissueの要件を満たしているか、関係のない変更が混ざっていないかも確認する。
+- Get the PR description, base branch, head SHA, draft state and CI state (`gh pr view`).
+- Get the diff (`gh pr diff`) and read the surrounding code as needed; the diff alone hides broken callers and invariants.
+- Check the repository's conventions: `CLAUDE.md`, `CONTRIBUTING.md`, templates under `.github/`, linter and formatter settings. They take precedence over general review criteria.
+- Decide the comment language (see "Language").
+- If the PR is a draft, or already merged or closed, ask the user before reviewing.
 
-## 1. 準備
+## 2. Review
 
-- `gh pr view` でPRの本文、ベースブランチ、head SHA、draftかどうか、CIの状態を取得する。
-- `gh pr diff` で差分を取得する。差分の周辺のコードも必要に応じて読む。差分だけ見ると、呼び出し元や既存の不変条件を壊していることを見落としやすいため。
-- リポジトリの規約を確認する: `CLAUDE.md`、`CONTRIBUTING.md`、`.github/` 配下のテンプレート、linterやformatterの設定など。規約がある場合は、一般的なレビュー観点より優先する。
-- **コメントの言語**: そのリポジトリの最近のPRの本文やレビューコメントの言語にならう。参考になるものがなければ日本語にする。これはPRに投稿するコメントの言語であり、チャットでユーザーに返す言語は常に日本語にする（「ユーザーへの報告」を参照）。
-- PRがdraftの場合や、すでにマージ済み・クローズ済みの場合は、レビューに入る前にユーザーに確認する。
+Read `references/review-guidelines.md` before starting. In short:
 
-## 2. レビュー
+- Point out only real problems. Do not invent findings; if there is no problem, "no findings" is the correct result. Padding buries the findings that matter.
+- Do not point out what linters or formatters catch.
+- For each finding, write what the problem is, why (which input or situation causes what), and what to do.
+- Check that the PR description does not contradict the implementation (see step 5).
+- Label each finding with a priority (`P0 (Critical)` to `P3 (Low)`, or `Question`) as defined in `references/review-protocol.md`. Every finding thread, `Question` included, must be resolved in the end.
 
-レビュー観点と優先度の判断基準は `references/review-guidelines.md` にある。レビューを始める前に必ず読むこと。
+## 3. Post
 
-要点は次のとおり。
+Post the inline comments and the summary as **one review** with the event `COMMENT`, so the author gets one notification. Formats are in `references/comment-format.md`.
 
-- 実際に問題があるものだけを指摘する。指摘を無理に作り出す必要はない。問題がなければ「指摘なし」が正しい結果である。水増しされた指摘は、本当に重要な指摘を埋もれさせてしまう。
-- linterやformatterで検出できる内容は指摘しない。
-- 指摘ごとに、何が問題か、なぜ問題か（どういう入力や状況で何が起きるか）、どうすればよいかを書く。
-- PRの本文と実装が矛盾していないかも確認する（詳しくは5章）。
+- Use `COMMENT`: when the author and the reviewer are the same account, Approve and Request changes are not available. With different accounts, Approve is posted later (step 5).
+- Put each finding as an inline comment on its line. A finding not tied to a line (a contradiction with the PR description, the layout of a whole file) goes on the most related changed line or as a file-level comment, so it becomes a thread that can be resolved; plain PR comments cannot.
+- A `suggestion` block is fine for a short, clear fix. It is a proposal the author can accept; this skill still does not change the code.
+- **End every comment this skill posts** (inline, summary, replies) with `<!-- pr-review -->`. The author may be the same account, so the marker is how both sides tell comments apart; treat comments without it as the author's (or another reviewer's).
+- **Always post a review, even with no findings**, with the completion marker `<!-- review-complete -->` before `<!-- pr-review -->`. Never put the completion marker on a review with findings or questions.
 
-### 優先度
+## 4. Monitor
 
-| ラベル | 意味 | 対応 |
-|---|---|---|
-| `P0 (Critical)` | セキュリティ問題、データ破損・消失、本番障害、ビルドやデプロイが壊れる | このPRで修正必須。issue化での先送りは不可 |
-| `P1 (High)` | 明確なバグ、仕様との不一致、重要なケースのテスト漏れ | 原則このPRで修正。理由があればissue化での先送りも可 |
-| `P2 (Medium)` | 保守性・性能・設計の改善 | 修正、またはissue化で可 |
-| `P3 (Low)` | 命名、軽微なリファクタ、好みの問題 | 任意。理由付きで見送りも可 |
-| `Question` | 意図や前提の質問 | 回答が必要 |
+After posting, wait for updates as described in `references/monitoring.md` (event subscription with a 15-minute poll, or a 15-minute poll alone), and check the whole PR state each time.
 
-すべての指摘スレッドは、最終的にresolveされる必要がある（Questionも含む）。
+### On new commits
 
-## 3. 投稿
+- Read the diff from the last checked SHA to the new one.
+- Check that unresolved findings are fixed and that the fixes add no new problems.
+- Post new problems as new findings with priorities, as one review again. **Post them before resolving existing threads**: with the same account, `issue-to-pr` treats "all threads resolved" as done, so resolving first could end its monitoring before the new findings arrive.
+- If an existing finding's fix is sound, reply with the commit that fixed it, then resolve the thread. If not, reply with the reason and leave it open.
 
-インラインコメントと全体サマリーを、**1つのレビュー**としてまとめて投稿する。こうすることで、作者に届く通知が1回にまとまる。
+### On replies in threads
 
-- 指摘を投稿するレビューのイベントは `COMMENT` にする。PRの作者とレビュアーが同じGitHubアカウントの場合、Approve（承認）やRequest changes（変更要求）は使えないため。アカウントが分かれている場合は、5章の条件を満たしたときに改めて Approve を投稿する。
-- 指摘は該当する行へのインラインコメントにする。行に紐づかない指摘（PRの本文との矛盾、ファイル全体の構成など）は、最も関係の深い変更行か、ファイル単位のコメントに付ける。resolveできるスレッドにしておくためで、通常のPRコメントはresolveできない。
-- 修正案が短く明確な場合は、`suggestion` ブロックを使ってよい。ただし、これは作者が採用するかどうかを選べる提案であり、こちらがコードを修正するわけではない。
+Handle each reply as in "Replies" in `references/review-protocol.md`: check a fix in the code; for a deferral, check that the issue exists and covers the finding (a `P0` cannot be deferred; for a `P1`, check the reason), and never create the issue yourself; resolve a decline if convinced, otherwise reply with the reason, and ask the user if you cannot judge; resolve a `Question` when the answer settles it, posting any problem it reveals as a new finding first.
 
-### 自分のコメントを識別するマーカー
+Resolve only threads this skill opened (with the marker). Do not touch other reviewers' threads.
 
-作者とレビュアーが同じアカウントのため、ログイン名ではどちらのコメントか区別できない。そこで、このスキルが投稿するすべてのコメント（インライン、サマリー、返信）の末尾に、次のマーカーを付ける。
+## 5. Decide whether it can be merged
 
-```
-<!-- pr-review -->
-```
+The PR can be merged when all of these hold:
 
-スレッド内で、マーカーのないコメントは作者（または他のレビュアー）のものとして扱う。マーカーは自分の過去の指摘を見つけるためにも使う。
+1. Every finding thread this skill opened is resolved (deferred ones too, after checking the issue).
+2. No other reviewer's thread is unresolved and no Request changes remains. If one does, do not merge; ask the user.
+3. All CI checks pass. Wait for pending checks to finish.
+4. No conflicts, and branch protection rules (required approvals, etc.) are met. A required approval may be met by the Approve below.
+5. The PR is not a draft.
+6. **The PR description matches the implementation.** With a squash merge it becomes the commit message, so a description left stale by review changes leaves a wrong record. If it contradicts the implementation, post a new finding (usually P2; P1 if it misleads about behavior or compatibility) and wait for the update.
+7. The head SHA at merge time is the last one you checked, so unchecked commits are never merged.
 
-### インラインコメントの形式
+### Approve
 
-```markdown
-**[P1 (High)] 空の配列を渡すと例外が発生する**
+When the PR author and the account running this skill differ, post an Approve review (a short record that the conditions are met, with the marker) once every condition except 4 is met, **whether or not `--merge` was given**: `issue-to-pr` takes the latest non-author Approve as its completion signal, and it may also satisfy a required approval in condition 4. On the same account, Approve is impossible; all threads resolved (or the no-findings review with the completion marker) is the signal instead.
 
-`items` が空のとき、`items[0]` にアクセスして `IndexError` になります。
-`load_config()` からは空の配列が渡されることがあるため、実際に起こりえます。
+### Without `--merge`
 
-空の場合は早期 return するのがよさそうです。
+Report in chat that the PR can be merged and stop. Unsubscribe from PR events if subscribed.
 
-<!-- pr-review -->
-```
+### With `--merge`
 
-Questionの場合は `**[Question] ...**` とする。
+1. Check which merge methods the repository allows.
+2. Infer the method used for existing merged PRs from the base branch history and use the same one.
+3. If it cannot be inferred, choose from the allowed methods in the order merge → squash → rebase.
 
-### 全体サマリーの形式
+Before merging, leave a short PR comment (with the marker) that all conditions are met, so the history can be followed later. Merge pinned to the checked head SHA, then delete the branch (or leave it to the repository's automatic deletion). Unsubscribe from PR events if subscribed. If the merge fails (branch protection, missing approvals, etc.), do not work around it; report to the user.
 
-```markdown
-## レビュー結果
+## Reporting to the user
 
-| 優先度 | 件数 |
-|---|---|
-| P0 | 0 |
-| P1 | 1 |
-| P2 | 2 |
-| P3 | 0 |
-| Question | 1 |
+Report briefly in chat at each milestone, in the user's language:
 
-（全体的な所見を2〜3文で。良い点にも触れてよい）
-
-### マージ条件
-- P0は修正が必須です。P1は原則修正し、先送りする場合は理由とissueのURLをスレッドに返信してください
-- P2は修正するか、issueを作成してスレッドにURLを返信してください
-- P3は任意です。見送る場合は理由をスレッドに返信してください
-- Questionはスレッドに回答してください
-
-<!-- pr-review -->
-```
-
-指摘がない場合も、レビューは必ず投稿する。本文は「指摘はありません」と簡潔な所見だけにする（表は不要）。
-このとき、`<!-- pr-review -->` の前に完了マーカー `<!-- review-complete -->` も付ける。作者とレビュアーが同じアカウントの場合、issue-to-pr はこのマーカーを「レビュー完了・指摘なし」の合図にしている（スレッドがないため、resolveでは完了を伝えられない）。指摘や質問があるレビューには付けない。
-
-## 4. 監視
-
-投稿後は、PRの更新を待って対応を確認する。
-
-### 更新の受け取り方
-
-使える仕組みによって、次のどちらかにする。
-
-**A. PRのイベント通知が使える場合（クラウド版Claude Codeなど）**
-
-セッションにPRのGitHubアクティビティを購読する仕組み（auto-fixで使われるもの）があり、リポジトリにClaude GitHub Appが入っていれば、それでPRを購読する。レビューコメントへの返信やCIの失敗が、イベントとしてセッションに届く。
-
-ただし、この仕組みには次の注意点がある。
-
-- **自動修正はしない**: この仕組みは本来、auto-fix（作者側が自動で修正をpushする機能）のためのもの。このスキルではレビュアーとして使うので、イベントを受け取っても、コードの修正やpushは決してしない。購読の手段が「auto-fixをオンにする」しかない場合は、修正しない旨をはっきり伝えたうえで使うか、Bに切り替える。
-- **届かないイベントがある**: 届くのは主にレビューコメントとCIの失敗。新しいコミットのpush、CIの成功、コンフリクトの発生は届かない場合がある。作者が返信せずにpushだけすることもあるため、**Bの定期確認を15分ごとに併用する**。
-- **自分の投稿もイベントになる**: このスキルの返信やレビュー投稿もイベントとして届くことがある。マーカー付きのコメントによるイベントは無視する。
-
-**B. イベント通知が使えない場合**
-
-Claude Codeで使える待機の手段（`/loop`、`ScheduleWakeup`、Bashの `sleep` など）で、**15分ごと**に確認する。
-
-### 共通
-
-- 毎回の確認では、head SHA の変化、スレッドへの新しいコメント、CIの状態をチェックする。イベントで起こされた場合も、そのイベントだけでなくPR全体の状態を見る。イベントが重複したり、順番が前後したりすることがあるため。
-- **終了条件**: マージされたとき、クローズされたとき、`--merge` なしで5章の条件を満たしたとき、または24時間動きがないとき。打ち切る場合は、購読も解除し、その時点の状況（未解決のスレッド、待っている対応）をユーザーに報告する。
-
-### 新しいコミットがあったとき
-
-- 前回確認したSHAから新しいSHAまでの差分を読む。
-- 未解決の指摘が修正されているかと、修正によって新しい問題が入っていないかを確認する。
-- 新しい問題があれば、新しい指摘として通常どおり優先度を付けて投稿する（同じくレビューとしてまとめて投稿する）。**既存のスレッドをresolveする前に投稿する。** 作者とレビュアーが同じアカウントの場合、issue-to-pr は「スレッドがすべてresolve済み」を完了の合図にしているため、先にresolveすると、新しい指摘が届く前に完了と判定されてしまう。
-- 既存の指摘の修正が妥当なら、スレッドに確認した旨（どのコミットで直ったか）を返信してから、resolveする。
-- 修正が不十分な場合は、スレッドにその理由を返信し、resolveしない。
-
-### スレッドに返信があったとき
-
-- **修正した旨の返信**: コードを確認し、上記と同じように扱う。
-- **issueを作成した旨の返信**: `gh issue view` でissueが存在し、内容が指摘に対応していることを確認する。P0の場合は先送りできないため、その旨を返信する。P1の場合は先送りの理由が妥当かも確認する。問題なければresolveする。issueの作成は作者が行うものであり、こちらでは作成しない。
-- **反論や「意図通りです」という返信**: 説明に納得できればresolveする。納得できない場合は、理由を添えて返信する。判断がつかない場合はユーザーに聞く。
-- **Questionへの回答**: 回答で疑問が解消すればresolveする。回答から問題が見つかった場合は、新しい指摘として投稿したうえでQuestionはresolveする。
-
-resolveするのは、このスキルが立てたスレッド（マーカー付き）だけにする。他のレビュアーのスレッドは触らない。
-
-## 5. マージ判定
-
-次の条件をすべて満たしたら、マージ可能と判断する。
-
-1. このスキルが立てた指摘スレッドがすべてresolveされている（issue化して先送りしたものも、確認後にresolveしてある状態）。
-2. 他のレビュアーのスレッドに未解決のものがなく、Request changes も残っていない。残っている場合はマージせずにユーザーに聞く。
-3. CIがすべて成功している。保留中のチェックがあれば完了を待つ。
-4. コンフリクトがなく、ブランチ保護のルール（必須の承認など）を満たしている。必須の承認は、下記の Approve で満たされることがある。
-5. PRがdraftではない。
-6. **PRの本文が実装と一致している**。squashマージではPRの本文がコミットメッセージに含まれるため、レビュー対応で実装が変わって本文と食い違っていると、間違った記録が残ってしまう。矛盾していれば、新しい指摘（通常はP2、動作や互換性について誤解を招く内容ならP1）として投稿し、更新を待つ。
-7. 最後に確認したhead SHAとマージ時点のhead SHAが一致している。確認していないコミットをマージしないため。
-
-### 承認（Approve）
-
-PRの作者と、このスキルを動かしているアカウントが別の場合は、条件4以外をすべて満たした時点で Approve のレビューを投稿する。本文は条件を満たしたことの短い記録にし、マーカーを付ける。
-
-- issue-to-pr は、別アカウントの場合「作成者以外の最新レビューがApprove」を完了の合図にしている。そのため、`--merge` の有無にかかわらず投稿する。
-- ブランチ保護で承認が必須のリポジトリでも、この Approve で条件4を満たせることがある。
-- 同じアカウントの場合は Approve できないので投稿しない。スレッドがすべてresolveされていること（指摘がなかった場合は、3章の完了マーカー付きのレビュー）が完了の合図になる。
-
-### `--merge` がない場合
-
-マージ可能になったことをチャットで報告して終わる。PRのイベントを購読していた場合は、購読も解除する。
-
-### `--merge` がある場合: マージ方式
-
-1. リポジトリで許可されているマージ方式を確認する。
-2. 既存のマージ済みPRがどの方式でマージされたかを、ベースブランチの履歴から推定し、それに合わせる。
-3. 判断できない場合は、許可されている方式の中から merge → squash → rebase の順で選ぶ。
-
-マージ後はブランチを削除する。リポジトリで自動削除が設定されていれば、それに任せてよい。PRのイベントを購読していた場合は、購読も解除する。
-
-マージ直前に、条件をすべて満たしたことを短いコメント（マーカー付き）でPRに残してからマージする。後から経緯を追えるようにするため。
-
-マージに失敗した場合（ブランチ保護による拒否、必須の承認不足など）は、無理に回避せずにユーザーに報告する。
-
-## ユーザーへの報告
-
-チャットでは、節目ごとに簡潔に報告する。
-
-**チャットでの報告や質問は、常に日本語で書く。** PRに投稿するコメントの言語（リポジトリにならうので英語になることもある）とは別に扱う。PRのコメントが英語のときも、チャットでは日本語で報告する。指摘のタイトルなどを引用するときは、原文のまま引用してよい。
-
-- レビューを投稿したとき: 優先度ごとの件数と主な指摘
-- 監視中に判断が必要になったとき: 何について、どの選択肢で迷っているか
-- マージしたとき、マージ可能と判定したとき（`--merge` なし）、または監視を打ち切ったとき: 結果と残っている事項
+- After posting the review: the count per priority and the main findings
+- When a decision is needed while monitoring: what it is about and which options you are weighing
+- After merging, after deciding the PR can be merged (without `--merge`), or when monitoring stops: the result and what remains

@@ -1,71 +1,71 @@
-# レビュー観点と優先度の判断基準
+# Review criteria and how to set priorities
 
-## 基本姿勢
+## Stance
 
-- 目的は、マージ後に問題を起こすものを見つけること。粗探しではない。
-- 指摘の数に目標はない。問題がなければ「指摘なし」でよい。
-- 確信が持てない場合は、断定せずに Question（質問）にする。前提を誤解しているかもしれないため。
-- リポジトリの規約（`CLAUDE.md`、`CONTRIBUTING.md` など）がある場合は、一般論より優先する。
-- linterやformatter、型チェッカーで検出できるものは指摘しない。
+- The goal is to find what would cause problems after the merge, not to nitpick.
+- There is no target number of findings. If there is no problem, "no findings" is fine.
+- When not sure, ask a Question instead of asserting, because you may have misunderstood an assumption.
+- The repository's conventions (`CLAUDE.md`, `CONTRIBUTING.md`, etc.) take precedence over general practice.
+- Do not point out what linters, formatters or type checkers catch.
 
-## レビュー観点
+## What to look at
 
-上から順に重要度が高い傾向がある。ただし、優先度は観点ではなく影響の大きさで決める（後述）。
+Roughly in descending order of importance. The priority, however, comes from the impact, not from the category (see below).
 
-### 正しさ
-- 仕様やPRの説明どおりに動くか
-- 境界値、空の入力、null、大きな入力、異常系
-- 並行処理、競合状態、トランザクションの範囲
-- 既存の呼び出し元や不変条件を壊していないか（差分の外も確認する）
+### Correctness
+- Does it work as the spec and the PR description say?
+- Boundary values, empty input, null, large input, error paths
+- Concurrency, race conditions, transaction scope
+- Does it break existing callers or invariants? (Look beyond the diff too.)
 
-### セキュリティ
-- 入力の検証、インジェクション（SQL、コマンド、パス）
-- 認証・認可の漏れ
-- 秘密情報（トークン、パスワード、鍵）のハードコードやログ出力
-- 依存パッケージの追加と、その妥当性
+### Security
+- Input validation, injection (SQL, command, path)
+- Missing authentication or authorization
+- Hard-coded or logged secrets (tokens, passwords, keys)
+- New dependencies and whether they are justified
 
-### エラー処理
-- 例外の握りつぶし、エラーの見落とし
-- 失敗時の状態（中途半端な書き込み、リソースの解放漏れ）
-- ユーザーや運用者が原因を追えるか
+### Error handling
+- Swallowed exceptions, ignored errors
+- State on failure (partial writes, leaked resources)
+- Can users and operators trace the cause?
 
-### データと互換性
-- DBマイグレーションの安全性（ロールバック、既存データ、ロック時間）
-- API、設定、ファイル形式の後方互換性
-- 破壊的変更がPRの本文に明記されているか
+### Data and compatibility
+- Safety of DB migrations (rollback, existing data, lock duration)
+- Backward compatibility of APIs, configuration and file formats
+- Are breaking changes stated in the PR description?
 
-### テスト
-- 変更の主要なケースと重要なエッジケースがテストされているか
-- テストが実装の詳細に依存しすぎていないか、不安定（flaky）ではないか
+### Tests
+- Are the main cases and the important edge cases of the change tested?
+- Do the tests depend too much on implementation details, or are they flaky?
 
-### 性能
-- 明らかな計算量の問題、N+1クエリ、不要なループ内のI/O
-- 実際に問題になる規模のデータで動くか（ありえない規模を前提にした指摘はしない）
+### Performance
+- Obvious complexity problems, N+1 queries, needless I/O in loops
+- Does it work with data at a scale that actually matters? (Do not raise findings that assume an unrealistic scale.)
 
-### 保守性・可読性
-- 意図が読み取れるか、重複、責務の分け方
-- 既存のコードベースの書き方との一貫性
+### Maintainability and readability
+- Is the intent readable? Duplication, separation of responsibilities
+- Consistency with the existing code base
 
-### PRの本文
-- 本文と実装が一致しているか（squashマージ時にコミットメッセージになるため）
+### PR description
+- Does the description match the implementation? (With a squash merge it becomes the commit message.)
 
-## 優先度の決め方
+## Setting the priority
 
-観点ではなく、**放置したときに何が起きるか**で決める。
+Decide by **what happens if it is left as is**, not by the category.
 
-| 優先度 | 判断の目安 | 例 |
+| Priority | Rule of thumb | Examples |
 |---|---|---|
-| P0 (Critical) | マージすると、すぐに重大な害が出る | 認可チェックの欠落、データを消すバグ、ビルドが通らない、秘密情報のコミット |
-| P1 (High) | 現実的な条件で誤動作する、または仕様を満たさない | 特定の入力で例外になる、境界値の誤り、主要な処理にテストがない |
-| P2 (Medium) | 今は動くが、将来の変更や運用で問題になりやすい | 重複したロジック、エラーメッセージが不十分、明らかな非効率 |
-| P3 (Low) | 改善するとよいが、しなくても困らない | 命名、小さなリファクタ、コメントの追加 |
-| Question | 判断に必要な情報が足りない | 「この分岐は意図したものですか？」 |
+| P0 (Critical) | Merging causes serious harm right away | Missing authorization check, a bug that deletes data, the build fails, a committed secret |
+| P1 (High) | Misbehaves under realistic conditions, or does not meet the spec | An exception on certain input, a wrong boundary, no tests for the main path |
+| P2 (Medium) | Works now, but likely to cause trouble with future changes or in operation | Duplicated logic, insufficient error messages, obvious inefficiency |
+| P3 (Low) | Nice to improve, no harm if not | Naming, a small refactoring, adding a comment |
+| Question | Not enough information to judge | "Is this branch intended?" |
 
-迷ったときは、低い方を選ぶ。優先度を高く付けすぎると、作者の時間を不必要に使わせてしまい、本当に重要な指摘の重みも下がる。
+When unsure, pick the lower one. A priority set too high wastes the author's time and dilutes the weight of the findings that really matter.
 
-## 指摘の書き方
+## Writing a finding
 
-- 1つの指摘には1つの問題だけを書く。
-- 「何が」「なぜ（どういう条件で何が起きるか）」「どうすれば」を書く。
-- 推測で書く場合は、推測であることを明記する。
-- 命令口調ではなく、提案の形で書く。
+- One finding, one problem.
+- Write what, why (under which conditions what happens), and how to fix it.
+- When guessing, say that it is a guess.
+- Write it as a suggestion, not a command.
