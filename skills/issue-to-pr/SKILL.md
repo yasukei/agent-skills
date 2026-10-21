@@ -82,7 +82,7 @@ Before opening the PR, ask **a sub-agent with an independent context that does n
 ## 5. Open the PR
 
 - **Do not open it as a draft**; publish it directly.
-- Use the repository's PR template (e.g. `.github/pull_request_template.md`) if there is one; otherwise use `assets/pr-template.md`. Keep its section headings in English and write the body following "Language".
+- Use the repository's PR template (e.g. `.github/pull_request_template.md`) if there is one; keep its headings as they are. Otherwise use `assets/pr-template.md` with its headings kept in English. Write the body following "Language".
 - Set "Related issue" to `Closes #<number>`.
 - Check only the testing boxes you actually did.
 - In "Review focus", honestly list the parts you are unsure about and the design decisions, so the reviewer spends time there.
