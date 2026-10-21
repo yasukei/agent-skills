@@ -1,6 +1,6 @@
 # Cloud environments
 
-Notes on using these skills in cloud environments (Claude Code on the web, Codex Cloud). Each finding is dated, because the environments change.
+Notes on using these skills in cloud environments (Claude Code on the web, Codex Cloud). Verified findings carry their date, because the environments change.
 
 ## Claude Code on the web and plugins
 

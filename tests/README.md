@@ -5,10 +5,10 @@ CI ([.github/workflows/ci.yml](../.github/workflows/ci.yml)) runs these on every
 ```bash
 scripts/validate-skills.py      # validate SKILL.md
 scripts/check-plugin-policy.py  # policy check of the four Claude / ChatGPT / Codex manifests
-claude plugin validate .        # schema validation of the manifests in .claude-plugin/ (needs Claude Code)
 tests/run.sh                    # lint and all tests
 tests/run.sh lint               # bash -n and shellcheck only
 tests/run.sh test               # tests only
+claude plugin validate .        # schema validation of the manifests in .claude-plugin/ (needs Claude Code)
 ```
 
 ## Required tools
@@ -21,7 +21,7 @@ Checks each skill directly under `skills/`. On problems, prints the file and fie
 
 - `SKILL.md` exists and starts with a YAML frontmatter.
 - `name` matches the directory name and uses only lowercase letters, digits and hyphens, at most 64 characters (no leading, trailing or consecutive hyphens). `description` is non-empty and at most 1024 characters. These follow the [Agent Skills spec](https://agentskills.io/specification).
-- The `references/`, `scripts/` and `assets/` paths and the relative Markdown link targets in the body exist in that skill's directory.
+- The `references/`, `scripts/` and `assets/` paths and the relative Markdown link targets in the body exist in that skill's directory; a link pointing outside it is an error, because skills are installed one directory at a time.
 - Files under `scripts/` are executable.
 
 ## `scripts/check-plugin-policy.py`
