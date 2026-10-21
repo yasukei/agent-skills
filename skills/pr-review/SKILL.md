@@ -24,9 +24,9 @@ Read these when the step needs them:
 
 - `references/review-protocol.md`: the contract with `issue-to-pr` (markers, priority labels, replies, completion signals). Read it before reviewing.
 - `references/review-guidelines.md`: what to look at and how to set priorities. Read it before reviewing.
-- `references/comment-format.md`: how to post the review, and the formats of inline comments, the summary, the no-findings review and replies. Read it before posting.
-- `references/monitoring.md`: how to receive updates, how to check new commits and replies, and when to stop. Read it before monitoring.
-- `references/merging.md`: the merge conditions in detail, Approve, and the merge procedure. Read it before deciding (step 5).
+- `references/comment-format.md`: how to post the review, and the comment formats. Read it before posting.
+- `references/monitoring.md`: receiving updates, checking new commits and replies, and when to stop. Read it before monitoring.
+- `references/merging.md`: the merge conditions, Approve and merging. Read it before step 5.
 - `references/github-commands.md`: commands for each step. If `gh` fails with `HTTP 403` saying GraphQL is not available, use the REST commands there.
 
 ## Merging (`--merge`)
@@ -49,7 +49,7 @@ Use the issue during the review too: check that the PR meets the issue's require
 ## 1. Prepare
 
 - Get the PR description, base branch, head SHA, draft state, CI state and diff, and read the surrounding code as needed; the diff alone hides broken callers and invariants.
-- The repository's conventions (`CLAUDE.md`, `CONTRIBUTING.md`, templates under `.github/`, linter and formatter settings) take precedence over general review criteria.
+- Read the repository's conventions (`CLAUDE.md`, `CONTRIBUTING.md`, `.github/` templates, linter and formatter settings); they take precedence over general review criteria.
 - Decide the comment language (see "Language").
 - If the PR is a draft, or already merged or closed, ask the user before reviewing.
 
@@ -70,7 +70,7 @@ Post the inline comments and the summary as **one review** with the event `COMME
 Wait for updates as in `references/monitoring.md` (event subscription with a 15-minute poll, or a 15-minute poll alone), check the whole PR state each time, and handle new commits and replies as it describes. In short:
 
 - Post new findings as one review **before resolving existing threads**: with the same account, `issue-to-pr` treats "all threads resolved" as done.
-- Resolve a thread only after confirming its fix and replying with the fixing commit, and only threads this skill opened.
+- Resolve threads as in "Replies" in `references/review-protocol.md` (a sound fix, an accepted deferral or decline, an answered Question), and only threads this skill opened.
 - A `P0` cannot be deferred. Never create the deferral issue yourself; ask the user when you cannot judge a decline.
 
 ## 5. Decide whether it can be merged
