@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "agent-skills",
-  "description": "issue の起票、issue からの PR 作成、PR のレビューを行うスキル集",
+  "description": "Skills for writing GitHub issues, implementing them as PRs, and reviewing PRs",
   "author": {
     "name": "yasukei"
   },

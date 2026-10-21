@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# scripts/validate-skills.py のテスト。
-# 一時ディレクトリに正しいスキルを作り、1か所ずつ壊して検証が失敗し、問題の箇所が出力されることを確かめる。
+# Tests for scripts/validate-skills.py.
+# Create a valid skill in a temporary directory, break one thing at a time, and check that validation fails and reports where.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -11,11 +11,11 @@ SCRIPT="$ROOT/scripts/validate-skills.py"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-# 正しいスキルを1つだけ持つ skills ディレクトリを $WORK/skills に作り直す。
-# 引数は SKILL.md の frontmatter の中身（省略時は正しいもの）
+# Recreate $WORK/skills as a skills directory with a single valid skill.
+# The argument is the content of the SKILL.md frontmatter (default: a valid one)
 make_skill() {
   local front="${1:-name: my-skill
-description: テスト用のスキル。}"
+description: A skill for tests.}"
   rm -rf "$WORK/skills"
   mkdir -p "$WORK/skills/my-skill/references" "$WORK/skills/my-skill/scripts" "$WORK/skills/my-skill/assets"
   cat >"$WORK/skills/my-skill/SKILL.md" <<EOF
@@ -25,8 +25,8 @@ $front
 
 # my-skill
 
-詳しくは \`references/guide.md\` を読む。テンプレートは [こちら](assets/template.md#usage)。
-\`scripts/run.sh\` を実行する。外部の [仕様](https://agentskills.io/specification) と [見出し](#my-skill) は対象外。
+See \`references/guide.md\`. The template is [here](assets/template.md#usage).
+Run \`scripts/run.sh\`. The external [spec](https://agentskills.io/specification) and the [heading](#my-skill) are not checked.
 EOF
   echo guide >"$WORK/skills/my-skill/references/guide.md"
   echo template >"$WORK/skills/my-skill/assets/template.md"
@@ -34,7 +34,7 @@ EOF
   chmod +x "$WORK/skills/my-skill/scripts/run.sh"
 }
 
-# 検証を実行し、OUT・ERR・RC に結果を入れる。引数は skills ディレクトリ（省略時は $WORK/skills）
+# Run the validation and store the results in OUT, ERR and RC. The argument is the skills directory (default $WORK/skills)
 run_validate() {
   RC=0
   "$SCRIPT" "${1:-$WORK/skills}" >"$WORK/out" 2>"$WORK/err" || RC=$?
@@ -42,160 +42,161 @@ run_validate() {
   ERR="$(cat "$WORK/err")"
 }
 
-# 検証が失敗し、標準エラーに期待する文字列が出ていることを確かめる
+# Check that validation fails and stderr contains the expected string
 assert_fails_with() {
-  assert_eq 1 "$RC" "終了コード"
-  assert_contains "$ERR" "$1" "エラー出力"
+  assert_eq 1 "$RC" "exit status"
+  assert_contains "$ERR" "$1" "stderr"
 }
 
 # ---------------------------------------------------------------------------
-t "このリポジトリのスキル"
+t "this repository's skills"
 run_validate "$ROOT/skills"
-assert_eq 0 "$RC" "終了コード（$ERR）"
-assert_contains "$OUT" "create-issue, issue-to-pr, pr-review" "検証したスキル"
+assert_eq 0 "$RC" "exit status ($ERR)"
+assert_contains "$OUT" "create-issue, issue-to-pr, pr-review" "validated skills"
 
 # ---------------------------------------------------------------------------
-t "正しいスキル"
+t "valid skill"
 make_skill
 run_validate
-assert_eq 0 "$RC" "終了コード（$ERR）"
-assert_contains "$OUT" "1 skills ok: my-skill" "標準出力"
+assert_eq 0 "$RC" "exit status ($ERR)"
+assert_contains "$OUT" "1 skills ok: my-skill" "stdout"
 
 # ---------------------------------------------------------------------------
-t "引数なしでリポジトリの skills/ を検証する"
+t "validates the repository's skills/ when given no argument"
 RC=0
 (cd "$WORK" && "$SCRIPT") >"$WORK/out" 2>"$WORK/err" || RC=$?
-assert_eq 0 "$RC" "終了コード"
-assert_contains "$(cat "$WORK/out")" "create-issue, issue-to-pr, pr-review" "検証したスキル"
+assert_eq 0 "$RC" "exit status"
+assert_contains "$(cat "$WORK/out")" "create-issue, issue-to-pr, pr-review" "validated skills"
 
 # ---------------------------------------------------------------------------
-t "name が引用符付き"
+t "name is quoted"
 make_skill 'name: "my-skill"
-description: テスト用のスキル。'
+description: A skill for tests.'
 run_validate
-assert_eq 0 "$RC" "終了コード（$ERR）"
+assert_eq 0 "$RC" "exit status ($ERR)"
 
 # ---------------------------------------------------------------------------
-t "description がない"
+t "description is missing"
 make_skill 'name: my-skill'
 run_validate
-assert_fails_with "skills/my-skill/SKILL.md: description: ありません"
+assert_fails_with "skills/my-skill/SKILL.md: description: missing"
 
 # ---------------------------------------------------------------------------
-t "description が空"
+t "description is empty"
 make_skill 'name: my-skill
 description: ""'
 run_validate
-assert_fails_with "skills/my-skill/SKILL.md: description: 空です"
+assert_fails_with "skills/my-skill/SKILL.md: description: empty"
 
 # ---------------------------------------------------------------------------
-t "description が1024文字を超える"
+t "description is longer than 1024 characters"
 make_skill "name: my-skill
 description: $(printf 'a%.0s' $(seq 1025))"
 run_validate
-assert_fails_with "skills/my-skill/SKILL.md: description: 1024文字を超えています（1025文字）"
+assert_fails_with "skills/my-skill/SKILL.md: description: longer than 1024 characters (1025)"
 
 # ---------------------------------------------------------------------------
-t "name がない"
-make_skill 'description: テスト用のスキル。'
+t "name is missing"
+make_skill 'description: A skill for tests.'
 run_validate
-assert_fails_with "skills/my-skill/SKILL.md: name: ありません"
+assert_fails_with "skills/my-skill/SKILL.md: name: missing"
 
 # ---------------------------------------------------------------------------
-t "name がディレクトリ名と一致しない"
+t "name does not match the directory name"
 make_skill 'name: other-skill
-description: テスト用のスキル。'
+description: A skill for tests.'
 run_validate
-assert_fails_with "skills/my-skill/SKILL.md: name: ディレクトリ名 'my-skill' と一致しません: 'other-skill'"
+assert_fails_with "skills/my-skill/SKILL.md: name: does not match the directory name 'my-skill': 'other-skill'"
 
 # ---------------------------------------------------------------------------
-t "name の形式が不正"
+t "name has an invalid format"
 for bad in My-Skill my_skill -my-skill my-skill- my--skill; do
   make_skill "name: \"$bad\"
-description: テスト用のスキル。"
+description: A skill for tests."
   run_validate
-  assert_fails_with "name: 英小文字・数字・ハイフンだけで書き"
-  assert_contains "$ERR" "'$bad'" "不正な name を表示する"
+  assert_fails_with "name: use only lowercase letters, digits and hyphens"
+  assert_contains "$ERR" "'$bad'" "shows the invalid name"
 done
 
 # ---------------------------------------------------------------------------
-t "name が64文字を超える"
+t "name is longer than 64 characters"
 long="$(printf 'a%.0s' $(seq 65))"
 make_skill "name: $long
-description: テスト用のスキル。"
+description: A skill for tests."
 mv "$WORK/skills/my-skill" "$WORK/skills/$long"
 run_validate
-assert_fails_with "name: 64文字を超えています（65文字）"
+assert_fails_with "name: longer than 64 characters (65)"
 
 # ---------------------------------------------------------------------------
-t "frontmatter で始まっていない"
+t "does not start with a frontmatter"
 make_skill
 sed -i '1d' "$WORK/skills/my-skill/SKILL.md"
 run_validate
-assert_fails_with "skills/my-skill/SKILL.md: '---' で囲んだ YAML の frontmatter で始まっていません"
+assert_fails_with "skills/my-skill/SKILL.md: does not start with a YAML frontmatter enclosed in '---'"
 
 # ---------------------------------------------------------------------------
-t "frontmatter が YAML として解析できない"
+t "frontmatter cannot be parsed as YAML"
 make_skill 'name: [my-skill
-description: テスト用のスキル。'
+description: A skill for tests.'
 run_validate
-assert_fails_with "skills/my-skill/SKILL.md: frontmatter を YAML として解析できません"
+assert_fails_with "skills/my-skill/SKILL.md: cannot parse the frontmatter as YAML"
 
 # ---------------------------------------------------------------------------
-t "SKILL.md がない"
+t "SKILL.md is missing"
 make_skill
 mkdir "$WORK/skills/empty-skill"
 run_validate
-assert_fails_with "skills/empty-skill/SKILL.md: ありません"
+assert_fails_with "skills/empty-skill/SKILL.md: not found"
 
 # ---------------------------------------------------------------------------
-t "references/ のファイルが存在しない"
+t "file under references/ does not exist"
 make_skill
 rm "$WORK/skills/my-skill/references/guide.md"
 run_validate
-assert_fails_with "skills/my-skill/SKILL.md: 参照 references/guide.md: ファイルがありません"
+assert_fails_with "skills/my-skill/SKILL.md: reference references/guide.md: file not found"
 
 # ---------------------------------------------------------------------------
-t "日本語の直後にある参照も検証する"
+t "checks a reference right after Japanese text"
 make_skill
-echo '詳細はreferences/missing.mdを読む。' >>"$WORK/skills/my-skill/SKILL.md"
+# Japanese text ("see references/missing.md") written as UTF-8 escapes, so the source stays ASCII
+printf '\xe8\xa9\xb3\xe7\xb4\xb0\xe3\x81\xafreferences/missing.md\xe3\x82\x92\xe8\xaa\xad\xe3\x82\x80\xe3\x80\x82\n' >>"$WORK/skills/my-skill/SKILL.md"
 run_validate
-assert_fails_with "skills/my-skill/SKILL.md: 参照 references/missing.md: ファイルがありません"
+assert_fails_with "skills/my-skill/SKILL.md: reference references/missing.md: file not found"
 
 # ---------------------------------------------------------------------------
-t "Markdown のリンク先が存在しない"
+t "Markdown link target does not exist"
 make_skill
 rm "$WORK/skills/my-skill/assets/template.md"
 run_validate
-assert_fails_with "skills/my-skill/SKILL.md: 参照 assets/template.md: ファイルがありません"
+assert_fails_with "skills/my-skill/SKILL.md: reference assets/template.md: file not found"
 
 # ---------------------------------------------------------------------------
-t "リンク先がスキルのディレクトリの外"
+t "link target is outside the skill directory"
 make_skill
 echo '[README](../../README.md)' >>"$WORK/skills/my-skill/SKILL.md"
 run_validate
-assert_fails_with "skills/my-skill/SKILL.md: 参照 ../../README.md: スキルのディレクトリの外を指しています"
+assert_fails_with "skills/my-skill/SKILL.md: reference ../../README.md: points outside the skill directory"
 
 # ---------------------------------------------------------------------------
-t "scripts/ のファイルに実行権限がない"
+t "file under scripts/ is not executable"
 make_skill
 chmod -x "$WORK/skills/my-skill/scripts/run.sh"
 run_validate
-assert_fails_with "skills/my-skill/scripts/run.sh: 実行権限がありません"
+assert_fails_with "skills/my-skill/scripts/run.sh: not executable"
 
 # ---------------------------------------------------------------------------
-t "問題が複数あればすべて出力する"
+t "reports every problem when there are several"
 make_skill 'name: other-skill'
 chmod -x "$WORK/skills/my-skill/scripts/run.sh"
 run_validate
-assert_fails_with "name: ディレクトリ名 'my-skill' と一致しません"
-assert_contains "$ERR" "description: ありません" "description"
-assert_contains "$ERR" "scripts/run.sh: 実行権限がありません" "実行権限"
-assert_contains "$ERR" "3 件の問題があります" "件数"
+assert_fails_with "name: does not match the directory name 'my-skill'"
+assert_contains "$ERR" "description: missing" "description"
+assert_contains "$ERR" "scripts/run.sh: not executable" "executable bit"
+assert_contains "$ERR" "3 problem(s) found" "count"
 
 # ---------------------------------------------------------------------------
-t "不正な引数"
+t "invalid argument"
 run_validate "$WORK/no-such-dir"
-assert_fails_with "ディレクトリがありません"
+assert_fails_with "directory not found"
 
 done_testing

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# scripts/*.sh と skills/*/scripts/*.sh（とテスト自身）に bash -n と shellcheck をかける。
+# Run bash -n and shellcheck on scripts/*.sh and skills/*/scripts/*.sh (and the tests themselves).
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# 該当するファイルがないパターンは、パターンの文字列のまま渡さず無視する
+# Ignore patterns that match no file instead of passing the pattern string itself
 shopt -s nullglob
 files=(scripts/*.sh skills/*/scripts/*.sh tests/*.sh tests/fake-bin/gh)
 
@@ -14,9 +14,9 @@ done
 echo "bash -n: ${#files[@]} files ok"
 
 if ! command -v shellcheck >/dev/null 2>&1; then
-  echo "shellcheck が見つかりません" >&2
+  echo "shellcheck not found" >&2
   exit 1
 fi
-# lib.sh は source される前提なので、shell を明示する
+# lib.sh is meant to be sourced, so specify the shell explicitly
 shellcheck --shell=bash "${files[@]}"
 echo "shellcheck: ${#files[@]} files ok"
