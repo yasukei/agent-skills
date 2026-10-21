@@ -1,156 +1,73 @@
 ---
 name: "create-issue"
-description: GitHubのissueを起票するときの書き方（タスク用・不具合用のテンプレート、タイトル、ラベル、依存関係の書き方）。「issueを作って」「issueに起こして」「これをissueにしておいて」「バグ報告を書いて」「タスクを分割してissueにして」など、GitHubにissueを新規作成する・issue本文を下書きするときは必ず使うこと。リポジトリにissueテンプレートがあればそちらを優先する。issueを実装する作業（issue-to-pr）やPRのレビュー（pr-review）には使わない。
+description: Write and create GitHub issues in a fixed format (task and bug templates, title, labels, dependencies). Use when asked to create or draft an issue (e.g. 「issueを作って」「これをissueにしておいて」「バグ報告を書いて」「タスクを分割してissueにして」). A repository's own issue template takes precedence. Not for implementing an issue (use issue-to-pr) or reviewing a PR (use pr-review).
 ---
 
-# GitHub issue の作成
+# create-issue
 
-ユーザーが決めた書式でissueを書くためのスキル。目的は「毎回同じ構成で、読めばそのまま着手・完了判定できるissue」を作ること。特に Acceptance criteria は、後で issue-to-pr などで実装・レビューするときの完了条件としてそのまま使われるので、検証可能な形で書く。
+Write issues in the format the user decided on. The goal is issues with the same structure every time, that can be started and checked for completion just by reading them. In particular, the Acceptance criteria are used as is as the completion condition when the issue is later implemented and reviewed (e.g. with issue-to-pr), so write them in a verifiable form.
 
-## 1. リポジトリのテンプレートを先に確認する
+Commands, and REST replacements for them, are in `references/github-commands.md`. If `gh` fails with `HTTP 403` saying GraphQL is not available, read that file and use the REST commands.
 
-リポジトリ側にテンプレートがあれば、そのリポジトリのルールとしてこのスキルのテンプレートより優先する。確認する場所:
+## 1. Check the repository's templates first
 
-- `.github/ISSUE_TEMPLATE/` 配下の `*.md` と `*.yml` / `*.yaml`（`config.yml` は設定ファイルでテンプレートではない）
-- `.github/ISSUE_TEMPLATE.md`、ルートの `ISSUE_TEMPLATE.md`、`docs/ISSUE_TEMPLATE.md`
-- 上のどれも無い場合は、オーナーの組織共通リポジトリ `<owner>/.github` の同じ場所
+A template in the repository is that repository's rule and takes precedence over this skill's templates. Look in:
 
-ローカルにクローンがあればファイルを直接見る。無ければ `gh api repos/<owner>/<repo>/contents/.github/ISSUE_TEMPLATE` などで取得する。
+- `*.md` and `*.yml` / `*.yaml` under `.github/ISSUE_TEMPLATE/` (`config.yml` is configuration, not a template)
+- `.github/ISSUE_TEMPLATE.md`, `ISSUE_TEMPLATE.md` at the root, `docs/ISSUE_TEMPLATE.md`
+- If none of these exist, the same places in the owner's shared repository `<owner>/.github`
 
-テンプレートが見つかったら:
+Read the files directly if there is a local clone; otherwise fetch them with `gh api` (see `references/github-commands.md`).
 
-- 作ろうとしているissueの種類（タスク / 不具合）に合うものを、ファイル名・`name`・`about`・`labels` から選ぶ。
-- 見出し構成はテンプレートどおりにし、このスキルの見出しは混ぜない。依存関係など書く場所が無い重要情報だけ、末尾に短く添える。
-- YAMLのissue form の場合、GitHubはフォーム送信内容を各項目の `attributes.label` を `### <label>` 見出しにした本文として保存する。同じ形で本文を組み立て、`required: true` の項目は必ず埋める。
-- テンプレートの frontmatter / フォーム定義にある `title`（接頭辞）、`labels`、`assignees` を反映する。
+When a template is found:
 
-種類に合うテンプレートが無い場合（例: bugテンプレートはあるがタスク用が無い）は、その種類だけ下のテンプレートを使う。
+- Pick the one that fits the kind of issue (task or bug) from its file name, `name`, `about` and `labels`.
+- Follow its headings exactly and do not mix in this skill's headings. Only important information with nowhere to go, such as dependencies, is added briefly at the end.
+- For a YAML issue form, GitHub stores the submitted form as a body with each field's `attributes.label` as a `### <label>` heading. Build the body the same way and fill every field with `required: true`.
+- Apply the `title` (prefix), `labels` and `assignees` from the template's frontmatter or form definition.
 
-## 2. 種類を決める
+If no template fits the kind (e.g. there is a bug template but none for tasks), use this skill's template for that kind only.
 
-- **タスク**: 新機能、改善、リファクタ、ドキュメント、CI、調査など「やること」。→ タスクテンプレート
-- **不具合**: 期待どおりに動いていないものの修正。→ 不具合テンプレート
+## 2. Decide the kind
 
-迷ったら「今の挙動が仕様に反しているか」で判断する。反していれば不具合。
+- **Task**: a new feature, improvement, refactoring, documentation, CI, investigation: "something to do". → `assets/task-template.md`
+- **Bug**: fixing something that does not work as expected. → `assets/bug-template.md`
 
-## 3. タスクテンプレート
+When unsure, ask "does the current behavior violate the spec?" If it does, it is a bug.
 
-```markdown
-## Goal
+## 3. Task template
 
-<何を達成するかを1〜2文。なぜ必要かも一言添える>
+Use `assets/task-template.md` (Goal / Scope / Out of scope / Acceptance criteria / Depends on). Guidelines:
 
-## Scope
+- **Goal** says why as well as what, so later readers can follow the priority and the reasoning behind decisions.
+- **Scope** is specific enough that the implementer does not hesitate: name types, commands and files. Put items carried over from an earlier review, etc. under their own subheading.
+- **Out of scope** states what is not included this time, to stop the scope from growing. If there really is nothing, write `- None` and keep the section, so it reads as "nothing" rather than "forgotten".
+- **Acceptance criteria** are checkable by a third party: not "X is implemented" but "tests for X exist and pass" or "CI runs X and it succeeds".
+- **Depends on** lists the issues that must be finished first as `- #<number>` (GitHub shows them with their titles). If none, `- None`.
+- For a task split from a parent issue, end with `Part of #<number>.`
+- Add `## Notes` after Acceptance criteria only when there is background material, reference links or open questions. Do not force it.
 
-- <やること。まとまりが複数あれば **太字の小見出し** でグループ分けする>
+## 4. Bug template
 
-## Out of scope
+Use `assets/bug-template.md` (Summary / Steps to reproduce / Expected behavior / Actual behavior / Environment / Acceptance criteria / Notes). Guidelines:
 
-- <やらないこと。誤解されやすい隣接領域を明示する>
+- Write only steps, environment and logs that the user told you or that you confirmed yourself. Do not fill unknown items with guesses: write `Unknown` or ask the user. Made-up reproduction steps mislead the investigation.
+- Put the suspected cause in Notes, separate from the facts (Actual behavior). When symptoms and hypotheses are mixed, the issue becomes hard to read once a hypothesis turns out wrong.
+- If the fix approach is already decided, also write it in Notes.
 
-## Acceptance criteria
+## 5. Title, labels and metadata
 
-- <完了判定できる条件。テスト・CI・コマンド結果など観測できる形で>
+- Title: `<area>: <summary>` (e.g. `core: data types, tree IR, and UI–runtime protocol`). Match the area to the repository's existing divisions, such as the corresponding `area:*` label. For a bug, describe the symptom, not the fix (e.g. `runtime: TON timer does not fire after coldReset`).
+- Labels: choose from existing ones (`gh label list`). Besides area labels, add `bug` to a bug if it exists. Do not create labels that do not exist.
+- Set the milestone and parent issue if known.
+- Language: the title and body follow the language of the repository's existing issues and PRs (check with `gh issue list --state all --limit 10` and `gh pr list --state all --limit 10`). If there are none, use the user's language.
+- Section headings (Goal, Scope, Summary, Steps to reproduce, etc.) stay in English even when the body is in another language. When using the repository's template, keep that template's headings as they are.
 
-## Depends on
+## 6. Create the issue
 
-- #<番号>
+Write the body to a temporary file and pass it with `--body-file`, so shell quoting cannot break it (commands in `references/github-commands.md`).
 
-Part of #<親issue番号>.
-```
-
-書き方のポイント:
-
-- **Goal** は「何を」だけでなく「なぜ」を一言入れる。後から読んだ人が優先度や判断の根拠を追えるようにするため。
-- **Scope** は実装者が迷わない粒度で、型名・コマンド名・ファイル名など具体的に書く。前のレビューからの持ち越し事項などは、それと分かる小見出しで分ける。
-- **Out of scope** は「今回は入れない」ことを明示してスコープの膨張を防ぐ。本当に無ければ `- None` と書き、セクション自体は残す（書き忘れではなく「無い」ことが分かるように）。
-- **Acceptance criteria** は「〜が実装されている」ではなく「〜のテストがあり通る」「CIで〜が実行され成功する」のように、第三者が確認できる形にする。
-- **Depends on** は先に終わっている必要があるissueを `- #番号` で並べる（GitHubがタイトル付きで表示する）。無ければ `- None`。
-- 親issueから分割したタスクなら末尾に `Part of #<番号>.` を書く。
-- 背景資料・参考リンク・未決事項があるときだけ、Acceptance criteria の後に `## Notes` を足す。無理に作らない。
-
-## 4. 不具合テンプレート
-
-```markdown
-## Summary
-
-<何が起きているかを1〜2文>
-
-## Steps to reproduce
-
-1. <手順>
-2. <手順>
-
-## Expected behavior
-
-<本来どうなるべきか>
-
-## Actual behavior
-
-<実際にどうなるか。エラーメッセージやログはコードブロックで貼る>
-
-## Environment
-
-- Version / commit: <バージョン or コミットハッシュ>
-- <OS / ブラウザ / Node など関係するもの>
-
-## Acceptance criteria
-
-- 上の手順で Expected behavior どおりになる
-- この不具合を再現する回帰テストが追加され、通る
-
-## Notes
-
-<原因の見当、関連issue/PR、回避策など。無ければこのセクションは省く>
-```
-
-書き方のポイント:
-
-- 手順・環境・ログは、ユーザーから聞いたことや自分で確認したことだけを書く。分からない項目は推測で埋めずに `Unknown` と書くか、ユーザーに聞く。作り話の再現手順は調査を誤らせる。
-- 原因の見当は事実（Actual behavior）と分けて Notes に書く。症状と仮説が混ざると、仮説が外れたときにissueが読みにくくなる。
-- 修正方針が既に決まっている場合も Notes に書く。
-
-## 5. タイトル・ラベル・メタデータ
-
-- タイトルは `<area>: <内容>` の形にする（例: `core: data types, tree IR, and UI–runtime protocol`）。area は対応する `area:*` ラベルなど、リポジトリの既存の区分に合わせる。不具合は修正内容ではなく症状を書く（例: `runtime: TON timer does not fire after coldReset`）。
-- ラベルは `gh label list` で既存のものから選ぶ。area系に加えて、不具合なら `bug` があれば付ける。存在しないラベルは勝手に作らない。
-- マイルストーンや親issueが分かっていれば設定する。
-- タイトルと本文の言語は、そのリポジトリの既存のissueとPRに合わせる（`gh issue list --state all --limit 10` と `gh pr list --state all --limit 10` で確認する）。既存のissueもPRも無ければ日本語で書く。
-- セクション名（Goal、Scope、Summary、Steps to reproduce など）は、本文が日本語でも英語のまま使う。ただしリポジトリのテンプレートを使う場合は、そのテンプレートの見出しをそのまま使う。
-
-## 6. 作成する
-
-本文を一時ファイルに書き、`--body-file` で渡す（シェルのクォートで本文が崩れるのを避けるため）。
-
-```bash
-gh issue create --repo <owner>/<repo> \
-  --title "<title>" --body-file /tmp/issue-body.md \
-  --label "<label>" --milestone "<milestone>"
-```
-
-- ユーザーが「作って」と明言していればそのまま作成する。下書きを頼まれただけのときや、内容の多くを推測で補ったときは、本文を見せて確認してから作る。
-- 親issueがあれば、本文の `Part of #N.` に加えて GitHub の sub-issue としても紐付ける（`gh api` で `POST /repos/<owner>/<repo>/issues/<親番号>/sub_issues`、`sub_issue_id` には子issueの番号ではなく `id` を渡す）。API が使えなければ本文の記述だけで十分。
-- 複数issueに分割して作るときは、依存される側から順に作り、Depends on に実際の番号が入るようにする。
-- 作成後は issue の URL を伝える。
-
-## GraphQL が使えない環境
-
-クラウド版 Claude Code などでは、GitHub の GraphQL API が `HTTP 403: GitHub GraphQL is not available ...` で拒否され、内部で GraphQL を使う `gh issue create`・`gh issue list`・`gh pr list`・`gh label list` が失敗する。その場合は REST の `gh api` で代替する（`gh api repos/...` は使える）。
-
-| 用途 | 通常 | GraphQL が使えない環境 |
-|---|---|---|
-| ラベルの一覧 | `gh label list` | `gh api --paginate "repos/<owner>/<repo>/labels?per_page=100" --jq '.[].name'` |
-| 既存のissue | `gh issue list --state all --limit 10` | `gh api "repos/<owner>/<repo>/issues?state=all&per_page=20" --jq '.[] \| select(.pull_request == null) \| .title'`（PRも含まれるので除く） |
-| 既存のPR | `gh pr list --state all --limit 10` | `gh api "repos/<owner>/<repo>/pulls?state=all&per_page=10" --jq '.[].title'` |
-| issueの作成 | `gh issue create ...` | 下記 |
-
-```bash
-gh api repos/<owner>/<repo>/issues -X POST \
-  -f title="<title>" -F body=@/tmp/issue-body.md \
-  -f 'labels[]=<label>' -F milestone=<マイルストーンの番号> \
-  --jq '{number, id, url: .html_url}'
-```
-
-- `-F body=@<ファイル>` でファイルの内容を本文にする。
-- マイルストーンは名前ではなく番号で指定する（`gh api repos/<owner>/<repo>/milestones --jq '.[] | {number, title}'` で調べる）。
-- 出力の `id` は、sub-issue の紐付けの `sub_issue_id` に使える。
+- If the user explicitly said "create it", create it. If asked only for a draft, or if you filled in much of the content by guessing, show the body and confirm before creating.
+- If there is a parent issue, link it as a GitHub sub-issue as well as writing `Part of #N.` in the body (`sub_issue_id` is the child issue's `id`, not its number). If the API is unavailable, the line in the body is enough.
+- When splitting into several issues, create the ones others depend on first, so that Depends on contains real numbers.
+- After creating, post the issue URL.
