@@ -9,17 +9,28 @@ In some environments, such as Claude Code on the web, the GitHub GraphQL API is 
 | Purpose | Normal | Without GraphQL |
 |---|---|---|
 | List labels | `gh label list` | `gh api --paginate "repos/<owner>/<repo>/labels?per_page=100" --jq '.[].name'` |
-| Recent issues | `gh issue list --state all --limit 10` | `gh api "repos/<owner>/<repo>/issues?state=all&per_page=20" --jq '.[] \| select(.pull_request == null) \| .title'` (the endpoint also returns PRs, so filter them out) |
+| Recent issues | `gh issue list --state all --limit 10` | See "Recent issues without GraphQL" below |
 | Recent PRs | `gh pr list --state all --limit 10` | `gh api "repos/<owner>/<repo>/pulls?state=all&per_page=10" --jq '.[].title'` |
 | Create an issue | `gh issue create ...` | See "Creating the issue" below |
 
-## Finding issue templates
+### Recent issues without GraphQL
+
+The issues endpoint also returns PRs, so filter them out:
 
 ```bash
-# When there is no local clone
-gh api repos/<owner>/<repo>/contents/.github/ISSUE_TEMPLATE --jq '.[].name'
-gh api repos/<owner>/<repo>/contents/.github/ISSUE_TEMPLATE/<file> --jq .content | base64 -d
+gh api "repos/<owner>/<repo>/issues?state=all&per_page=20" --jq '.[] | select(.pull_request == null) | .title'
 ```
+
+## Finding issue templates
+
+When there is no local clone:
+
+```bash
+gh api repos/<owner>/<repo>/contents/.github/ISSUE_TEMPLATE --jq '.[].name'         # list the templates
+gh api -H 'Accept: application/vnd.github.raw' repos/<owner>/<repo>/contents/<path>  # read one file
+```
+
+The same calls work for the other locations in SKILL.md (`.github/ISSUE_TEMPLATE.md`, `ISSUE_TEMPLATE.md`, `docs/ISSUE_TEMPLATE.md`) and for the owner's shared repository `<owner>/.github`. A 404 means the path does not exist.
 
 ## Creating the issue
 

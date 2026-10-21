@@ -5,7 +5,7 @@ description: Write and create GitHub issues in a fixed format (task and bug temp
 
 # create-issue
 
-Write issues in the format the user decided on. The goal is issues with the same structure every time, that can be started and checked for completion just by reading them. In particular, the Acceptance criteria are used as is as the completion condition when the issue is later implemented and reviewed (e.g. with issue-to-pr), so write them in a verifiable form.
+Write issues in a fixed format. The goal is issues with the same structure every time, that can be started and checked for completion just by reading them. In particular, the Acceptance criteria are used as is as the completion condition when the issue is later implemented and reviewed (e.g. with issue-to-pr), so write them in a verifiable form.
 
 Commands, and REST replacements for them, are in `references/github-commands.md`. If `gh` fails with `HTTP 403` saying GraphQL is not available, read that file and use the REST commands.
 
