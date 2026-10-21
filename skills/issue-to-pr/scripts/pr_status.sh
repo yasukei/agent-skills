@@ -257,7 +257,7 @@ jq -n --argjson pr "$PR_JSON" --argjson checks "$CHECKS_JSON" \
       author: $author,
       head: $pr.headRefName,
       base: $pr.baseRefName,
-      # Exit decision. Keep monitoring until done is true (see "Exit conditions" in SKILL.md)
+      # Exit decision. Keep monitoring until done is true (see references/exit-conditions.md)
       verdict: { status: $v[0], done: ($v[0] | IN("ready", "merged", "closed")), reason: $v[1] },
       ci: {
         summary: $ci,

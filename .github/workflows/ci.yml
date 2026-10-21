@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   # Static checks and tests of the shell scripts.
-  # When adding a job (plugin validation, etc.), also add it to ci-ok's needs
+  # When adding a job, also add it to ci-ok's needs
   scripts:
     runs-on: ubuntu-latest
     timeout-minutes: 10
