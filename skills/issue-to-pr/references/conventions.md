@@ -1,38 +1,38 @@
-# ブランチ名とコミットメッセージの規約
+# Branch name and commit message conventions
 
-## 言語
+## Language
 
-コミットメッセージとPRの言語は、リポジトリの既存のものにならう。既存のものがなければ日本語にする。
+Commit messages and PRs follow the language of the repository's existing commits and PRs. If there are none, use the user's language.
 
-## ブランチ名
+## Branch name
 
-`<type>/<issue番号>-<内容>` 形式。内容は英小文字とハイフンで短く。
+`<type>/<issue number>-<summary>`. Keep the summary short, in lowercase ASCII letters and hyphens.
 
-例：
+Examples:
 
 ```
 feat/123-user-login
 fix/456-null-pointer
 ```
 
-## type一覧
+## Types
 
-| type | 用途 |
+| type | Use |
 |---|---|
-| feat | 新機能 |
-| fix | バグ修正 |
-| docs | ドキュメントのみの変更 |
-| style | 動作に影響しない整形（空白、セミコロンなど） |
-| refactor | 機能追加やバグ修正を伴わないコード改善 |
-| perf | パフォーマンス改善 |
-| test | テストの追加・修正 |
-| build / ci | ビルド設定・CI設定 |
-| chore | その他の雑務（依存更新など） |
-| revert | コミットの取り消し |
+| feat | New feature |
+| fix | Bug fix |
+| docs | Documentation only |
+| style | Formatting that does not affect behavior (whitespace, semicolons, etc.) |
+| refactor | Code improvement without a new feature or bug fix |
+| perf | Performance improvement |
+| test | Adding or fixing tests |
+| build / ci | Build or CI configuration |
+| chore | Other maintenance (dependency updates, etc.) |
+| revert | Reverting a commit |
 
-上記以外でも、より適切な単語があればそれを使ってよい。
+Another word may be used if it fits better.
 
-## コミットメッセージ
+## Commit message
 
 ```
 <type>(<scope>): <subject>
@@ -42,30 +42,30 @@ fix/456-null-pointer
 <footer>
 ```
 
-- scopeは任意
-- 件名（subject）は50文字程度まで。末尾にピリオドを付けない
-- 英語で書くなら命令形（"add"、"added" ではない）
-- 本文（body）には「何を」より「なぜ」を書く。「何を」は差分を見ればわかるが、「なぜ」は書かないと残らない
-- フッター（footer）に関連issueを書く（`Closes #123` など）。レビュー対応の追加コミットでは `Refs #123` でもよい
+- The scope is optional.
+- Keep the subject to about 50 characters, without a trailing period.
+- In English, use the imperative mood ("add", not "added").
+- The body explains why rather than what. The diff shows what; the why is lost unless written down.
+- The footer names the related issue (`Closes #123`, etc.). Additional commits for review comments may use `Refs #123`.
 
-例：
+Example:
 
 ```
-feat(auth): ログイン時に2段階認証を追加
+feat(auth): add two-factor authentication at login
 
-SMSとTOTPアプリの両方に対応。
-既存ユーザーは設定画面から有効化できる。
+Supports both SMS and TOTP apps.
+Existing users can enable it from the settings page.
 
 Closes #123
 ```
 
-レビュー対応の追加コミットの例：
+Example of an additional commit for a review comment:
 
 ```
-fix(auth): トークン期限切れ時にnullを返さないようにする
+fix(auth): stop returning null when the token has expired
 
-レビュー指摘により、呼び出し側でnullチェックが漏れる
-可能性があるため、例外を投げる形に揃えた。
+A review pointed out that callers may miss the null check,
+so it throws an exception instead.
 
 Refs #123
 ```
