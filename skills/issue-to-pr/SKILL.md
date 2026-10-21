@@ -44,7 +44,7 @@ Ask in chat when unsure. A short question is cheaper than going far in the wrong
 
 ## Language
 
-- Commits and the PR follow the language of the target repository's existing commits and PRs; if there are none, use the user's language.
+- Commits, the PR and comments this skill posts follow the language of the target repository's existing commits and PRs; if there are none, use the user's language.
 - Chat reports use the user's language.
 
 ## 1. Read the issue
@@ -111,7 +111,7 @@ After creating it, post the PR URL in chat.
 
 ### When review comments arrive
 
-Read `references/review-protocol.md` for the markers, the priority labels and what to do for each (P0/P1 must be fixed, P2 fixed as a rule, P3 judged, Question answered without changing code), and how to reply.
+Read `references/review-protocol.md` for the markers, the priority labels and what to do for each, and how to reply.
 
 - **Reply to every comment in its thread**, with the commit SHA for a fix and a concrete reason for a decline. A silent fix or decline cannot be told apart from an oversight.
 - **For a question**, also tell the user in chat what you replied.

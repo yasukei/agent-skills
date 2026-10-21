@@ -42,8 +42,9 @@ The author replies to every reviewer comment in its thread, because a silent fix
 
 - **Fixed**: what was changed and the commit SHA (e.g. "Added a null check (abc1234)").
 - **Declined**: a concrete reason the reviewer can accept or argue with (e.g. "to match the existing behavior of X", "the issue requires Y").
-- **Deferred to an issue**: the issue URL and, for `P1`, the reason. The author creates the issue; the reviewer does not.
 - **Question**: the answer.
+
+`issue-to-pr` does not defer findings to issues. Another author may, where the table allows it, by replying with the URL of an issue the author created; the reviewer never creates it.
 
 The reviewer then:
 
@@ -54,7 +55,7 @@ The reviewer then:
 
 ## Completion signals
 
-The author stops monitoring only when CI passes, there is no conflict, and one of these signals is present:
+While the PR is open, the author treats the review as complete when CI passes, there is no conflict, and one of these signals is present:
 
 | Accounts | Signal |
 |---|---|
