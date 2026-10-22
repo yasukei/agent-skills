@@ -9,9 +9,9 @@ Monitoring ends when `verdict.done` is `true` (`status` is `ready`, `merged` or 
 | `verdict.status` | State | Next step |
 |---|---|---|
 | `merged` / `closed` | The PR was merged or closed | Stop and report |
-| `ci_failing` | CI is failing | Handle it as in "When CI fails" in SKILL.md |
+| `ci_failing` | CI is failing | Handle it as in "When CI fails" in `handling-updates.md` |
 | `ci_pending` | CI is running | Wait (every 30–60 s) |
-| `conflicting` | Conflicts with the base branch | Handle it as in "When the PR conflicts" in SKILL.md |
+| `conflicting` | Conflicts with the base branch | Handle it as in "When the PR conflicts" in `handling-updates.md` |
 | `mergeable_unknown` | GitHub is still computing mergeability (e.g. right after a push) | Wait (every 30–60 s) |
 | `waiting_for_review` | No reviewer activity yet | Wait (every 2–5 min) |
 | `review_in_progress` | Under review (unresolved findings, waiting for Approve, or waiting for the completion signal) | Handle the findings and wait |

@@ -16,7 +16,7 @@ Agent skills shared by Claude Code, ChatGPT and Codex. Most work here is editing
 
 ## Writing skills
 
-- SKILL.md: at most 200 lines and 10,000 bytes. Keep the workflow, prohibitions and exit conditions there; move commands, tables, examples and templates to `references/` or `assets/`, and say when to read each file.
+- SKILL.md: at most 200 lines and 7,000 bytes, because Codex inserts only the first 8,000 bytes of a skill. The whole file counts, frontmatter included, in UTF-8 bytes (`wc -c < SKILL.md`). Keep the workflow, prohibitions and exit conditions there; move commands, tables, examples and templates to `references/` or `assets/`, and say when to read each file.
 - `description`: what the skill does, when to use it, and when not to (name the neighboring skill). Keep it short.
 - State the reason for each rule in a short clause; agents handle edge cases better when they know why.
 - Skills that call `gh` must also work when GitHub GraphQL returns HTTP 403 (cloud sessions): give REST (`gh api repos/...`) alternatives in `references/`.

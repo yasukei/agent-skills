@@ -201,8 +201,8 @@ make_skill
 lines="$(wc -l <"$WORK/skills/my-skill/SKILL.md")"
 for _ in $(seq $((200 - lines - 1))); do echo >>"$WORK/skills/my-skill/SKILL.md"; done
 bytes="$(wc -c <"$WORK/skills/my-skill/SKILL.md")"
-printf '%*s\n' $((10000 - bytes - 1)) '' | tr ' ' a >>"$WORK/skills/my-skill/SKILL.md"
-assert_eq "200 10000" "$(wc -l <"$WORK/skills/my-skill/SKILL.md") $(wc -c <"$WORK/skills/my-skill/SKILL.md")" "lines and bytes"
+printf '%*s\n' $((7000 - bytes - 1)) '' | tr ' ' a >>"$WORK/skills/my-skill/SKILL.md"
+assert_eq "200 7000" "$(wc -l <"$WORK/skills/my-skill/SKILL.md") $(wc -c <"$WORK/skills/my-skill/SKILL.md")" "lines and bytes"
 run_validate
 assert_eq 0 "$RC" "exit status ($ERR)"
 
@@ -216,12 +216,12 @@ assert_fails_with "skills/my-skill/SKILL.md: longer than 200 lines (201)"
 assert_eq "" "$(grep bytes <<<"$ERR")" "byte limit is not reported"
 
 # ---------------------------------------------------------------------------
-t "SKILL.md is larger than 10000 bytes"
+t "SKILL.md is larger than 7000 bytes"
 make_skill
 bytes="$(wc -c <"$WORK/skills/my-skill/SKILL.md")"
-printf '%*s\n' $((10001 - bytes - 1)) '' | tr ' ' a >>"$WORK/skills/my-skill/SKILL.md"
+printf '%*s\n' $((7001 - bytes - 1)) '' | tr ' ' a >>"$WORK/skills/my-skill/SKILL.md"
 run_validate
-assert_fails_with "skills/my-skill/SKILL.md: larger than 10000 bytes (10001)"
+assert_fails_with "skills/my-skill/SKILL.md: larger than 7000 bytes (7001)"
 assert_eq "" "$(grep lines <<<"$ERR")" "line limit is not reported"
 
 # ---------------------------------------------------------------------------

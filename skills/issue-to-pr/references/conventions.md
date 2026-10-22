@@ -4,6 +4,8 @@
 
 Commit messages and PRs follow the language of the repository's existing commits and PRs. If there are none, use the user's language.
 
+Check it with `git log --oneline -20` and `gh pr list --state all --limit 10`.
+
 ## Branch name
 
 `<type>/<issue number>-<summary>`. Keep the summary short, in lowercase ASCII letters and hyphens.
