@@ -37,7 +37,7 @@ Monitoring ends when `verdict.done` is `true` (`status` is `ready`, `merged` or 
 
 The same schedule is used by `pr-review`, so the two sides check each other at a similar pace.
 
-- **Time counts from the start of monitoring** (when the PR is opened, or the first check of a `--watch` run on an existing PR), and **restarts from zero at each new reviewer activity** ("Reviewer activity" below: a review, a thread comment or a PR comment without the `<!-- issue-to-pr -->` marker, or a thread the reviewer resolved). Your own replies and pushes do not restart it.
+- **Time counts from the start of monitoring** (when the PR is opened, or the first check of a `--watch` run on an existing PR), and **restarts from zero at each new reviewer activity** ("Reviewer activity" below: a review, a thread comment or a PR comment without the `<!-- issue-to-pr -->` marker). Your own replies and pushes do not restart it.
 - **Waiting for the reviewer** (`waiting_for_review`, and `review_in_progress` after you have replied and pushed): check **every 5 minutes** for the first 20 minutes, then **every 10 minutes** until 60 minutes.
 - **CI and mergeability** (`ci_pending`, `mergeable_unknown`) are not bound to that schedule: you are checking a machine, not waiting for a person, so check every 30–60 s.
 - **With a PR event subscription**, handle each event as soon as it arrives, without waiting for the next scheduled check. Keep the scheduled checks as well, because some events (new pushes, CI success, conflicts) may not arrive.
