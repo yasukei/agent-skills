@@ -35,6 +35,7 @@ gh repo view --json defaultBranchRef             # base branch
 
 ```bash
 git push -u origin <branch>
+printf '\n%s\n' "$(cat <signature file>)" >> <body file>   # the PR body ends with the signature, without a marker
 gh pr create --base <base branch> --title "<title>" --body-file <body file>
 ```
 
@@ -49,28 +50,27 @@ git merge origin/<base branch>                   # resolve a conflict by merging
 
 ## Signature
 
-Generate the signature once per run and reuse it in every comment and in the PR body ("Signature" in `review-protocol.md`). Pass only what your own instructions state (the model ID, the effort level) and leave out the rest; never guess a value:
+Generate the signature once per run into a file outside the repository, and read that file for every comment and for the PR body ("Signature" in `review-protocol.md`). Do not keep it in a shell variable: variables do not survive between tool calls, and an empty one posts an unsigned comment without any error. `<agent>` is the agent you are running in (`claude-code`, `codex` or `chatgpt`); pass `--model` and `--effort` only with the values your own instructions state, and leave out the rest; never guess a value:
 
 ```bash
-SIG="$(scripts/signature.sh --agent claude-code --model <model ID> --effort <effort>)"
+scripts/signature.sh --agent <agent> --model <model ID> --effort <effort> > <signature file>
 ```
 
 ## Replying to review comments
 
-End every comment with the signature and then the marker `<!-- issue-to-pr -->` (see `review-protocol.md`). The bodies are in double quotes so that `$SIG` expands; escape any `` ` ``, `$` or `"` in the text, or write the body to a file and pass `-F body=@<file>`.
+End every comment with the signature and then the marker `<!-- issue-to-pr -->` (see `review-protocol.md`). Write the text with a quoted heredoc, so backticks and `$` in it stay as they are, append the signature and the marker, and post the file:
 
 ```bash
-# Reply to an inline review comment (thread)
-gh api repos/{owner}/{repo}/pulls/<PR number>/comments/<comment_id>/replies -f body="...
+cat > <body file> <<'BODY'
+...
+BODY
+printf '\n%s\n<!-- issue-to-pr -->\n' "$(cat <signature file>)" >> <body file>
 
-$SIG
-<!-- issue-to-pr -->"
+# Reply to an inline review comment (thread)
+gh api repos/{owner}/{repo}/pulls/<PR number>/comments/<comment_id>/replies -F body=@<body file>
 
 # Comment on the whole PR, or reply to a review body
-gh pr comment <PR number> --body "...
-
-$SIG
-<!-- issue-to-pr -->"
+gh pr comment <PR number> --body-file <body file>
 ```
 
 ## Updating the PR title and body

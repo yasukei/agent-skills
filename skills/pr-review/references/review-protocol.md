@@ -23,11 +23,13 @@ The author and the reviewer are often the same GitHub account, so login names ca
 
 ## Signature
 
-Every comment either side posts, and the PR description `issue-to-pr` writes, ends with a signature naming the agent, model, effort and conversation that produced it, so people can trace it and agents can tell reviewers apart. Generate it with `scripts/signature.sh` (in both skills) rather than by hand, so its format is identical across agents:
+Every comment either side posts, and the PR description `issue-to-pr` writes, ends with a signature naming the agent, model, effort and conversation that produced it, so people can trace it and agents can tell reviewers apart. Generate it with `scripts/signature.sh` (in both skills) rather than by hand, so its format is identical across agents. Replace `AGENT` with the agent you are running in (`claude-code`, `codex` or `chatgpt`), and `MODEL_ID` and `EFFORT` with the values your own instructions state; leave out an option whose value they do not state:
 
 ```bash
-scripts/signature.sh --agent claude-code --model claude-opus-5-5 --effort high
+scripts/signature.sh --agent AGENT --model MODEL_ID --effort EFFORT > SIG_FILE
 ```
+
+A comment then looks like this (the values are an illustration; never copy them):
 
 ```markdown
 (comment body)
@@ -43,7 +45,8 @@ scripts/signature.sh --agent claude-code --model claude-opus-5-5 --effort high
 - `agent` is `claude-code`, `codex` or `chatgpt`. Pass `--agent`, since the agent knows what it is running in; the environment is only a fallback, used when exactly one agent's hints are present (`CLAUDECODE=1`, `CODEX_THREAD_ID`), else `unknown`.
 - Pass `--model` and `--effort` only as stated in your own instructions (the model ID, the effort level). **Never guess them**, the model above all: an agent may name an older model from its training data. The script fills the rest from the resolved agent's environment only (Claude Code: `ANTHROPIC_MODEL`, `CLAUDE_EFFORT`), so variables inherited from another agent never end up in the signature.
 - `session` comes from the environment: Claude Code cloud `CLAUDE_CODE_REMOTE_SESSION_ID` (`cse_…`, preferred over the container's `CLAUDE_CODE_SESSION_ID`), Claude Code local `CLAUDE_CODE_SESSION_ID`, Codex `CODEX_THREAD_ID`.
-- Anything not found is `unknown`; every key is always present. Generate the signature once per run and reuse it for every post.
+- Anything not found is `unknown`; every key is always present.
+- Generate it once per run into a file (`SIG_FILE`, outside the repository so it is never committed) and read that file in every post. Shell variables do not survive between tool calls, so a `$SIG` set in an earlier command would silently expand to nothing and the comment would go out unsigned. `github-commands.md` shows how to build each body from the file.
 - A Claude Code cloud session may append its own footer to GitHub posts; leave both.
 
 ## Findings and priority labels

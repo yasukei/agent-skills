@@ -4,13 +4,13 @@ Use the `gh` CLI. Replace `OWNER`, `REPO`, `NUMBER` and `PR_URL` with the target
 
 The comment bodies below are English examples; write the real ones in the comment language (see "Language" in SKILL.md), keeping the labels, the signature and the markers as they are.
 
-Every body ends with the signature and then the marker ("Signature" in `review-protocol.md`). Generate the signature once per run, passing only what your own instructions state (leave out what they do not; never guess), and reuse it:
+Every body ends with the signature and then the marker ("Signature" in `review-protocol.md`). Generate the signature once per run into `SIG_FILE`, a file outside the repository. `AGENT` is the agent you are running in (`claude-code`, `codex` or `chatgpt`); pass `--model` and `--effort` only with the values your own instructions state, and leave out the rest; never guess:
 
 ```bash
-SIG="$(scripts/signature.sh --agent claude-code --model MODEL_ID --effort EFFORT)"
+scripts/signature.sh --agent AGENT --model MODEL_ID --effort EFFORT > SIG_FILE
 ```
 
-The examples put bodies in double quotes so that `$SIG` expands; escape any `` ` ``, `$` or `"` in the text, or write the body to a file and pass `-F body=@FILE`.
+Read the file in every post rather than keeping the signature in a shell variable: variables do not survive between tool calls, and an empty one posts an unsigned comment without any error. The examples write the text to `BODY_FILE` with a quoted heredoc, so backticks and `$` in it stay as they are, then append the signature and the marker and post the file with `-F body=@BODY_FILE`.
 
 ## When GraphQL is not available (Claude Code on the web, etc.)
 
@@ -82,21 +82,21 @@ gh api "repos/OWNER/REPO/pulls?state=all&per_page=5" --jq '.[] | {number, title,
 
 ## 2. Posting a review
 
-Post the inline comments and the summary in one API call. Building the JSON into a file with `jq` avoids escaping problems with newlines and backticks.
+Post the inline comments and the summary in one API call. Building the JSON into a file with `jq` avoids escaping problems with newlines and backticks; `--rawfile` reads the signature, which ends with a newline.
 
 `HEAD_SHA` in every review this skill posts, Approve included, is the head SHA you actually checked, not whatever the head is when you post. A later run of the same reviewer takes the `commit_id` of its own latest review (marker and matching signature) as the last checked SHA ("On new commits" in `monitoring.md`); without it, the API anchors the review to the current head, and commits pushed while you were reviewing would be skipped.
 
 ```bash
-jq -n --arg sig "$SIG" '{
+jq -n --rawfile sig SIG_FILE '{
   commit_id: "HEAD_SHA",
   event: "COMMENT",
-  body: "## Review result\n...\n\n\($sig)\n<!-- pr-review -->",
+  body: "## Review result\n...\n\n\($sig)<!-- pr-review -->",
   comments: [
     {
       path: "src/foo.py",
       line: 42,
       side: "RIGHT",
-      body: "**[P1 (High)] ...**\n\n...\n\n\($sig)\n<!-- pr-review -->"
+      body: "**[P1 (High)] ...**\n\n...\n\n\($sig)<!-- pr-review -->"
     }
   ]
 }' > review.json
@@ -115,12 +115,14 @@ gh api repos/OWNER/REPO/pulls/NUMBER/reviews -X POST --input review.json
 Post a file-level comment (a finding not tied to a line) separately from the review:
 
 ```bash
-gh api repos/OWNER/REPO/pulls/NUMBER/comments -X POST \
-  -f commit_id=HEAD_SHA -f path=src/foo.py -f subject_type=file \
-  -f body="**[P2 (Medium)] ...**
+cat > BODY_FILE <<'BODY'
+**[P2 (Medium)] ...**
 
-$SIG
-<!-- pr-review -->"
+...
+BODY
+printf '\n%s\n<!-- pr-review -->\n' "$(cat SIG_FILE)" >> BODY_FILE
+gh api repos/OWNER/REPO/pulls/NUMBER/comments -X POST \
+  -f commit_id=HEAD_SHA -f path=src/foo.py -f subject_type=file -F body=@BODY_FILE
 ```
 
 ### Approve (only when the author is a different account)
@@ -130,12 +132,12 @@ Post it when the merge conditions are met. It fails on the author's own account.
 Use REST, with or without GraphQL, so the approval is pinned to the head SHA you checked (`gh pr review --approve` cannot set `commit_id`; see "Posting a review"):
 
 ```bash
+cat > BODY_FILE <<'BODY'
+Confirmed that all merge conditions are met (HEAD_SHA).
+BODY
+printf '\n%s\n<!-- pr-review -->\n' "$(cat SIG_FILE)" >> BODY_FILE
 gh api repos/OWNER/REPO/pulls/NUMBER/reviews -X POST -f event=APPROVE \
-  -f commit_id=HEAD_SHA \
-  -f body="Confirmed that all merge conditions are met (HEAD_SHA).
-
-$SIG
-<!-- pr-review -->"
+  -f commit_id=HEAD_SHA -F body=@BODY_FILE
 ```
 
 The author's login: `gh api repos/OWNER/REPO/pulls/NUMBER --jq .user.login`. Your own login: `gh api user --jq .login`.
@@ -172,13 +174,14 @@ query($owner:String!, $repo:String!, $number:Int!) {
 Reply to a thread:
 
 ```bash
+cat > BODY_FILE <<'BODY'
+Confirmed (fixed in abc1234).
+BODY
+printf '\n%s\n<!-- pr-review -->\n' "$(cat SIG_FILE)" >> BODY_FILE
 gh api graphql -f query='
 mutation($id:ID!, $body:String!) {
   addPullRequestReviewThreadReply(input:{pullRequestReviewThreadId:$id, body:$body}) { comment { url } }
-}' -F id=THREAD_ID -f body="Confirmed (fixed in abc1234).
-
-$SIG
-<!-- pr-review -->"
+}' -F id=THREAD_ID -F body=@BODY_FILE
 ```
 
 Resolve:
@@ -191,10 +194,11 @@ mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { isResol
 Comment on the whole PR (e.g. the record before merging):
 
 ```bash
-gh pr comment PR_URL --body "...
-
-$SIG
-<!-- pr-review -->"
+cat > BODY_FILE <<'BODY'
+...
+BODY
+printf '\n%s\n<!-- pr-review -->\n' "$(cat SIG_FILE)" >> BODY_FILE
+gh pr comment PR_URL --body-file BODY_FILE
 ```
 
 ### Without GraphQL
@@ -214,11 +218,11 @@ gh api --paginate "repos/OWNER/REPO/pulls/NUMBER/comments?per_page=100" \
 Reply to a thread (REST; also works where GraphQL works):
 
 ```bash
-gh api repos/OWNER/REPO/pulls/NUMBER/comments/ROOT_COMMENT_ID/replies -X POST \
-  -f body="Confirmed (fixed in abc1234).
-
-$SIG
-<!-- pr-review -->"
+cat > BODY_FILE <<'BODY'
+Confirmed (fixed in abc1234).
+BODY
+printf '\n%s\n<!-- pr-review -->\n' "$(cat SIG_FILE)" >> BODY_FILE
+gh api repos/OWNER/REPO/pulls/NUMBER/comments/ROOT_COMMENT_ID/replies -X POST -F body=@BODY_FILE
 ```
 
 Resolve (to undo, replace `resolve` with `unresolve`):
@@ -231,32 +235,35 @@ gh api repos/OWNER/REPO/pulls/NUMBER/ccr/comments/ROOT_COMMENT_ID/resolve -X POS
 Comment on the whole PR:
 
 ```bash
-gh api repos/OWNER/REPO/issues/NUMBER/comments -X POST -f body="...
-
-$SIG
-<!-- pr-review -->"
+cat > BODY_FILE <<'BODY'
+...
+BODY
+printf '\n%s\n<!-- pr-review -->\n' "$(cat SIG_FILE)" >> BODY_FILE
+gh api repos/OWNER/REPO/issues/NUMBER/comments -X POST -F body=@BODY_FILE
 ```
 
 ### Reading the signature
 
-A comment's `agent` and `session` come from the last `agent-signature` line in its body; `null` means no signature (posted before signatures existed). Compare a thread root's values with your own, taken from `$SIG` the same way, as in "Thread ownership" in `review-protocol.md`.
+A comment's `agent` and `session` come from the last `agent-signature` line in its body; `null` means no signature (posted before signatures existed). Compare a thread root's values with your own, read from `SIG_FILE` the same way, as in "Thread ownership" in `review-protocol.md`.
 
 ```bash
-# jq definition used by the commands below
-SIG_JQ='def sig: [(.body // "") | match("<!-- agent-signature v=1 agent=(\\S+) model=\\S+ effort=\\S+ session=(\\S+) -->"; "g")]
-  | last | if . == null then null else {agent: .captures[0].string, session: .captures[1].string} end;'
+# Once per run: the jq definition used below, in a file outside the repository
+cat > SIG_JQ_FILE <<'JQ'
+def sig: [(.body // "") | match("<!-- agent-signature v=1 agent=(\\S+) model=\\S+ effort=\\S+ session=(\\S+) -->"; "g")]
+  | last | if . == null then null else {agent: .captures[0].string, session: .captures[1].string} end;
+JQ
 
 # Your own agent and session
-jq -n --arg body "$SIG" "$SIG_JQ"' {body: $body} | sig'
+jq -n --rawfile body SIG_FILE "$(cat SIG_JQ_FILE)"' {body: $body} | sig'
 
 # With GraphQL: each thread's root marker and signature (THREADS_JSON is the output of the reviewThreads query above)
-jq "$SIG_JQ"' .data.repository.pullRequest.reviewThreads.nodes[]
+jq "$(cat SIG_JQ_FILE)"' .data.repository.pullRequest.reviewThreads.nodes[]
   | {id, isResolved, root: .comments.nodes[0].databaseId,
      prReview: (.comments.nodes[0].body | contains("<!-- pr-review -->")), signature: (.comments.nodes[0] | sig)}' THREADS_JSON
 
 # Without GraphQL: the same for every root comment (match the IDs with comment_ids[0] from ccr/review_threads)
 gh api --paginate "repos/OWNER/REPO/pulls/NUMBER/comments?per_page=100" \
-  --jq "$SIG_JQ"' .[] | select(.in_reply_to_id == null)
+  --jq "$(cat SIG_JQ_FILE)"' .[] | select(.in_reply_to_id == null)
     | {id, prReview: (.body | contains("<!-- pr-review -->")), signature: sig}'
 ```
 
@@ -264,7 +271,7 @@ The same signature tells which marked reviews are your own when recovering the l
 
 ```bash
 gh api --paginate "repos/OWNER/REPO/pulls/NUMBER/reviews?per_page=100" \
-  --jq "$SIG_JQ"' .[] | select(.body | contains("<!-- pr-review -->"))
+  --jq "$(cat SIG_JQ_FILE)"' .[] | select(.body | contains("<!-- pr-review -->"))
     | {id, commit_id, submitted_at, signature: sig}'
 ```
 
