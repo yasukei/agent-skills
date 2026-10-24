@@ -12,7 +12,7 @@ The PR can be merged when all of these hold:
 4. No conflicts, and branch protection rules (required approvals, etc.) are met. A required approval may be met by the Approve below.
 5. The PR is not a draft.
 6. **The PR description matches the implementation.** With a squash merge it becomes the commit message, so a description left stale by review changes leaves a wrong record. If it contradicts the implementation, post a new finding (usually P2; P1 if it misleads about behavior or compatibility) and wait for the update.
-7. The head SHA at merge time is the last one you checked, so unchecked commits are never merged.
+7. The head SHA at merge time is the last one you checked, so unchecked commits are never merged. In a new session, that is the SHA you checked in this pass ("On new commits" in `monitoring.md`).
 
 ## Approve
 
@@ -23,6 +23,8 @@ When the PR author and the account running this skill differ, post an Approve re
 Report in chat that the PR can be merged and stop. Unsubscribe from PR events if subscribed.
 
 ## With `--merge`
+
+Without `--watch`, merge only if every condition holds at this check; otherwise report which conditions are missing and end, without waiting for them.
 
 1. Check which merge methods the repository allows.
 2. Infer the method used for existing merged PRs from the base branch history and use the same one.

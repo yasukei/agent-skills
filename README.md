@@ -7,8 +7,8 @@ Agent skills shared by Claude Code, ChatGPT and Codex.
 | Skill | Purpose |
 |---|---|
 | [create-issue](skills/create-issue/SKILL.md) | Write GitHub issues in a fixed format (task and bug templates) |
-| [issue-to-pr](skills/issue-to-pr/SKILL.md) | Implement an issue, open a PR, and handle CI failures and review comments (never merges) |
-| [pr-review](skills/pr-review/SKILL.md) | Review a PR with prioritized comments (P0–P3, Question), check the responses and decide whether it can be merged (merges only with `--merge`) |
+| [issue-to-pr](skills/issue-to-pr/SKILL.md) | Implement an issue, open a PR, and handle CI failures and review comments; monitors the PR until it is ready to merge only with `--watch` (never merges) |
+| [pr-review](skills/pr-review/SKILL.md) | Review a PR with prioritized comments (P0–P3, Question), check the responses and decide whether it can be merged (monitors the PR only with `--watch`, merges only with `--merge`) |
 
 Each skill lives in `skills/<name>/SKILL.md`.
 
