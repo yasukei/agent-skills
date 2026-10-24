@@ -10,6 +10,7 @@ Read this when opening the PR (step 5 in SKILL.md) and after pushing fixes for r
 - Check only the testing boxes you actually did.
 - In "Review focus", honestly list the parts you are unsure about and the design decisions, so the reviewer spends time there.
 - For sections that do not apply (e.g. screenshots with no UI change), write "None" or delete them.
+- End the body with the signature from `scripts/signature.sh` ("Signature" in `review-protocol.md`), after a blank line, also when the repository has its own template. The PR body carries no marker.
 
 After creating it, post the PR URL in chat.
 
@@ -21,4 +22,5 @@ After pushing fixes, **check that the PR title and body still match the implemen
 - Fetch the current title and body from the PR and edit that, not the local file used at creation: it may be stale, or someone may have edited it on GitHub.
 - Rewrite only the parts that disagree, so they describe the final implementation. Leave content unrelated to describing the implementation (HTML comments, content added by others or by tools) as is.
 - Do not append a change history of which commit fixed what; the thread replies and commits already record it.
+- Keep the signature as the last lines. If you rewrote the body, replace it with this run's signature, since this run now wrote it.
 - Update at the same time as the push, like the thread replies, so the body matches when the reviewer looks next.

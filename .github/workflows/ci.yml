@@ -31,7 +31,7 @@ jobs:
           python3 -c 'import yaml; print("PyYAML", yaml.__version__)'
       - name: Lint (bash -n, shellcheck)
         run: tests/run.sh lint
-      - name: Test (setup.sh, pr_status.sh, validate-skills.py, check-plugin-policy.py)
+      - name: Test (setup.sh, pr_status.sh, signature.sh, validate-skills.py, check-plugin-policy.py)
         run: tests/run.sh test
 
   # Validate the frontmatter of skills/*/SKILL.md and the files it references

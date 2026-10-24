@@ -34,14 +34,16 @@ EOF
   chmod +x "$WORK/skills/my-skill/scripts/run.sh"
 }
 
-# Add the skills issue-to-pr and pr-review to $WORK/skills, each with an identical references/review-protocol.md,
-# so that the shared-file check applies
+# Add the skills issue-to-pr and pr-review to $WORK/skills, each with an identical references/review-protocol.md
+# and scripts/signature.sh, so that the shared-file check applies
 add_shared_skills() {
   local skill
   for skill in issue-to-pr pr-review; do
     cp -r "$WORK/skills/my-skill" "$WORK/skills/$skill"
     sed -i "s/^name: my-skill\$/name: $skill/" "$WORK/skills/$skill/SKILL.md"
     echo protocol >"$WORK/skills/$skill/references/review-protocol.md"
+    printf '#!/bin/sh\n' >"$WORK/skills/$skill/scripts/signature.sh"
+    chmod +x "$WORK/skills/$skill/scripts/signature.sh"
   done
 }
 
@@ -247,6 +249,22 @@ add_shared_skills
 rm "$WORK/skills/issue-to-pr/references/review-protocol.md"
 run_validate
 assert_fails_with "skills/issue-to-pr/references/review-protocol.md: shared file not found"
+
+# ---------------------------------------------------------------------------
+t "shared signature scripts differ"
+make_skill
+add_shared_skills
+echo 'echo changed' >>"$WORK/skills/pr-review/scripts/signature.sh"
+run_validate
+assert_fails_with "skills/issue-to-pr/scripts/signature.sh and skills/pr-review/scripts/signature.sh: shared files differ"
+
+# ---------------------------------------------------------------------------
+t "shared signature script is missing"
+make_skill
+add_shared_skills
+rm "$WORK/skills/pr-review/scripts/signature.sh"
+run_validate
+assert_fails_with "skills/pr-review/scripts/signature.sh: shared file not found"
 
 # ---------------------------------------------------------------------------
 t "reports every problem when there are several"

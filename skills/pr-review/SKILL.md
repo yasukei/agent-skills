@@ -5,7 +5,7 @@ description: Review a GitHub PR as the reviewer, post prioritized (P0–P3, Ques
 
 # pr-review
 
-Review a PR, post the findings on it, check the author's responses, and decide whether it can be merged. With `--watch`, keep monitoring; with `--merge`, merge once the conditions are met.
+Review a PR, post findings, check the author's responses, and decide whether it can be merged. With `--watch`, keep monitoring; with `--merge`, merge once the conditions are met.
 
 The role is **reviewer**: never fix code, commit, push, or create issues for the author; it points out, checks and decides. Keeping the roles apart keeps the review independent.
 
@@ -20,9 +20,9 @@ When unsure, ask the user in chat, not on the PR; asking beats going on unsure.
 4. Check: check new commits and replies and resolve threads; with `--watch`, keep monitoring
 5. Decide: check every merge condition. Merge with `--merge`; otherwise report and stop
 
-Read these when the step needs them:
+Read when the step needs them:
 
-- `references/review-protocol.md` (the contract with `issue-to-pr`: markers, priorities, replies, completion signals) and `references/review-guidelines.md` (what to look at): read both before reviewing.
+- `references/review-protocol.md` (the contract with `issue-to-pr`: markers, signature, ownership, priorities, replies, completion signals) and `references/review-guidelines.md` (what to look at): read both before reviewing.
 - `references/comment-format.md`: how to post the review and format comments. Read it before posting.
 - `references/monitoring.md`: checking new commits and replies, waiting for updates, and when to stop. Read it before step 0 or 4.
 - `references/merging.md`: merge conditions, Approve and merging. Read it before step 5.
@@ -36,10 +36,10 @@ Without `--watch`, do one pass, report, and end:
 
 - **First review**: post the review, then step 5 (merge conditions, Approve), and end.
 - **Asked to re-check**: check fixes and replies once and resolve threads (step 4), then step 5, and end.
-- **Given an issue with no PR yet**: report that there is no PR and end.
+- **Given an issue with no PR yet**: report so and end.
 - **`--merge`**: merge if every merge condition holds at that check; otherwise report which are missing and end.
 
-With `--watch`, first check that something can wake this session after the reply ends ("Can this environment monitor?" in `references/monitoring.md`). If nothing can (e.g. Codex CLI), say at the start that `--watch` is not supported in this environment, and continue without it.
+With `--watch`, first check that something can wake this session after the reply ends ("Can this environment monitor?" in `references/monitoring.md`). If nothing can (e.g. Codex CLI), say at the start that `--watch` is unsupported here, and continue without it.
 
 ## Merging (`--merge`)
 
@@ -51,7 +51,7 @@ PR comments follow the language of the repository's recent PRs and reviews, else
 
 ## 0. When given an issue: find its PR
 
-Find the issue's PR and continue from step 1; with `--watch`, wait until it is created. See "Waiting for a PR from an issue" in `references/monitoring.md`.
+Find the issue's PR as in "Waiting for a PR from an issue" in `references/monitoring.md`, then continue from step 1.
 In the review, check that the PR meets the issue's requirements and has no unrelated changes.
 
 ## 1. Prepare
@@ -62,14 +62,14 @@ In the review, check that the PR meets the issue's requirements and has no unrel
 
 ## 2. Review
 
-Point out only real problems, with what, why and what to do (`references/review-guidelines.md`); if there is none, "no findings" is correct. Padding buries the findings that matter.
+Point out only real problems, with what, why and what to do (`references/review-guidelines.md`); if there is none, "no findings" is correct. Padding buries real findings.
 Label each finding `P0 (Critical)` to `P3 (Low)`, or `Question`, as defined in `references/review-protocol.md`. Every finding thread, `Question` included, must be resolved in the end.
 
 ## 3. Post
 
 Post the inline comments and the summary as **one review** with the event `COMMENT`, as in "Posting the review" in `references/comment-format.md`.
 
-- **End every comment this skill posts** with `<!-- pr-review -->`; comments without it are the author's or another reviewer's, who may share the account.
+- **End every comment this skill posts** with the signature (`scripts/signature.sh`), then `<!-- pr-review -->`; comments without the marker are the author's or another reviewer's, who may share the account.
 - **Always post a review, even with no findings**, with `<!-- review-complete -->` before `<!-- pr-review -->`. Never put the completion marker on a review with findings or questions.
 
 ## 4. Check responses, and monitor with `--watch`
@@ -77,7 +77,7 @@ Post the inline comments and the summary as **one review** with the event `COMME
 Check new commits and replies as in `references/monitoring.md`; with `--watch`, wait for them as it says (events, plus checks every 5 min, then 10 min after 20 min, until 60 min without author activity), checking the whole PR state each time.
 
 - Post new findings as one review **before resolving existing threads**: with the same account, `issue-to-pr` treats "all threads resolved" as done.
-- Resolve only threads this skill opened, as in "Replies" in `references/review-protocol.md`.
+- Resolve only threads this run owns; ask the user about other sessions' ("Thread ownership" in `references/review-protocol.md`).
 - A `P0` cannot be deferred. Ask the user when you cannot judge a decline.
 
 ## 5. Decide whether it can be merged

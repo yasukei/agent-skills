@@ -47,19 +47,29 @@ gh run rerun <run-id> --failed                   # re-run the failed jobs once (
 git merge origin/<base branch>                   # resolve a conflict by merging, never rebase
 ```
 
+## Signature
+
+Generate the signature once per run and reuse it in every comment and in the PR body ("Signature" in `review-protocol.md`). Pass only what your own instructions state (the model ID, the effort level) and leave out the rest; never guess a value:
+
+```bash
+SIG="$(scripts/signature.sh --agent claude-code --model <model ID> --effort <effort>)"
+```
+
 ## Replying to review comments
 
-End every comment with the marker `<!-- issue-to-pr -->` (see `review-protocol.md`).
+End every comment with the signature and then the marker `<!-- issue-to-pr -->` (see `review-protocol.md`). The bodies are in double quotes so that `$SIG` expands; escape any `` ` ``, `$` or `"` in the text, or write the body to a file and pass `-F body=@<file>`.
 
 ```bash
 # Reply to an inline review comment (thread)
 gh api repos/{owner}/{repo}/pulls/<PR number>/comments/<comment_id>/replies -f body="...
 
+$SIG
 <!-- issue-to-pr -->"
 
 # Comment on the whole PR, or reply to a review body
 gh pr comment <PR number> --body "...
 
+$SIG
 <!-- issue-to-pr -->"
 ```
 
