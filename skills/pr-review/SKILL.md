@@ -9,7 +9,7 @@ Review a PR, post the findings on it, check the author's responses, and decide w
 
 The role is **reviewer**: never fix code, commit, push, or create issues for the author; it points out, checks and decides. Keeping the roles apart keeps the review independent.
 
-When unsure, ask the user in chat, not on the PR; stopping to ask beats going on unsure.
+When unsure, ask the user in chat, not on the PR; asking beats going on unsure.
 
 ## Workflow
 
@@ -34,8 +34,8 @@ Monitor (wait in steps 0 and 4) only when the arguments contain `--watch` or the
 
 Without `--watch`, do one pass, report, and end:
 
-- **First review**: post the review and end.
-- **Asked to re-check**: check fixes and replies once, resolve threads as in step 4, judge the merge conditions (step 5), and end.
+- **First review**: post the review, then step 5 (merge conditions, Approve), and end.
+- **Asked to re-check**: check fixes and replies once and resolve threads (step 4), then step 5, and end.
 - **Given an issue with no PR yet**: report that there is no PR and end.
 - **`--merge`**: merge if every merge condition holds at that check; otherwise report which are missing and end.
 
@@ -92,5 +92,5 @@ Read `references/merging.md`. In short: every finding thread this skill opened i
 Report briefly in chat:
 
 - After posting the review: the count per priority and the main findings
-- When a decision is needed: the question and the options
+- When a decision is needed: the options
 - After merging, deciding it can be merged, a pass without `--watch`, or stopping monitoring: the result and what remains
