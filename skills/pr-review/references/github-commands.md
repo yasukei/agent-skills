@@ -2,7 +2,15 @@
 
 Use the `gh` CLI. Replace `OWNER`, `REPO`, `NUMBER` and `PR_URL` with the target PR's values.
 
-The comment bodies below are English examples; write the real ones in the comment language (see "Language" in SKILL.md), keeping the labels and markers as they are.
+The comment bodies below are English examples; write the real ones in the comment language (see "Language" in SKILL.md), keeping the labels, the signature and the markers as they are.
+
+Every body ends with the signature and then the marker ("Signature" in `review-protocol.md`). Generate the signature once per run into `SIG_FILE`, a file outside the repository. `AGENT` is the agent you are running in (`claude-code`, `codex` or `chatgpt`); pass `--model` and `--effort` only with the values your own instructions state, and leave out the rest; never guess:
+
+```bash
+scripts/signature.sh --agent AGENT --model MODEL_ID --effort EFFORT > SIG_FILE
+```
+
+Read the file in every post rather than keeping the signature in a shell variable: variables do not survive between tool calls, and an empty one posts an unsigned comment without any error. The examples write the text to `BODY_FILE` with a quoted heredoc, so backticks and `$` in it stay as they are, then append the signature and the marker and post the file with `-F body=@BODY_FILE`.
 
 ## When GraphQL is not available (Claude Code on the web, etc.)
 
@@ -74,28 +82,32 @@ gh api "repos/OWNER/REPO/pulls?state=all&per_page=5" --jq '.[] | {number, title,
 
 ## 2. Posting a review
 
-Post the inline comments and the summary in one API call. Writing the JSON to a file first avoids escaping problems with newlines and backticks.
+Post the inline comments and the summary in one API call. Write the JSON with a quoted heredoc, so no review text (apostrophes, backticks, `$`) ever reaches the shell, then append the signature and the marker to every body with `jq`.
 
-`HEAD_SHA` in every review this skill posts, Approve included, is the head SHA you actually checked, not whatever the head is when you post. A later session takes the `commit_id` of the latest marked review as the last checked SHA ("On new commits" in `monitoring.md`); without it, the API anchors the review to the current head, and commits pushed while you were reviewing would be skipped.
+`HEAD_SHA` in every review this skill posts, Approve included, is the head SHA you actually checked, not whatever the head is when you post. A later run of the same reviewer takes the `commit_id` of its own latest review (marker and matching signature) as the last checked SHA ("On new commits" in `monitoring.md`); without it, the API anchors the review to the current head, and commits pushed while you were reviewing would be skipped.
 
 ```bash
 cat > review.json <<'EOF'
 {
   "commit_id": "HEAD_SHA",
   "event": "COMMENT",
-  "body": "## Review result\n...\n\n<!-- pr-review -->",
+  "body": "## Review result\n...",
   "comments": [
     {
       "path": "src/foo.py",
       "line": 42,
       "side": "RIGHT",
-      "body": "**[P1 (High)] ...**\n\n...\n\n<!-- pr-review -->"
+      "body": "**[P1 (High)] ...**\n\n..."
     }
   ]
 }
 EOF
-gh api repos/OWNER/REPO/pulls/NUMBER/reviews -X POST --input review.json
+jq --rawfile sig SIG_FILE \
+  '(.body, .comments[].body) |= . + "\n\n" + $sig + "<!-- pr-review -->"' review.json > review.signed.json
+gh api repos/OWNER/REPO/pulls/NUMBER/reviews -X POST --input review.signed.json
 ```
+
+- For the no-findings review (no `comments`), append `"\n\n" + $sig + "<!-- review-complete -->\n<!-- pr-review -->"` to `.body` instead. The signature file ends with a newline, so the markers start on lines of their own.
 
 - `line` is the line number in the changed file and must be a line in the diff. For a range, also set `start_line` and `start_side`.
 - Write a `suggestion` block in the comment body like this (the given lines are what it replaces):
@@ -109,11 +121,14 @@ gh api repos/OWNER/REPO/pulls/NUMBER/reviews -X POST --input review.json
 Post a file-level comment (a finding not tied to a line) separately from the review:
 
 ```bash
-gh api repos/OWNER/REPO/pulls/NUMBER/comments -X POST \
-  -f commit_id=HEAD_SHA -f path=src/foo.py -f subject_type=file \
-  -f body='**[P2 (Medium)] ...**
+cat > BODY_FILE <<'BODY'
+**[P2 (Medium)] ...**
 
-<!-- pr-review -->'
+...
+BODY
+printf '\n%s\n<!-- pr-review -->\n' "$(cat SIG_FILE)" >> BODY_FILE
+gh api repos/OWNER/REPO/pulls/NUMBER/comments -X POST \
+  -f commit_id=HEAD_SHA -f path=src/foo.py -f subject_type=file -F body=@BODY_FILE
 ```
 
 ### Approve (only when the author is a different account)
@@ -123,11 +138,12 @@ Post it when the merge conditions are met. It fails on the author's own account.
 Use REST, with or without GraphQL, so the approval is pinned to the head SHA you checked (`gh pr review --approve` cannot set `commit_id`; see "Posting a review"):
 
 ```bash
+cat > BODY_FILE <<'BODY'
+Confirmed that all merge conditions are met (HEAD_SHA).
+BODY
+printf '\n%s\n<!-- pr-review -->\n' "$(cat SIG_FILE)" >> BODY_FILE
 gh api repos/OWNER/REPO/pulls/NUMBER/reviews -X POST -f event=APPROVE \
-  -f commit_id=HEAD_SHA \
-  -f body='Confirmed that all merge conditions are met (HEAD_SHA).
-
-<!-- pr-review -->'
+  -f commit_id=HEAD_SHA -F body=@BODY_FILE
 ```
 
 The author's login: `gh api repos/OWNER/REPO/pulls/NUMBER --jq .user.login`. Your own login: `gh api user --jq .login`.
@@ -158,18 +174,20 @@ query($owner:String!, $repo:String!, $number:Int!) {
 }' -F owner=OWNER -F repo=REPO -F number=NUMBER
 ```
 
-- This skill's threads are those whose first comment contains `<!-- pr-review -->`.
+- A `pr-review` thread is one whose first comment (the root) contains `<!-- pr-review -->`. Whether this run may resolve it depends on the root's `agent-signature` ("Thread ownership" in `review-protocol.md`); read `agent` and `session` as in "Reading the signature" below.
 - Whether the author replied is decided by whether the last comment lacks the marker.
 
 Reply to a thread:
 
 ```bash
+cat > BODY_FILE <<'BODY'
+Confirmed (fixed in abc1234).
+BODY
+printf '\n%s\n<!-- pr-review -->\n' "$(cat SIG_FILE)" >> BODY_FILE
 gh api graphql -f query='
 mutation($id:ID!, $body:String!) {
   addPullRequestReviewThreadReply(input:{pullRequestReviewThreadId:$id, body:$body}) { comment { url } }
-}' -F id=THREAD_ID -f body='Confirmed (fixed in abc1234).
-
-<!-- pr-review -->'
+}' -F id=THREAD_ID -F body=@BODY_FILE
 ```
 
 Resolve:
@@ -182,9 +200,11 @@ mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { isResol
 Comment on the whole PR (e.g. the record before merging):
 
 ```bash
-gh pr comment PR_URL --body '...
-
-<!-- pr-review -->'
+cat > BODY_FILE <<'BODY'
+...
+BODY
+printf '\n%s\n<!-- pr-review -->\n' "$(cat SIG_FILE)" >> BODY_FILE
+gh pr comment PR_URL --body-file BODY_FILE
 ```
 
 ### Without GraphQL
@@ -199,15 +219,16 @@ gh api --paginate "repos/OWNER/REPO/pulls/NUMBER/comments?per_page=100" \
 ```
 
 - `comment_ids` are in posting order, and the first is the thread's first comment (the root comment). The thread ID (`THREAD_ID`) is not available, so reply and resolve by the root comment's ID.
-- Whether a thread is this skill's, and whether it has a reply, is decided by the marker, as with GraphQL.
+- Whether a thread is a `pr-review` thread, and whether it has a reply, is decided by the marker, as with GraphQL; whether this run may resolve it, by the root comment's signature ("Reading the signature" below).
 
 Reply to a thread (REST; also works where GraphQL works):
 
 ```bash
-gh api repos/OWNER/REPO/pulls/NUMBER/comments/ROOT_COMMENT_ID/replies -X POST \
-  -f body='Confirmed (fixed in abc1234).
-
-<!-- pr-review -->'
+cat > BODY_FILE <<'BODY'
+Confirmed (fixed in abc1234).
+BODY
+printf '\n%s\n<!-- pr-review -->\n' "$(cat SIG_FILE)" >> BODY_FILE
+gh api repos/OWNER/REPO/pulls/NUMBER/comments/ROOT_COMMENT_ID/replies -X POST -F body=@BODY_FILE
 ```
 
 Resolve (to undo, replace `resolve` with `unresolve`):
@@ -220,9 +241,44 @@ gh api repos/OWNER/REPO/pulls/NUMBER/ccr/comments/ROOT_COMMENT_ID/resolve -X POS
 Comment on the whole PR:
 
 ```bash
-gh api repos/OWNER/REPO/issues/NUMBER/comments -X POST -f body='...
+cat > BODY_FILE <<'BODY'
+...
+BODY
+printf '\n%s\n<!-- pr-review -->\n' "$(cat SIG_FILE)" >> BODY_FILE
+gh api repos/OWNER/REPO/issues/NUMBER/comments -X POST -F body=@BODY_FILE
+```
 
-<!-- pr-review -->'
+### Reading the signature
+
+A comment's `agent` and `session` come from the last `agent-signature` line in its body; `null` means no signature (posted before signatures existed). Compare a thread root's values with your own, read from `SIG_FILE` the same way, as in "Thread ownership" in `review-protocol.md`.
+
+```bash
+# Once per run: the jq definition used below, in a file outside the repository
+cat > SIG_JQ_FILE <<'JQ'
+def sig: [(.body // "") | match("<!-- agent-signature v=1 agent=(\\S+) model=\\S+ effort=\\S+ session=(\\S+) -->"; "g")]
+  | last | if . == null then null else {agent: .captures[0].string, session: .captures[1].string} end;
+JQ
+
+# Your own agent and session
+jq -n --rawfile body SIG_FILE "$(cat SIG_JQ_FILE)"' {body: $body} | sig'
+
+# With GraphQL: each thread's root marker and signature (THREADS_JSON is the output of the reviewThreads query above)
+jq "$(cat SIG_JQ_FILE)"' .data.repository.pullRequest.reviewThreads.nodes[]
+  | {id, isResolved, root: .comments.nodes[0].databaseId,
+     prReview: (.comments.nodes[0].body | contains("<!-- pr-review -->")), signature: (.comments.nodes[0] | sig)}' THREADS_JSON
+
+# Without GraphQL: the same for every root comment (match the IDs with comment_ids[0] from ccr/review_threads)
+gh api --paginate "repos/OWNER/REPO/pulls/NUMBER/comments?per_page=100" \
+  --jq "$(cat SIG_JQ_FILE)"' .[] | select(.in_reply_to_id == null)
+    | {id, prReview: (.body | contains("<!-- pr-review -->")), signature: sig}'
+```
+
+The same signature tells which marked reviews are your own when recovering the last checked SHA ("On new commits" in `monitoring.md`):
+
+```bash
+gh api --paginate "repos/OWNER/REPO/pulls/NUMBER/reviews?per_page=100" \
+  --jq "$(cat SIG_JQ_FILE)"' .[] | select(.body | contains("<!-- pr-review -->"))
+    | {id, commit_id, submitted_at, signature: sig}'
 ```
 
 ## 4. Reading an issue

@@ -26,7 +26,7 @@ Caveats:
 
 - **Never fix anything automatically.** The mechanism exists for auto-fix (the author side pushing fixes automatically). This skill uses it as the reviewer, so it never changes code or pushes when an event arrives. If the only way to subscribe is "turn on auto-fix", use it only after stating clearly that nothing will be fixed, or switch to B.
 - **Some events do not arrive.** Mostly review comments and CI failures arrive. New pushes, CI success and new conflicts may not. The author may push without replying, so **also check on the schedule in B**.
-- **Your own posts become events.** This skill's replies and reviews may arrive as events too. Ignore events from comments with the `<!-- pr-review -->` marker.
+- **Your own posts become events.** This skill's replies and reviews may arrive as events too. Ignore events from comments with the `<!-- pr-review -->` marker; those from another agent's `pr-review` (a different `agent` in the signature) are another reviewer's activity, not the author's.
 
 ## B. When event subscriptions are not available
 
@@ -46,7 +46,7 @@ Check with a scheduled wakeup or loop the environment offers (`/loop`, `Schedule
 
 ### On new commits
 
-- Read the diff from the last checked SHA to the new one. A new session (e.g. a re-check without `--watch`) takes it from the `commit_id` of this skill's latest review with the `<!-- pr-review -->` marker, which every review, Approve included, pins to the SHA it checked ("Posting a review" in `github-commands.md`); if there is none, review the whole diff again.
+- Read the diff from the last checked SHA to the new one. A new session (e.g. a re-check without `--watch`) takes it from the `commit_id` of the latest review it owns: a review with the `<!-- pr-review -->` marker whose `agent-signature` has this run's `agent` and `session` (neither `unknown`), or the `session` the user agreed to resume ("Thread ownership" in `review-protocol.md`). Every review, Approve included, pins `commit_id` to the SHA it checked ("Posting a review" in `github-commands.md`). Skip reviews from another agent, another session or with no signature: another reviewer's newer review must not move this reviewer's baseline past commits it never checked. If no review qualifies, review the whole diff again.
 - Check that unresolved findings are fixed and that the fixes add no new problems.
 - Post new problems as new findings with priorities, as one review again. **Post them before resolving existing threads**: with the same account, `issue-to-pr` treats "all threads resolved" as done, so resolving first could end its monitoring before the new findings arrive.
 - If an existing finding's fix is sound, reply with the commit that fixed it, then resolve the thread. If not, reply with the reason and leave it open.
@@ -55,7 +55,7 @@ Check with a scheduled wakeup or loop the environment offers (`/loop`, `Schedule
 
 Handle each reply as in "Replies" in `review-protocol.md`. Also: a `P0` cannot be deferred, so reply saying so and leave the thread open; never create the deferral issue yourself; ask the user when you cannot judge a decline.
 
-Resolve only threads this skill opened (with the marker). Do not touch other reviewers' threads.
+Resolve only threads this run owns, as "Thread ownership" in `review-protocol.md` decides from the root comment's marker and signature: resolve its own, ask the user about a thread from a different or unknown session (resolve only after a yes), and never touch another agent's or another reviewer's threads. With `--watch`, keep monitoring the other threads while a question is unanswered; the question is not an answer.
 
 ## Waiting for a PR from an issue (step 0)
 
