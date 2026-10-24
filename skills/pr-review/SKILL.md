@@ -7,7 +7,7 @@ description: Review a GitHub PR as the reviewer, post prioritized (P0–P3, Ques
 
 Review a PR, post the findings on it, check the author's responses, and decide whether it can be merged. With `--watch`, keep monitoring; with `--merge`, merge once the conditions are met.
 
-The role is **reviewer**: never fix code, commit, push, or create issues for the author; this skill points out, checks and decides. Keeping the roles apart keeps the review independent.
+The role is **reviewer**: never fix code, commit, push, or create issues for the author; it points out, checks and decides. Keeping the roles apart keeps the review independent.
 
 When unsure, ask the user in chat, not on the PR; stopping to ask beats going on unsure.
 
@@ -43,7 +43,7 @@ With `--watch`, first check that something can wake this session after the reply
 
 ## Merging (`--merge`)
 
-Merge, once the step 5 conditions are met, only when the arguments contain `--merge` or the user explicitly asks for it (e.g. "review and merge it"); "check whether it can be merged" is not. Otherwise report "ready to merge" and stop, without merging or deleting the branch. When in doubt, do not merge: it is hard to undo.
+Merge, once the step 5 conditions are met, only when the arguments contain `--merge` or the user explicitly asks for it (e.g. "review and merge it"); 「レビューして」「PRを見て」 or "can it be merged?" are not. Otherwise report "ready to merge" and stop, without merging or deleting the branch. When in doubt, do not merge: it is hard to undo.
 
 ## Language
 
@@ -57,7 +57,7 @@ In the review, check that the PR meets the issue's requirements and has no unrel
 ## 1. Prepare
 
 - Get the PR description, base branch, head SHA, draft and CI state and diff, and read the surrounding code; the diff alone hides broken callers and invariants.
-- Read the repository's conventions (`CLAUDE.md`, `CONTRIBUTING.md`, `.github/` templates, linter settings); they take precedence over general review criteria.
+- Read the repository's conventions (`CLAUDE.md`, `CONTRIBUTING.md`, `.github/` templates, linter settings); they override general review criteria.
 - If the PR is a draft, or already merged or closed, ask the user before reviewing.
 
 ## 2. Review
@@ -89,8 +89,8 @@ Read `references/merging.md`. In short: every finding thread this skill opened i
 
 ## Reporting to the user
 
-Report briefly in chat at each milestone:
+Report briefly in chat:
 
 - After posting the review: the count per priority and the main findings
-- When a decision is needed: what it is about and the options
+- When a decision is needed: the question and the options
 - After merging, deciding it can be merged, a pass without `--watch`, or stopping monitoring: the result and what remains

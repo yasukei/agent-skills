@@ -41,7 +41,7 @@ Check **every 15 minutes** with a scheduled wakeup or loop the environment offer
 
 ### On new commits
 
-- Read the diff from the last checked SHA to the new one.
+- Read the diff from the last checked SHA to the new one. A new session (e.g. a re-check without `--watch`) takes it from the `commit_id` of this skill's latest review with the `<!-- pr-review -->` marker; if there is none, review the whole diff again.
 - Check that unresolved findings are fixed and that the fixes add no new problems.
 - Post new problems as new findings with priorities, as one review again. **Post them before resolving existing threads**: with the same account, `issue-to-pr` treats "all threads resolved" as done, so resolving first could end its monitoring before the new findings arrive.
 - If an existing finding's fix is sound, reply with the commit that fixed it, then resolve the thread. If not, reply with the reason and leave it open.
@@ -54,7 +54,7 @@ Resolve only threads this skill opened (with the marker). Do not touch other rev
 
 ## Waiting for a PR from an issue (step 0)
 
-Without `--watch`, look for the PR once ("Finding the PR" and "several open candidates" below): if it exists, continue with the review; if not, report that there is no PR yet and end. With `--watch`, wait for it as below.
+Without `--watch`, look for the PR once ("Finding the PR" and "several open candidates" below): if it exists, continue with the review; if it is a draft, report that it is still a draft and end; if there is none, report that there is no PR yet and end. With `--watch`, wait for it as below.
 
 - **Finding the PR**: look for PRs linked to the issue (PRs that will close it with `Closes #123` etc., and PRs referencing it in its timeline). Commands: "Finding the PR for an issue" in `github-commands.md`.
 - **Interval**: creating a PR often takes a while, so check about **every 30 minutes**. Issue updates do not arrive as PR events, so use periodic checks.

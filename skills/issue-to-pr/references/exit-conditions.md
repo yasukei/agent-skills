@@ -76,7 +76,10 @@ Tell your own replies from reviewer comments by the `<!-- issue-to-pr -->` marke
 
 ## Reports
 
-**Without `--watch`** (one pass), report the PR URL, the current `verdict.status` and what remains (e.g. waiting for review, unresolved threads), and how to continue (ask again after the review, or use `--watch`). Report "ready to merge" only if `verdict.status` is `ready`; otherwise say that the PR is not monitored.
+**Without `--watch`** (one pass):
+
+- After opening a new PR: the PR URL, and that the PR is not monitored (to handle CI and reviews later, ask again or use `--watch`). There is no need to wait for CI.
+- After handling CI failures or review comments: the PR URL, the current `verdict.status`, what remains (e.g. CI running, waiting for review, unresolved threads) and how to continue (ask again, or use `--watch`). Report "ready to merge" only if `verdict.status` is `ready`; otherwise say that the PR is not monitored.
 
 **On `ready`**, report in chat:
 
