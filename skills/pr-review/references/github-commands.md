@@ -17,7 +17,7 @@ In some environments `gh api graphql` and every `gh` command that uses GraphQL i
 | Reply to a thread | GraphQL `addPullRequestReviewThreadReply` | `gh api repos/OWNER/REPO/pulls/NUMBER/comments/ROOT_COMMENT_ID/replies -X POST -f body=...` |
 | Resolve | GraphQL `resolveReviewThread` | `gh api repos/OWNER/REPO/pulls/NUMBER/ccr/comments/ROOT_COMMENT_ID/resolve -X POST` (CCR route) |
 | Comment on the PR | `gh pr comment` | `gh api repos/OWNER/REPO/issues/NUMBER/comments -X POST -f body=...` |
-| Approve | `gh pr review --approve` | `gh api repos/OWNER/REPO/pulls/NUMBER/reviews -X POST -f event=APPROVE -f body=...` |
+| Approve | Use the REST form in both cases: `gh pr review --approve` cannot pin the checked commit | `gh api repos/OWNER/REPO/pulls/NUMBER/reviews -X POST -f event=APPROVE -f commit_id=HEAD_SHA -f body=...` |
 | Read an issue | `gh issue view` | `gh api repos/OWNER/REPO/issues/ISSUE_NUMBER` |
 | PRs for an issue | GraphQL `closedByPullRequestsReferences` | `cross-referenced` events in `gh api repos/OWNER/REPO/issues/ISSUE_NUMBER/timeline` |
 | Merge | `gh pr merge` | `gh api repos/OWNER/REPO/pulls/NUMBER/merge -X PUT -f merge_method=... -f sha=HEAD_SHA` |
@@ -76,6 +76,8 @@ gh api "repos/OWNER/REPO/pulls?state=all&per_page=5" --jq '.[] | {number, title,
 
 Post the inline comments and the summary in one API call. Writing the JSON to a file first avoids escaping problems with newlines and backticks.
 
+`HEAD_SHA` in every review this skill posts, Approve included, is the head SHA you actually checked, not whatever the head is when you post. A later session takes the `commit_id` of the latest marked review as the last checked SHA ("On new commits" in `monitoring.md`); without it, the API anchors the review to the current head, and commits pushed while you were reviewing would be skipped.
+
 ```bash
 cat > review.json <<'EOF'
 {
@@ -118,23 +120,17 @@ gh api repos/OWNER/REPO/pulls/NUMBER/comments -X POST \
 
 Post it when the merge conditions are met. It fails on the author's own account.
 
-```bash
-gh pr review PR_URL --approve --body 'Confirmed that all merge conditions are met (HEAD_SHA).
-
-<!-- pr-review -->'
-```
-
-The author's login: `gh pr view PR_URL --json author --jq .author.login`. Your own login: `gh api user --jq .login`.
-
-Without GraphQL:
+Use REST, with or without GraphQL, so the approval is pinned to the head SHA you checked (`gh pr review --approve` cannot set `commit_id`; see "Posting a review"):
 
 ```bash
 gh api repos/OWNER/REPO/pulls/NUMBER/reviews -X POST -f event=APPROVE \
+  -f commit_id=HEAD_SHA \
   -f body='Confirmed that all merge conditions are met (HEAD_SHA).
 
 <!-- pr-review -->'
-gh api repos/OWNER/REPO/pulls/NUMBER --jq .user.login   # the author's login
 ```
+
+The author's login: `gh api repos/OWNER/REPO/pulls/NUMBER --jq .user.login`. Your own login: `gh api user --jq .login`.
 
 ## 3. Listing, replying to and resolving threads
 

@@ -46,7 +46,7 @@ Check with a scheduled wakeup or loop the environment offers (`/loop`, `Schedule
 
 ### On new commits
 
-- Read the diff from the last checked SHA to the new one. A new session (e.g. a re-check without `--watch`) takes it from the `commit_id` of this skill's latest review with the `<!-- pr-review -->` marker; if there is none, review the whole diff again.
+- Read the diff from the last checked SHA to the new one. A new session (e.g. a re-check without `--watch`) takes it from the `commit_id` of this skill's latest review with the `<!-- pr-review -->` marker, which every review, Approve included, pins to the SHA it checked ("Posting a review" in `github-commands.md`); if there is none, review the whole diff again.
 - Check that unresolved findings are fixed and that the fixes add no new problems.
 - Post new problems as new findings with priorities, as one review again. **Post them before resolving existing threads**: with the same account, `issue-to-pr` treats "all threads resolved" as done, so resolving first could end its monitoring before the new findings arrive.
 - If an existing finding's fix is sound, reply with the commit that fixed it, then resolve the thread. If not, reply with the reason and leave it open.
