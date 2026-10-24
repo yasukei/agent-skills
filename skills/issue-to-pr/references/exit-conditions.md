@@ -4,7 +4,7 @@ Read this before monitoring with `--watch`, when deciding whether monitoring can
 
 ## Can this environment monitor?
 
-Check this when `--watch` is given, before starting the work. Monitoring is supported only if something wakes this session again after the reply ends, because reviews often take hours:
+Check this when `--watch` is given, before starting the work. Monitoring is supported only if something wakes this session again after the reply ends, because the checks are 5–10 minutes apart and reviews take longer than one reply:
 
 - **Supported**: a PR event subscription (e.g. Claude Code on the web), or a scheduled wakeup or loop the agent can set up itself (e.g. `/loop`, `ScheduleWakeup`, a trigger or a cron tool the session offers).
 - **Not supported**: nothing can restart the session after the reply ends. For example, Codex CLI has no built-in way to run on a schedule; it runs again only when started from outside (e.g. `codex exec` from cron). A `sleep` loop inside one reply does not count: commands time out and the reply ends long before a review arrives.
@@ -18,7 +18,7 @@ I will open the PR and report its state once. To handle reviews later, ask again
 
 ## `verdict.status`
 
-Monitoring ends when `verdict.done` is `true` (`status` is `ready`, `merged` or `closed`). Otherwise keep monitoring, except for an explicit completion without a marker (below).
+Monitoring ends when `verdict.done` is `true` (`status` is `ready`, `merged` or `closed`), or after 60 minutes without reviewer activity ("Monitoring schedule"). Otherwise keep monitoring, except for an explicit completion without a marker (below).
 
 | `verdict.status` | State | Next step |
 |---|---|---|
@@ -27,11 +27,21 @@ Monitoring ends when `verdict.done` is `true` (`status` is `ready`, `merged` or 
 | `ci_pending` | CI is running | Wait (every 30–60 s) |
 | `conflicting` | Conflicts with the base branch | Handle it as in "When the PR conflicts" in `handling-updates.md` |
 | `mergeable_unknown` | GitHub is still computing mergeability (e.g. right after a push) | Wait (every 30–60 s) |
-| `waiting_for_review` | No reviewer activity yet | Wait (every 2–5 min) |
-| `review_in_progress` | Under review (unresolved findings, waiting for Approve, or waiting for the completion signal) | Handle the findings and wait |
+| `waiting_for_review` | No reviewer activity yet | Wait on the review schedule (below) |
+| `review_in_progress` | Under review (unresolved findings, waiting for Approve, or waiting for the completion signal) | Handle the findings and wait on the review schedule (below) |
 | `ready` | Review is complete and all CI checks pass | Stop and report |
 
 `ci.summary` of `none` (no checks at all) counts as passing. If the repository has CI configured but the summary is `none`, the checks may not be registered yet right after a push; wait a little and look again.
+
+## Monitoring schedule
+
+The same schedule is used by `pr-review`, so the two sides check each other at a similar pace.
+
+- **Time counts from the start of monitoring** (when the PR is opened, or the first check of a `--watch` run on an existing PR), and **restarts from zero at each new reviewer activity** ("Reviewer activity" below: a review, a thread comment or a PR comment without the `<!-- issue-to-pr -->` marker, or a thread the reviewer resolved). Your own replies and pushes do not restart it.
+- **Waiting for the reviewer** (`waiting_for_review`, and `review_in_progress` after you have replied and pushed): check **every 5 minutes** for the first 20 minutes, then **every 10 minutes** until 60 minutes.
+- **CI and mergeability** (`ci_pending`, `mergeable_unknown`) are not bound to that schedule: you are checking a machine, not waiting for a person, so check every 30–60 s.
+- **With a PR event subscription**, handle each event as soon as it arrives, without waiting for the next scheduled check. Keep the scheduled checks as well, because some events (new pushes, CI success, conflicts) may not arrive.
+- **After 60 minutes without reviewer activity**, if `verdict.done` is still `false`, stop and report as in "When monitoring stops before completion" below, so a session is not held while nobody is reviewing.
 
 ## Reviewer activity
 
@@ -91,12 +101,12 @@ Tell your own replies from reviewer comments by the `<!-- issue-to-pr -->` marke
 
 **When the user explicitly asks to stop monitoring**, stop. Say that this is not an end by review completion, and give the current `verdict` and what remains.
 
-**When the environment cannot keep monitoring** with `--watch` (e.g. a session time limit, or a wake-up mechanism that stops working), never report "ready to merge". Say that the work is not complete, that monitoring stops here, and how to resume. Example:
+**When monitoring stops before completion** with `--watch` (60 minutes without reviewer activity, a session time limit, or a wake-up mechanism that stops working), never report "ready to merge". Say that the work is not complete, that monitoring stops here, and how to resume. Example:
 
 ```
 Stopping the monitoring of PR #51 here. It is not complete yet.
 
 - State: waiting for review (CI passes, no reviews or comments yet)
-- The session is reaching its time limit, so monitoring cannot continue
+- No reviewer activity for 60 minutes, so monitoring stops
 - To resume, ask "handle the review of PR #51" once a review has been posted
 ```

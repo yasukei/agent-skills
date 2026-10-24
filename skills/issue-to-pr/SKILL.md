@@ -35,7 +35,7 @@ Do not take over the reviewer's decisions or break the review history.
 
 ## Monitoring (`--watch`)
 
-Monitor (steps 6–7) only when the arguments contain `--watch` or the user explicitly asks for it (e.g. 「監視して」「マージまで見て」); 「レビュー対応して」 alone is not. Monitoring keeps the session busy for hours.
+Monitor (steps 6–7) only when the arguments contain `--watch` or the user explicitly asks for it (e.g. 「監視して」「マージまで見て」); 「レビュー対応して」 alone is not. Monitoring keeps the session busy.
 
 Without `--watch`, do one pass and end:
 
@@ -95,12 +95,11 @@ Handle each event as in `references/handling-updates.md` (for review comments, a
 
 With `--watch`, run `scripts/pr_status.sh <PR number>` (CI, reviews, threads and the exit decision `verdict` as JSON) periodically. **Keep monitoring until the exit condition in section 7 is met (as a rule, until `verdict.done` is `true`).** Passing CI without any review is "waiting for review", not the end.
 
-- Check every 30–60 s while CI runs and every 2–5 min while waiting for review, adjusted to the environment's limits.
-- If nothing happens for a long time, report the state in chat once and keep monitoring.
+- Check CI every 30–60 s while it runs; wait for reviewers every 5 min, then 10 min after 20 min ("Monitoring schedule" in `references/exit-conditions.md`).
 - If monitoring must stop early (e.g. a session time limit), report as `references/exit-conditions.md` says.
 
 ## 7. Exit conditions (`--watch`)
 
-Stop only when `verdict.done` is `true` (`status` is `ready`, `merged` or `closed`). The single exception: a same-account human reviewer clearly wrote "review complete, no findings" without the completion marker, CI passes and there are no conflicts; ask in chat if the wording is unclear.
+Stop when `verdict.done` is `true` (`status` is `ready`, `merged` or `closed`), or after 60 min without reviewer activity (not complete). The single exception: a same-account human reviewer clearly wrote "review complete, no findings" without the completion marker, CI passes and there are no conflicts; ask in chat if the wording is unclear.
 
 Read `references/exit-conditions.md` for each `verdict.status`, the `ready` conditions and what to report. Never report "ready to merge" unless `verdict.status` is `ready` or the exception applies, with or without `--watch`.

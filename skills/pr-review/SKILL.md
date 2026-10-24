@@ -30,7 +30,7 @@ Read these when the step needs them:
 
 ## Monitoring (`--watch`)
 
-Monitor (wait in steps 0 and 4) only when the arguments contain `--watch` or the user explicitly asks for it (e.g. 「監視して」「マージまで見て」); 「レビューして」「PRを見て」 alone are not. Monitoring keeps the session busy for hours.
+Monitor (wait in steps 0 and 4) only when the arguments contain `--watch` or the user explicitly asks for it (e.g. 「監視して」「マージまで見て」); 「レビューして」「PRを見て」 alone are not. Monitoring keeps the session busy.
 
 Without `--watch`, do one pass, report, and end:
 
@@ -74,7 +74,7 @@ Post the inline comments and the summary as **one review** with the event `COMME
 
 ## 4. Check responses, and monitor with `--watch`
 
-Check new commits and replies as in `references/monitoring.md`; with `--watch`, wait for them as it says (event subscription with a 15-minute poll, or a 15-minute poll alone), checking the whole PR state each time.
+Check new commits and replies as in `references/monitoring.md`; with `--watch`, wait for them as it says (events, plus checks every 5 min, then 10 min after 20 min, until 60 min without author activity), checking the whole PR state each time.
 
 - Post new findings as one review **before resolving existing threads**: with the same account, `issue-to-pr` treats "all threads resolved" as done.
 - Resolve only threads this skill opened, as in "Replies" in `references/review-protocol.md`.
