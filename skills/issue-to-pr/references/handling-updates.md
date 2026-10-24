@@ -1,6 +1,6 @@
 # Handling CI failures, review comments and conflicts
 
-Read this while monitoring the PR (step 6 in SKILL.md), when CI fails, review comments arrive or the PR conflicts. Commands are in `github-commands.md`.
+Read this in step 6 of SKILL.md (in one pass, or while monitoring with `--watch`) when CI fails, review comments arrive or the PR conflicts. Commands are in `github-commands.md`.
 
 ## When CI fails
 

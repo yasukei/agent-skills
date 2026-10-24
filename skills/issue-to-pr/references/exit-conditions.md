@@ -1,6 +1,20 @@
 # Exit conditions
 
-Read this when deciding whether monitoring can stop. `scripts/pr_status.sh <PR number>` computes the decision as `verdict`; the completion signals themselves are defined in `review-protocol.md`.
+Read this before monitoring with `--watch`, when deciding whether monitoring can stop, and before reporting the one-pass result without `--watch`. `scripts/pr_status.sh <PR number>` computes the decision as `verdict`; the completion signals themselves are defined in `review-protocol.md`.
+
+## Can this environment monitor?
+
+Check this when `--watch` is given, before starting the work. Monitoring is supported only if something wakes this session again after the reply ends, because reviews often take hours:
+
+- **Supported**: a PR event subscription (e.g. Claude Code on the web), or a scheduled wakeup or loop the agent can set up itself (e.g. `/loop`, `ScheduleWakeup`, a trigger or a cron tool the session offers).
+- **Not supported**: nothing can restart the session after the reply ends. For example, Codex CLI has no built-in way to run on a schedule; it runs again only when started from outside (e.g. `codex exec` from cron). A `sleep` loop inside one reply does not count: commands time out and the reply ends long before a review arrives.
+
+If it is not supported, say so at the start, before doing the work, so the user does not wait for monitoring that will not happen. Then do the one pass as without `--watch`. Example:
+
+```
+--watch is not supported in this environment: nothing can wake this session after the reply ends, so the PR will not be monitored.
+I will open the PR and report its state once. To handle reviews later, ask again (e.g. "handle the review of PR #51"), or run this skill periodically from outside (e.g. cron).
+```
 
 ## `verdict.status`
 
@@ -62,6 +76,8 @@ Tell your own replies from reviewer comments by the `<!-- issue-to-pr -->` marke
 
 ## Reports
 
+**Without `--watch`** (one pass), report the PR URL, the current `verdict.status` and what remains (e.g. waiting for review, unresolved threads), and how to continue (ask again after the review, or use `--watch`). Report "ready to merge" only if `verdict.status` is `ready`; otherwise say that the PR is not monitored.
+
 **On `ready`**, report in chat:
 
 - The PR URL and that it is ready to merge.
@@ -72,12 +88,12 @@ Tell your own replies from reviewer comments by the `<!-- issue-to-pr -->` marke
 
 **When the user explicitly asks to stop monitoring**, stop. Say that this is not an end by review completion, and give the current `verdict` and what remains.
 
-**When the environment cannot keep monitoring** (no way to wake up after the reply ends, a session time limit, etc.), never report "ready to merge". Say that the work is not complete, that monitoring stops here, and how to resume. Example:
+**When the environment cannot keep monitoring** with `--watch` (e.g. a session time limit, or a wake-up mechanism that stops working), never report "ready to merge". Say that the work is not complete, that monitoring stops here, and how to resume. Example:
 
 ```
 Stopping the monitoring of PR #51 here. It is not complete yet.
 
 - State: waiting for review (CI passes, no reviews or comments yet)
-- This environment cannot keep monitoring the PR after this reply ends
+- The session is reaching its time limit, so monitoring cannot continue
 - To resume, ask "handle the review of PR #51" once a review has been posted
 ```

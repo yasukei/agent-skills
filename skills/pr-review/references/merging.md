@@ -24,6 +24,8 @@ Report in chat that the PR can be merged and stop. Unsubscribe from PR events if
 
 ## With `--merge`
 
+Without `--watch`, merge only if every condition holds at this check; otherwise report which conditions are missing and end, without waiting for them.
+
 1. Check which merge methods the repository allows.
 2. Infer the method used for existing merged PRs from the base branch history and use the same one.
 3. If it cannot be inferred, choose from the allowed methods in the order merge → squash → rebase.

@@ -1,6 +1,22 @@
 # Receiving PR updates
 
-Read this when starting to monitor the PR after posting the review (step 4 in SKILL.md), when checking new commits and replies, and when waiting for a PR to be created from an issue (step 0).
+Read this before monitoring with `--watch`, when starting to monitor the PR after posting the review (step 4 in SKILL.md), when checking new commits and replies (with or without `--watch`), and when looking for or waiting for a PR from an issue (step 0).
+
+Sections A, B and "Both cases" apply only with `--watch`. Without it, do the checks in "Checking new commits and replies" once and end, as "Monitoring (`--watch`)" in SKILL.md describes.
+
+## Can this environment monitor?
+
+Check this when `--watch` is given, before starting the work. Monitoring is supported only if something wakes this session again after the reply ends, because the author's responses often take hours:
+
+- **Supported**: a PR event subscription (A below), or a scheduled wakeup or loop the agent can set up itself (e.g. `/loop`, `ScheduleWakeup`, a trigger or a cron tool the session offers).
+- **Not supported**: nothing can restart the session after the reply ends. For example, Codex CLI has no built-in way to run on a schedule; it runs again only when started from outside (e.g. `codex exec` from cron). A `sleep` loop inside one reply does not count: commands time out and the reply ends long before the 24-hour limit below.
+
+If it is not supported, say so at the start, before reviewing, so the user does not wait for monitoring that will not happen. Then do the one pass as without `--watch`. Example:
+
+```
+--watch is not supported in this environment: nothing can wake this session after the reply ends, so the PR will not be monitored.
+I will post the review and report once. To check the responses later, ask again (e.g. "re-check PR #51"), or run this skill periodically from outside (e.g. cron).
+```
 
 ## A. When PR event subscriptions are available (Claude Code on the web, etc.)
 
@@ -14,7 +30,7 @@ Caveats:
 
 ## B. When event subscriptions are not available
 
-Check **every 15 minutes** with whatever waiting mechanism Claude Code offers (`/loop`, `ScheduleWakeup`, `sleep` in Bash, etc.).
+Check **every 15 minutes** with a scheduled wakeup or loop the environment offers (`/loop`, `ScheduleWakeup`, etc.).
 
 ## Both cases
 
@@ -37,6 +53,8 @@ Handle each reply as in "Replies" in `review-protocol.md`. Also: a `P0` cannot b
 Resolve only threads this skill opened (with the marker). Do not touch other reviewers' threads.
 
 ## Waiting for a PR from an issue (step 0)
+
+Without `--watch`, look for the PR once ("Finding the PR" and "several open candidates" below): if it exists, continue with the review; if not, report that there is no PR yet and end. With `--watch`, wait for it as below.
 
 - **Finding the PR**: look for PRs linked to the issue (PRs that will close it with `Closes #123` etc., and PRs referencing it in its timeline). Commands: "Finding the PR for an issue" in `github-commands.md`.
 - **Interval**: creating a PR often takes a while, so check about **every 30 minutes**. Issue updates do not arrive as PR events, so use periodic checks.
