@@ -60,7 +60,7 @@ Commits, the PR and its comments follow the target repository's language, else t
 ## 1. Read the issue
 
 Read the body **and the comments** (`gh issue view <number> --comments`); requirements often change later in the thread.
-Read the related code and follow the existing design and style.
+Read the related code and follow its design and style.
 
 ## 2. Branch and commits
 
@@ -69,8 +69,8 @@ Branch from the latest default branch (`gh repo view --json defaultBranchRef`).
 
 ## 3. Pass lint and tests locally
 
-Before pushing, pass every lint and test that runs locally, to avoid CI round trips. The CI configuration (`.github/workflows/`) is the most reliable list.
-Do not force checks that need external services or secrets; write "not run locally" in the PR's notes instead.
+Before pushing, pass every lint and test that runs locally, to avoid CI round trips. Find them in the CI configuration (`.github/workflows/`, most reliable), package.json, Makefile or pyproject.toml.
+Do not force checks that need external services or secrets; note "not run locally" in the PR instead.
 
 ## 4. Review by a sub-agent
 
