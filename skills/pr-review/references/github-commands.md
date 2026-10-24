@@ -82,26 +82,32 @@ gh api "repos/OWNER/REPO/pulls?state=all&per_page=5" --jq '.[] | {number, title,
 
 ## 2. Posting a review
 
-Post the inline comments and the summary in one API call. Building the JSON into a file with `jq` avoids escaping problems with newlines and backticks; `--rawfile` reads the signature, which ends with a newline.
+Post the inline comments and the summary in one API call. Write the JSON with a quoted heredoc, so no review text (apostrophes, backticks, `$`) ever reaches the shell, then append the signature and the marker to every body with `jq`.
 
 `HEAD_SHA` in every review this skill posts, Approve included, is the head SHA you actually checked, not whatever the head is when you post. A later run of the same reviewer takes the `commit_id` of its own latest review (marker and matching signature) as the last checked SHA ("On new commits" in `monitoring.md`); without it, the API anchors the review to the current head, and commits pushed while you were reviewing would be skipped.
 
 ```bash
-jq -n --rawfile sig SIG_FILE '{
-  commit_id: "HEAD_SHA",
-  event: "COMMENT",
-  body: "## Review result\n...\n\n\($sig)<!-- pr-review -->",
-  comments: [
+cat > review.json <<'EOF'
+{
+  "commit_id": "HEAD_SHA",
+  "event": "COMMENT",
+  "body": "## Review result\n...",
+  "comments": [
     {
-      path: "src/foo.py",
-      line: 42,
-      side: "RIGHT",
-      body: "**[P1 (High)] ...**\n\n...\n\n\($sig)<!-- pr-review -->"
+      "path": "src/foo.py",
+      "line": 42,
+      "side": "RIGHT",
+      "body": "**[P1 (High)] ...**\n\n..."
     }
   ]
-}' > review.json
-gh api repos/OWNER/REPO/pulls/NUMBER/reviews -X POST --input review.json
+}
+EOF
+jq --rawfile sig SIG_FILE \
+  '(.body, .comments[].body) |= . + "\n\n" + $sig + "<!-- pr-review -->"' review.json > review.signed.json
+gh api repos/OWNER/REPO/pulls/NUMBER/reviews -X POST --input review.signed.json
 ```
+
+- For the no-findings review (no `comments`), append `"\n\n" + $sig + "<!-- review-complete -->\n<!-- pr-review -->"` to `.body` instead. The signature file ends with a newline, so the markers start on lines of their own.
 
 - `line` is the line number in the changed file and must be a line in the diff. For a range, also set `start_line` and `start_side`.
 - Write a `suggestion` block in the comment body like this (the given lines are what it replaces):

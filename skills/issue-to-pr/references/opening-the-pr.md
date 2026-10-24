@@ -10,7 +10,7 @@ Read this when opening the PR (step 5 in SKILL.md) and after pushing fixes for r
 - Check only the testing boxes you actually did.
 - In "Review focus", honestly list the parts you are unsure about and the design decisions, so the reviewer spends time there.
 - For sections that do not apply (e.g. screenshots with no UI change), write "None" or delete them.
-- End the body with the signature from `scripts/signature.sh` ("Signature" in `review-protocol.md`), after a blank line, also when the repository has its own template. The PR body carries no marker.
+- End the body with the signature from `scripts/signature.sh` ("Signature" in `review-protocol.md`), also when the repository has its own template: append the signature file to the body file just before creating the PR ("Creating the PR" in `github-commands.md`), never by hand, so the body has exactly one signature. The PR body carries no marker.
 
 After creating it, post the PR URL in chat.
 
