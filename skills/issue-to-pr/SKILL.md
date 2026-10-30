@@ -1,25 +1,20 @@
 ---
 name: issue-to-pr
-description: Implement a GitHub issue and open a PR, handle CI failures and review comments on it, and with `--watch` monitor it until it is ready to merge (never merges). Use when given an issue number or URL and asked to implement it or open a PR (e.g. 「このissueをやって」「実装してPRを作って」), or to handle CI failures or review comments on your own PR (「レビュー対応して」). Not for reviewing a PR as the reviewer (use pr-review).
+description: Implement an issue, open a PR, or handle CI failures and reviews on your own PR (e.g. 「このissueをやって」「レビュー対応して」). Supports --worktree for isolation and --watch for monitoring; never merges. Not for reviewing as the reviewer (use pr-review).
 ---
 
 # issue-to-pr
 
-Implement an issue, open a PR, and handle CI and reviews; with `--watch`, until the PR is ready to merge.
+Implement an issue, open a PR and handle updates; `--watch` continues until ready to merge.
 **The reviewer merges.** This skill never merges; it reports the PR's state.
 
-Workflow:
-
-1. Read the issue and decide the approach
-2. Create a branch and implement
-3. Pass lint and tests locally
-4. Have an independent sub-agent review the change, and fix its findings
-5. Push and open the PR
-6. Handle CI failures and review comments; with `--watch`, monitor the PR
-7. Report in chat and stop (with `--watch`, at the exit condition)
-
-Commands, and REST replacements for when `gh` fails with `HTTP 403` (no GraphQL), are in `references/github-commands.md`.
+Commands and REST fallbacks for GraphQL HTTP 403 are in `references/github-commands.md`.
 Comments and the PR body end with a signature (`scripts/signature.sh`, "Signature" in `references/review-protocol.md`).
+
+## Isolated checkout (`--worktree`)
+
+With `--worktree`, read `references/worktrees.md` before changing files or branches. Create or verify a dedicated worktree, then run implementation, checks, commits, pushes and follow-up fixes there, so the original checkout stays available. Resolve skill helper paths before changing directories.
+Use the latest default branch for a new issue, or the existing PR's head branch for updates. Preserve the worktree on exit and report its absolute path and branch for resuming. This option combines with `--watch`; without it, keep the existing checkout workflow.
 
 ## Prohibited actions
 
@@ -47,7 +42,7 @@ With `--watch`, first check that something can wake this session after the reply
 
 ## When in doubt, ask
 
-Ask in chat when unsure; a short question is cheaper than going far in the wrong direction. Always ask when:
+Ask in chat before committing to an uncertain design. Always ask when:
 
 - The issue's requirements are ambiguous or contradictory
 - There are several approaches and the choice changes the design significantly
@@ -60,13 +55,12 @@ Commits, the PR and its comments follow the target repository's language, else t
 
 ## 1. Read the issue
 
-Read the body **and the comments** (`gh issue view <number> --comments`); requirements often change in the thread.
+Read the issue **and its comments**; requirements often change in the thread.
 Read the related code and follow its design and style.
 
 ## 2. Branch and commits
 
-Follow `references/conventions.md`: branch `<type>/<issue number>-<summary>`, commit `<type>(<scope>): <subject>` with the why in the body and `Closes #<number>` in the footer.
-Branch from the latest default branch (`gh repo view --json defaultBranchRef`).
+Follow `references/conventions.md` for branches and commits. For new work, branch from the latest default branch; for PR fixes, continue its head branch. With `--worktree`, prepare that branch in the dedicated worktree first.
 
 ## 3. Pass lint and tests locally
 
