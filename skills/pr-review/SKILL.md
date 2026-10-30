@@ -1,36 +1,41 @@
 ---
 name: "pr-review"
-description: Review a GitHub PR as the reviewer, post prioritized (P0–P3, Question) comments, check fixes, resolve threads and decide whether it can be merged. Monitors the PR only with `--watch`, merges only with `--merge`. Use when given a PR to review (e.g. 「レビューして」「PRを見て」), an issue whose PR to review (「このissueのPRをレビューして」), or when asked to check responses to review comments or whether a PR can be merged. Never changes code. Not for implementing or answering reviews as the author (use issue-to-pr), nor for reviewing prose-only documents.
+description: Review a GitHub PR or an issue's PR, post prioritized findings, check fixes and decide merge readiness (e.g. 「レビューして」「PRを見て」). Supports --worktree for isolation, --watch for monitoring and --merge for merging. Never fixes code. Not for author responses (use issue-to-pr) or prose-only reviews.
 ---
 
 # pr-review
 
-Review a PR, post findings, check the author's responses, and decide whether it can be merged. With `--watch`, keep monitoring; with `--merge`, merge once the conditions are met.
+Review a PR, check responses and decide merge readiness. `--watch` monitors; `--merge` merges when conditions hold.
 
-The role is **reviewer**: never fix code, commit, push, or create issues for the author; it points out, checks and decides. Keeping the roles apart keeps the review independent.
+The role is **reviewer**: never fix code, commit, push, or create issues for the author, so the review stays independent.
 
-When unsure, ask the user in chat, not on the PR; asking beats going on unsure.
+When unsure, ask in chat before posting on the PR.
 
 ## Workflow
 
 0. (When given an issue) find its PR; with `--watch`, wait until it is created
-1. Prepare: gather information about the PR and the repository
+1. Prepare: inspect the PR and repository
 2. Review: read the diff and collect findings
-3. Post: post the inline comments and the summary as one review
-4. Check: check new commits and replies and resolve threads; with `--watch`, keep monitoring
-5. Decide: check every merge condition. Merge with `--merge`; otherwise report and stop
+3. Post: one review with inline comments and a summary
+4. Check: check updates and resolve threads; `--watch` monitors
+5. Decide: check merge conditions; merge only with `--merge`
 
 Read when the step needs them:
 
-- `references/review-protocol.md` (the contract with `issue-to-pr`: markers, signature, ownership, priorities, replies, completion signals) and `references/review-guidelines.md` (what to look at): read both before reviewing.
-- `references/comment-format.md`: how to post the review and format comments. Read it before posting.
+- `references/review-protocol.md` (markers, signature, ownership and completion signals) and `references/review-guidelines.md` (review criteria): read both before reviewing.
+- `references/comment-format.md`: read before posting a review or comment.
 - `references/monitoring.md`: checking new commits and replies, waiting for updates, and when to stop. Read it before step 0 or 4.
 - `references/merging.md`: merge conditions, Approve and merging. Read it before step 5.
-- `references/github-commands.md`: commands, with REST replacements for when `gh` fails with `HTTP 403` (no GraphQL).
+- `references/github-commands.md`: commands and REST fallbacks for GraphQL HTTP 403.
+
+## Isolated checkout (`--worktree`)
+
+With `--worktree`, read `references/worktrees.md` after identifying the PR and before local review or tests. Create or verify a dedicated detached worktree at the PR's head SHA, so the author's branch remains available. Run local review and tests there; resolve skill helper paths before changing directories.
+Refresh it for each new head before checking that code, and keep reviews pinned to the SHA actually checked. Preserve it on exit and report its absolute path and SHA for resuming. This option combines with `--watch` and `--merge`; without it, keep the existing workflow.
 
 ## Monitoring (`--watch`)
 
-Monitor (wait in steps 0 and 4) only when the arguments contain `--watch` or the user explicitly asks for it (e.g. 「監視して」「マージまで見て」); 「レビューして」「PRを見て」 alone are not. Monitoring keeps the session busy.
+Wait in steps 0 and 4 only with `--watch` or an explicit monitoring request (e.g. 「監視して」「マージまで見て」); 「レビューして」「PRを見て」 alone do not request monitoring. Monitoring keeps the session busy.
 
 Without `--watch`, do one pass, report, and end:
 
@@ -39,7 +44,7 @@ Without `--watch`, do one pass, report, and end:
 - **Given an issue with no PR yet**: report so and end.
 - **`--merge`**: merge if every merge condition holds at that check; otherwise report which are missing and end.
 
-With `--watch`, first check that something can wake this session after the reply ends ("Can this environment monitor?" in `references/monitoring.md`). If nothing can (e.g. Codex CLI), say at the start that `--watch` is unsupported here, and continue without it.
+With `--watch`, first read "Can this environment monitor?" in `references/monitoring.md`. If nothing can wake the session after a reply (e.g. Codex CLI), announce that monitoring is unsupported and continue without it.
 
 ## Merging (`--merge`)
 
