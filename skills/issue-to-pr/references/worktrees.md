@@ -5,29 +5,38 @@ Read before changing files or branches when `--worktree` is requested. It change
 ## Select the checkout
 
 - Record the target `OWNER/REPO`, the original checkout's absolute path and the installed skill's absolute directory before changing directories. Run helpers from that skill directory, because a target repository need not contain them. Use explicit repository arguments for GitHub operations so a fork remote cannot redirect them.
-- Choose the destination in this order: a path the user specified; a worktree location convention in the target repository's instructions; otherwise the running agent's default ("Default location" below). Check write permissions and request access if necessary. If creation fails, stop and report it rather than silently editing the original checkout.
+- Choose the destination in this order: a path the user specified; a worktree location convention in the target repository's instructions; otherwise the running agent's default ("Destination" below). Check write permissions and request access if necessary. If creation fails, stop and report it rather than silently editing the original checkout.
 - Inspect `git worktree list --porcelain`, local branches and the destination before creating anything. Reuse only a worktree for this repository and issue or PR: verify its Git common directory, branch and PR head repository. A matching directory name alone is not evidence.
 - If the intended branch is held by the original checkout, report the conflict and ask how to proceed; do not switch that checkout or silently work there. This applies to both new issues and existing PRs.
 - Check the candidate with `git -C "${worktree:?}" status --porcelain --untracked-files=all`. If dirty or in use by another session, preserve it and ask before using it; do not stash, reset, clean, overwrite or delete someone else's work. If an unrelated path exists, choose another unused path.
 - Leave the original checkout's branch and files in place, including uncommitted changes. Worktrees share refs and objects, so fetches and the new branch are still visible in the repository. Do not use `--force` or `--ignore-other-worktrees`: Git's branch ownership protects concurrent work.
 
-### Default location
+### Destination
 
-Without a user path or repository convention, use the running agent's own worktree location. That location is managed by the agent's tools, and it does not depend on the checkout's parent directory being writable; in sandboxes that directory often is not. `<repo>` is the original checkout's directory name, and `<id>` is `issue-<number>`, or `pr-<number>` for a PR without a linked issue.
+Without a user path or repository convention, use the location where the running agent keeps its own worktrees. It does not depend on the checkout's parent directory being writable; in sandboxes that directory often is not. `<main>` is the main worktree's root, `<repo>` is its directory name, and `<id>` is `issue-<number>`, or `pr-<number>` for a PR without a linked issue.
 
 | Agent | Destination |
 |---|---|
-| Claude Code | `<original checkout>/.claude/worktrees/<id>` |
-| Codex | `${CODEX_HOME:-$HOME/.codex}/worktrees/<repo>-<id>` |
+| Claude Code | `<main>/.claude/worktrees/<id>` |
+| Codex | `<root>/<repo>-<id>`, where `<root>` is Codex's worktree root: `${CODEX_HOME:-$HOME/.codex}/worktrees` unless changed in Codex's settings |
 | Other | Ask the user for a path |
 
-A destination inside the original checkout must be ignored there. Otherwise the nested checkout shows as untracked, and `git add -A` in the original checkout would stage it as an embedded repository. Check before creating it, and stop and ask if the check fails:
+Use the main worktree, not the current checkout: the current checkout may itself be a linked worktree, for example a `claude --worktree` session. For a non-bare repository the main worktree is the parent of the Git common directory. If that directory is not named `.git` (a bare repository or a separate Git directory), ask the user for a path.
 
 ```bash
-git -C "${original_checkout:?}" check-ignore -q "${worktree:?}"
+common_dir=$(git -C "${original_checkout:?}" rev-parse --path-format=absolute --git-common-dir)
+main_worktree=$(dirname "${common_dir:?}")
 ```
 
-Tools run in the original checkout, such as linters and test globs, may also pick up a nested worktree. Run checks only in the worktree ("Work and resume").
+These rules apply to every destination, however it was chosen:
+
+- Never place it inside another linked worktree. Removing a linked worktree also deletes anything nested in it, including uncommitted work, because Git treats ignored content as clean.
+- A destination inside the main worktree must be ignored there. Otherwise the nested checkout shows as untracked, and `git add -A` in the main worktree would stage it as an embedded repository. Check before creating it, and stop and ask if the check fails:
+
+  ```bash
+  git -C "${main_worktree:?}" check-ignore -q "${worktree:?}"
+  ```
+- Tools run in the main or original checkout, such as linters and test globs, may pick up a nested worktree. Run checks only in the worktree ("Work and resume").
 
 ## New issue
 
