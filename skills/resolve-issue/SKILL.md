@@ -16,10 +16,11 @@ Claude Code only: the workflow needs subagents and background completion notific
 
 | Role | Default agent | Start with | Skill invocation |
 |---|---|---|---|
-| Implementer | Codex | `codex exec` (`references/codex.md`) | `$agent-skills:issue-to-pr <issue> --worktree` |
-| Reviewer | Claude Code | Agent tool subagent with `effort: "high"` | `agent-skills:pr-review <PR> --worktree` |
+| Implementer | Codex | `codex exec` (`references/codex.md`) | `$<issue-to-pr> <issue> --worktree` |
+| Reviewer | Claude Code | Agent tool subagent with `effort: "high"` | `<pr-review> <PR> --worktree` |
 
-- Replace a role's agent only when the user asks. A Claude Code implementer is a subagent; a Codex reviewer uses `codex exec` with `$agent-skills:pr-review`.
+- `<issue-to-pr>` and `<pr-review>` are the names the skills are installed under: `agent-skills:<name>` from the plugin, plain `<name>` when installed as a standalone skill (`.claude/skills/<name>`, `.agents/skills/<name>`). For a Claude Code agent, use the name in your own skill list. For Codex, use `<name>` if the target checkout has `.agents/skills/<name>`, else `agent-skills:<name>`. A wrong name does not fail loudly: the agent would work without the skill's procedure.
+- Replace a role's agent only when the user asks. A Claude Code implementer is a subagent; a Codex reviewer uses `codex exec` with `$<pr-review>`.
 - Start Codex with `codex exec`, not through the Codex plugin's companion. The companion runs `--write` tasks in `workspace-write`, which overrides the user's Codex configuration (as of 2026-11-09).
 - Do not set or change an agent's permissions, model or effort. Preparing them is the user's environment setup. The one exception is the reviewer's `effort: "high"` above.
 - Keep each role's handle: the Codex `thread_id` and the reviewer subagent's ID. Resume the same agent for fixes and re-checks (`codex exec resume`, SendMessage), so it keeps its context.
@@ -46,7 +47,7 @@ Claude Code only: the workflow needs subagents and background completion notific
 Handoff texts are in `references/handoffs.md`.
 
 1. **Implement.** Start the implementer. From its final report, record the PR URL, worktree, branch, checks run and CI state. Confirm the PR number with `gh`.
-2. **Wait for CI.** If CI is still running, wait for it in the background. If it fails, resume the implementer with the failing checks, then wait again. If the implementer cannot fix it, or reports that the failure is unrelated to the PR, stop and ask the user.
+2. **Wait for CI.** Run `scripts/wait_ci.sh` in the background ("Waiting for CI" in `references/github-commands.md`). If it fails, resume the implementer with the failing checks, then wait again. If the implementer cannot fix it, or reports that the failure is unrelated to the PR, stop and ask the user.
 3. **Review.** Start the reviewer on that PR. Record its verdict, findings, posts and worktree.
 4. **Fix and re-check.** If there are findings, resume the implementer with the review URL and the finding links. Wait for CI as in step 2, then resume the reviewer to re-check.
 5. **Round limit.** Count the reviewer's checks of a PR: the first review and each re-check. If the **3rd check** does not end in ready to merge, stop and ask the user, so two agents cannot loop forever. CI fixes made before a check (step 2) do not count. A CI failure the reviewer raises as a finding is part of that check.

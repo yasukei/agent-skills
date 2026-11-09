@@ -15,37 +15,43 @@ gh api "repos/${repo:?}/issues/${issue:?}/dependencies/blocked_by" --jq '.[] | {
 
 ## Existing PR for an issue
 
-Look for open PRs that reference the issue in the issue's timeline. A PR whose body says `Closes #<issue>` appears there as a cross-reference:
+Candidates are open PRs in the same repository that the issue's timeline lists as cross-references. A PR in another repository can mention the issue too, and its number means nothing in this repository, so drop it:
 
 ```bash
-gh api --paginate "repos/${repo:?}/issues/${issue:?}/timeline" \
-  --jq '.[] | select(.event == "cross-referenced" and .source.issue.pull_request != null and .source.issue.state == "open")
-        | .source.issue | {number, title, html_url}'
+gh api --paginate "repos/${repo:?}/issues/${issue:?}/timeline" | jq -s --arg repo "${repo:?}" '
+  [.[][] | select(.event == "cross-referenced") | .source.issue
+   | select(.pull_request != null and .state == "open"
+            and .repository_url == "https://api.github.com/repos/" + $repo)
+   | {number, title, html_url}]'
 ```
 
-Then confirm the PR's state and head:
+A mention does not make a PR the issue's implementation. Keep only a candidate whose body closes the issue (`Closes #<issue>`, `Fixes`, `Resolves`, also as `OWNER/REPO#<issue>`), as `issue-to-pr` writes it. Then confirm its state and head:
 
 ```bash
-gh api "repos/${repo:?}/pulls/${pr:?}" --jq '{number, state, merged, draft, head_sha: .head.sha, head_ref: .head.ref, body}'
+gh api "repos/${repo:?}/pulls/${pr:?}" | jq --arg repo "${repo:?}" --arg issue "${issue:?}" '
+  {number, state, merged, draft, head_sha: .head.sha, head_ref: .head.ref,
+   closes_issue: (.body // "" | test("(?i)\\b(close[sd]?|fix(e[sd])?|resolve[sd]?):?\\s+(" + $repo + ")?#" + $issue + "\\b"))}'
 ```
+
+If no candidate closes the issue, treat the issue as having no PR. If more than one does, ask the user which one to continue.
 
 ## Waiting for CI
 
-Run one command in the background that ends when CI ends. The command loops by itself, so waiting spends no turns; you are woken once, by its completion notification.
+Run `scripts/wait_ci.sh` once in the background. It loops by itself, so waiting spends no turns; its completion notification wakes you once. It reads check runs and commit statuses through REST, so it works where GraphQL returns HTTP 403, and it covers CI that reports only commit statuses.
 
 ```bash
-gh pr checks "${pr:?}" --repo "${repo:?}" --watch --interval 30
+"${skill_dir:?}/scripts/wait_ci.sh" "${pr:?}" "${repo:?}"
 ```
 
-Without GraphQL, loop over the head commit's check runs instead:
+`skill_dir` is this skill's absolute directory. The script prints one JSON line:
 
-```bash
-sha=$(gh api "repos/${repo:?}/pulls/${pr:?}" --jq .head.sha)
-while gh api --paginate "repos/${repo:?}/commits/${sha:?}/check-runs" --jq '.check_runs[] | .status' | grep -qv completed; do
-  sleep 30
-done
-gh api --paginate "repos/${repo:?}/commits/${sha:?}/check-runs" \
-  --jq '.check_runs[] | {name, conclusion, html_url}'
-```
+| `state` | Exit | Meaning | Next |
+|---|---|---|---|
+| `success` | 0 | Every check run and status passed | Continue |
+| `failure` | 1 | `failing` lists each failed check's name and URL | Pass them to the implementer |
+| `none` | 0 | Nothing was registered within 5 minutes; the repository may have no CI | Continue, and mention it in the final report |
+| `timeout` | 3 | Still running after 60 minutes | Ask the user |
 
-A check run with a `conclusion` other than `success`, `neutral` or `skipped` is a failure to pass to the implementer. Include each failing check's name and URL.
+Exit 2 means a usage or GitHub API error, which is never read as "no CI". Report it instead of continuing.
+
+The script waits for the PR's head when it starts. Start it after the implementer has pushed, not while the implementer is still working.
