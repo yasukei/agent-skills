@@ -19,9 +19,9 @@ Without a user path or repository convention, use the location where the running
 |---|---|
 | Claude Code | `<main>/.claude/worktrees/<id>` |
 | Codex | `<root>/agent-skills/<repo>-<id>`, where `<root>` is Codex's worktree root: `${CODEX_HOME:-$HOME/.codex}/worktrees` unless changed in Codex's settings |
+| Other | Ask the user for a path |
 
 The `agent-skills/` subdirectory keeps these checkouts apart from the worktrees Codex itself manages, because Codex may delete older ones automatically.
-| Other | Ask the user for a path |
 
 Use the main worktree, not the current checkout: the current checkout may itself be a linked worktree, for example a `claude --worktree` session. For a non-bare repository the main worktree is the parent of the Git common directory. If that directory is not named `.git` (a bare repository or a separate Git directory), ask the user for a path.
 
