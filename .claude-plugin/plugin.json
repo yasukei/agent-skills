@@ -4,5 +4,6 @@
   "author": {
     "name": "yasukei"
   },
-  "repository": "https://github.com/yasukei/agent-skills"
+  "repository": "https://github.com/yasukei/agent-skills",
+  "license": "MIT"
 }
