@@ -11,13 +11,15 @@ Read once the target PR is identified, before local review or tests. When starti
 
 ### Destination
 
-Without a user path or repository convention, use the location where the running agent keeps its own worktrees. It does not depend on the checkout's parent directory being writable; in sandboxes that directory often is not. `<main>` is the main worktree's root and `<repo>` is its directory name.
+Without a user path or repository convention, use the default below. It does not depend on the checkout's parent directory being writable; in sandboxes that directory often is not. `<main>` is the main worktree's root and `<repo>` is its directory name.
 
 | Agent | Destination |
 |---|---|
-| Claude Code | `<main>/.claude/worktrees/pr-<number>-review` |
-| Codex | `<root>/<repo>-pr-<number>-review`, where `<root>` is Codex's worktree root: `${CODEX_HOME:-$HOME/.codex}/worktrees` unless changed in Codex's settings |
+| Claude Code | `${XDG_STATE_HOME:-$HOME/.local/state}/agent-skills/worktrees/<repo>-pr-<number>-review`; if that is not writable, `<main>/.claude/worktrees/pr-<number>-review` |
+| Codex | `<root>/agent-skills/<repo>-pr-<number>-review`, where `<root>` is Codex's worktree root: `${CODEX_HOME:-$HOME/.codex}/worktrees` unless changed in Codex's settings |
 | Other | Ask the user for a path |
+
+Prefer a destination outside the main worktree. The review checkout holds PR code, possibly from a fork, and it is kept after the run. Inside the main worktree, test runners there can find and execute that code later, even though it is gitignored; Vitest's default `include` does. Claude Code's `.claude/worktrees/` is only a fallback, because this skill never enters the checkout with `EnterWorktree`. The `agent-skills/` subdirectory keeps Codex's copy apart from the worktrees Codex itself manages, because Codex may delete older ones automatically.
 
 Use the main worktree, not the current checkout: the current checkout may itself be a linked worktree, for example a `claude --worktree` session. For a non-bare repository the main worktree is the parent of the Git common directory. If that directory is not named `.git` (a bare repository or a separate Git directory), ask the user for a path.
 
@@ -85,4 +87,4 @@ With `--merge`, retain the existing merge conditions and pin the merge to the la
 
 ## Report and resume
 
-Keep the review worktree on exit, including after merging or a monitoring timeout, so a later request can reuse it. Report the PR URL, absolute worktree path and checked SHA. On resumption, verify its identity, status and the current PR head again; an existing directory is not proof that its code is current. Remove it only when the user requests cleanup and its changes have been preserved; never remove it forcibly.
+Keep the review worktree on exit, including after merging or a monitoring timeout, so a later request can reuse it. Report the PR URL, absolute worktree path and checked SHA. If the checkout is inside the main worktree, also say that it holds unreviewed PR code that test runners in the main worktree can reach, and offer to remove it. On resumption, verify its identity, status and the current PR head again; an existing directory is not proof that its code is current. Remove it only when the user requests cleanup and its changes have been preserved; never remove it forcibly.
