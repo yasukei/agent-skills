@@ -106,6 +106,47 @@ rm "$FAKE_REST_DIR/repos_o_r_pulls_1.json"
 run_wait
 assert_eq 2 "$RC" "exit status"
 
+t "an old failure from a re-run check suite is dropped"
+reset
+checks '[
+  {"name": "test", "status": "completed", "conclusion": "failure", "started_at": "2026-01-01T01:00:00Z", "html_url": "old", "check_suite": {"id": 1}},
+  {"name": "test", "status": "completed", "conclusion": "success", "started_at": "2026-01-01T02:00:00Z", "html_url": "new", "check_suite": {"id": 2}}]'
+printf '%s' '{"workflow_runs": [{"check_suite_id": 1, "name": "CI", "event": "pull_request"}, {"check_suite_id": 2, "name": "CI", "event": "pull_request"}]}' \
+  >"$FAKE_REST_DIR/repos_o_r_actions_runs.json"
+run_wait
+assert_eq 0 "$RC" "exit status"
+assert_eq success "$(jq -r .state <<<"$OUT")" "state"
+
+t "a newer re-run still running keeps waiting"
+reset
+checks '[
+  {"name": "test", "status": "completed", "conclusion": "failure", "started_at": "2026-01-01T01:00:00Z", "html_url": "old", "check_suite": {"id": 1}},
+  {"name": "test", "status": "in_progress", "conclusion": null, "started_at": "2026-01-01T02:00:00Z", "html_url": "new", "check_suite": {"id": 2}}]'
+printf '%s' '{"workflow_runs": [{"check_suite_id": 1, "name": "CI", "event": "pull_request"}, {"check_suite_id": 2, "name": "CI", "event": "pull_request"}]}' \
+  >"$FAKE_REST_DIR/repos_o_r_actions_runs.json"
+run_wait
+assert_eq timeout "$(jq -r .state <<<"$OUT")" "state"
+
+t "same-named checks in different workflows or events stay separate"
+reset
+checks '[
+  {"name": "lint", "status": "completed", "conclusion": "failure", "started_at": "2026-01-01T01:00:00Z", "html_url": "push", "check_suite": {"id": 3}},
+  {"name": "lint", "status": "completed", "conclusion": "success", "started_at": "2026-01-01T02:00:00Z", "html_url": "pr", "check_suite": {"id": 4}}]'
+printf '%s' '{"workflow_runs": [{"check_suite_id": 3, "name": "Lint", "event": "push"}, {"check_suite_id": 4, "name": "Lint", "event": "pull_request"}]}' \
+  >"$FAKE_REST_DIR/repos_o_r_actions_runs.json"
+run_wait
+assert_eq failure "$(jq -r .state <<<"$OUT")" "state"
+assert_eq '[{"name":"lint","url":"push"}]' "$(jq -c .failing <<<"$OUT")" "failing"
+
+t "check suites with unknown workflow runs stay separate"
+reset
+checks '[
+  {"name": "test", "status": "completed", "conclusion": "failure", "started_at": "2026-01-01T01:00:00Z", "html_url": "a", "check_suite": {"id": 5}},
+  {"name": "test", "status": "completed", "conclusion": "success", "started_at": "2026-01-01T02:00:00Z", "html_url": "b", "check_suite": {"id": 6}}]'
+run_wait
+assert_eq failure "$(jq -r .state <<<"$OUT")" "state"
+assert_eq '[{"name":"test","url":"a"}]' "$(jq -c .failing <<<"$OUT")" "failing"
+
 t "invalid arguments"
 reset
 "$SCRIPT" 1 >/dev/null 2>&1

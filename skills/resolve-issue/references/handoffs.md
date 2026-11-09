@@ -16,7 +16,7 @@ If something unexpected happens (you cannot follow the skill's procedure, the is
 $<issue-to-pr> <OWNER/REPO>#<issue> --worktree
 
 A separate reviewer will review the PR. Review fixes will follow later in this same session.
-Final report: PR number and URL, worktree path, branch, checks run and their results, CI state.
+Final report: PR number and URL, worktree path, branch, checks run and their results, CI state, anything you noticed but left out as outside the issue.
 ```
 
 ## Implementer: review fixes
@@ -64,7 +64,7 @@ Run the skill <pr-review> with arguments `<OWNER/REPO>#<PR> --worktree`.
 
 You run at effort high; use that value in your signature.
 The PR implements issue #<issue>. It was written by <implementer agent> through issue-to-pr. Fix requests and your re-check will follow later through this same conversation, so remember your findings.
-Final report: verdict (ready to merge, or changes needed), findings (priority, file and line, content), what you posted with URLs, worktree path, checks run and their results.
+Final report: verdict (ready to merge, or changes needed), findings (priority, file and line, content), observations you did not raise as findings (e.g. out of the issue's scope, nice to have) with where and why, what you posted with URLs, worktree path, checks run and their results.
 ```
 
 ## Reviewer: re-check
@@ -78,7 +78,7 @@ Implementer's report:
 - <finding>: <fixed in SHA / declined because …>: <reply URL>
 CI: <state>
 
-Final report: each finding (resolved, or not and why), threads resolved, new findings, what you posted with URLs, checks run and their results, final merge verdict.
+Final report: each finding (resolved, or not and why), threads resolved, new findings, new observations you did not raise as findings, what you posted with URLs, checks run and their results, final merge verdict.
 ```
 
 ## Reviewer: merge

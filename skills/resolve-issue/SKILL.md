@@ -53,7 +53,7 @@ Handoff texts are in `references/handoffs.md`.
 5. **Round limit.** Count the reviewer's checks of a PR: the first review and each re-check. If the **3rd check** does not end in ready to merge, stop and ask the user, so two agents cannot loop forever. CI fixes made before a check (step 2) do not count. A CI failure the reviewer raises as a finding is part of that check.
 6. **Finish.** When the reviewer reports ready to merge, ask it to merge if `--merge` was given; otherwise stop and report.
 
-When an agent stops with a question, classify and handle it as `references/decisions.md` says. Relay an irregularity it reports to the user unless you can handle it as type C.
+Collect the observations each agent reports that are not findings, such as something out of the issue's scope or a nice-to-have. Do not pass them to the implementer: acting on them would widen the PR. When an agent stops with a question, classify and handle it as `references/decisions.md` says. Relay an irregularity it reports to the user unless you can handle it as type C.
 
 ## Several issues
 
@@ -75,5 +75,6 @@ For each issue, report:
 
 - PR URL and state: merged, ready to merge, or stopped and why.
 - Decisions taken under `--delegate`, with the alternatives.
+- Observations that were not findings, each with its source and location, so the user can decide whether to open issues.
 - Worktree paths the agents reported.
 - Irregularities and how they were handled.

@@ -63,7 +63,21 @@ while :; do
     api_error "repos/${repo}/commits/${sha}/check-runs"
   status_raw="$(gh api --paginate "repos/${repo}/commits/${sha}/status?per_page=100")" ||
     api_error "repos/${repo}/commits/${sha}/status"
-  runs="$(jq -s '[.[].check_runs[]]' <<<"$runs_raw")"
+  # Workflow name and event are not in check runs; look them up in the workflow runs. If that fails, each check
+  # suite stays separate, which can keep an old failure but never hides a current one.
+  wf_raw="$(gh api --paginate "repos/${repo}/actions/runs?head_sha=${sha}&per_page=100" 2>/dev/null)" ||
+    wf_raw='{"workflow_runs": []}'
+  # When a workflow is re-run on the same commit, check-runs also returns same-named checks from the old check
+  # suite. Like gh pr checks, keep only the most recently started one per check name, workflow name and event.
+  runs="$(jq -n --argjson raw "$(jq -s '[.[].check_runs[]]' <<<"$runs_raw")" \
+    --argjson wf "$(jq -s '[.[].workflow_runs[]]' <<<"$wf_raw")" '
+    ($wf | map({key: (.check_suite_id | tostring), value: {name, event}}) | from_entries) as $workflow
+    | [$raw | to_entries[] | .key as $i | .value
+       | (.check_suite.id | tostring) as $suite
+       | {i: $i, started: (.started_at // ""), run: .,
+          key: (if $workflow[$suite] then [.name, $workflow[$suite].name, $workflow[$suite].event]
+                else [.name, "", "", $suite] end)}]
+    | group_by(.key) | map(max_by([.started, -.i])) | sort_by(.i) | map(.run)')"
   # The combined status already holds the latest status per context. Its own "state" is "pending"
   # when no status exists at all, so only the individual statuses are read.
   statuses="$(jq -s '[.[].statuses[]]' <<<"$status_raw")"
