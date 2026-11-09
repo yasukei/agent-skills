@@ -32,10 +32,12 @@ Final report: how each finding was handled (fix commit, or reason for declining)
 
 ## Implementer: existing PR
 
-Use this for a PR from an earlier session when the earlier Codex thread cannot be resumed. Give no worktree path: `issue-to-pr` finds or creates one.
+Use this for a PR from an earlier session when the earlier Codex thread cannot be resumed; the session may no longer exist in this environment. The new run has no earlier context, so it works best effort from what GitHub records. Give no worktree path: `issue-to-pr` finds or creates one.
 
 ```text
 $agent-skills:issue-to-pr Handle the unresolved review comments and failing CI on PR <OWNER/REPO>#<PR> --worktree.
+
+You have no context from the earlier implementation. Read the issue, the PR and all its review threads first.
 
 The reviewer resolves threads after re-checking.
 Final report: how each finding was handled (fix commit, or reason for declining), worktree path, branch, checks run and their results, CI state, the URLs of the replies you posted.

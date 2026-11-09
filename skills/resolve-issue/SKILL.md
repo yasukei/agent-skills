@@ -46,10 +46,10 @@ Claude Code only: the workflow needs subagents and background completion notific
 Handoff texts are in `references/handoffs.md`.
 
 1. **Implement.** Start the implementer. From its final report, record the PR URL, worktree, branch, checks run and CI state. Confirm the PR number with `gh`.
-2. **Wait for CI.** If CI is still running, wait for it in the background. If it fails, resume the implementer with the failing checks, then wait again.
+2. **Wait for CI.** If CI is still running, wait for it in the background. If it fails, resume the implementer with the failing checks, then wait again. If the implementer cannot fix it, or reports that the failure is unrelated to the PR, stop and ask the user.
 3. **Review.** Start the reviewer on that PR. Record its verdict, findings, posts and worktree.
 4. **Fix and re-check.** If there are findings, resume the implementer with the review URL and the finding links. Wait for CI as in step 2, then resume the reviewer to re-check.
-5. **Round limit.** Each pass back to the implementer, for CI or for findings, is one round. After **3 rounds** for a PR, ask the user, so two agents cannot loop forever.
+5. **Round limit.** Count the reviewer's checks of a PR: the first review and each re-check. If the **3rd check** does not end in ready to merge, stop and ask the user, so two agents cannot loop forever. CI fixes made before a check (step 2) do not count. A CI failure the reviewer raises as a finding is part of that check.
 6. **Finish.** When the reviewer reports ready to merge, ask it to merge if `--merge` was given; otherwise stop and report.
 
 When an agent stops with a question, classify and handle it as `references/decisions.md` says. Relay an irregularity it reports to the user unless you can handle it as type C.
@@ -59,7 +59,7 @@ When an agent stops with a question, classify and handle it as `references/decis
 - Work serially, one issue at a time.
 - If the issues' descriptions show dependencies (e.g. "Depends on", sub-issues), announce the order at the start.
 - Without `--merge`, stop before an issue that depends on an unmerged one, and ask the user to merge first. Its branch must start from a default branch that contains the dependency.
-- If one issue stops (a type A question, CI that cannot be fixed, the round limit), stop the batch and report. Later issues may depend on it.
+- If one issue stops (a type A question, CI the implementer cannot fix, the round limit), stop the batch and report. Later issues may depend on it.
 
 ## Existing PR
 
