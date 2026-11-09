@@ -173,3 +173,7 @@ claude plugin validate .        # validate the Claude manifests (needs Claude Co
 
 What each check covers, how the tests work and the tools they need are in [tests/README.md](tests/README.md).
 Notes on cloud environments (Claude Code on the web, GitHub GraphQL being unavailable, submodule initialization) are in [docs/cloud-environments.md](docs/cloud-environments.md).
+
+## License
+
+[MIT](LICENSE)
