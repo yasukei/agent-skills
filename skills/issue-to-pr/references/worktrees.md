@@ -5,11 +5,29 @@ Read before changing files or branches when `--worktree` is requested. It change
 ## Select the checkout
 
 - Record the target `OWNER/REPO`, the original checkout's absolute path and the installed skill's absolute directory before changing directories. Run helpers from that skill directory, because a target repository need not contain them. Use explicit repository arguments for GitHub operations so a fork remote cannot redirect them.
-- Read the target repository's instructions and any worktree location convention. Otherwise prefer a sibling directory such as `<repo>-worktrees/issue-<number>`, outside the original checkout; honor a user-specified path. Check write permissions and request access if necessary. If creation fails, stop and report it rather than silently editing the original checkout.
+- Choose the destination in this order: a path the user specified; a worktree location convention in the target repository's instructions; otherwise the running agent's default ("Default location" below). Check write permissions and request access if necessary. If creation fails, stop and report it rather than silently editing the original checkout.
 - Inspect `git worktree list --porcelain`, local branches and the destination before creating anything. Reuse only a worktree for this repository and issue or PR: verify its Git common directory, branch and PR head repository. A matching directory name alone is not evidence.
 - If the intended branch is held by the original checkout, report the conflict and ask how to proceed; do not switch that checkout or silently work there. This applies to both new issues and existing PRs.
 - Check the candidate with `git -C "${worktree:?}" status --porcelain --untracked-files=all`. If dirty or in use by another session, preserve it and ask before using it; do not stash, reset, clean, overwrite or delete someone else's work. If an unrelated path exists, choose another unused path.
 - Leave the original checkout's branch and files in place, including uncommitted changes. Worktrees share refs and objects, so fetches and the new branch are still visible in the repository. Do not use `--force` or `--ignore-other-worktrees`: Git's branch ownership protects concurrent work.
+
+### Default location
+
+Without a user path or repository convention, use the running agent's own worktree location. That location is managed by the agent's tools, and it does not depend on the checkout's parent directory being writable; in sandboxes that directory often is not. `<repo>` is the original checkout's directory name, and `<id>` is `issue-<number>`, or `pr-<number>` for a PR without a linked issue.
+
+| Agent | Destination |
+|---|---|
+| Claude Code | `<original checkout>/.claude/worktrees/<id>` |
+| Codex | `${CODEX_HOME:-$HOME/.codex}/worktrees/<repo>-<id>` |
+| Other | Ask the user for a path |
+
+A destination inside the original checkout must be ignored there. Otherwise the nested checkout shows as untracked, and `git add -A` in the original checkout would stage it as an embedded repository. Check before creating it, and stop and ask if the check fails:
+
+```bash
+git -C "${original_checkout:?}" check-ignore -q "${worktree:?}"
+```
+
+Tools run in the original checkout, such as linters and test globs, may also pick up a nested worktree. Run checks only in the worktree ("Work and resume").
 
 ## New issue
 
@@ -53,7 +71,7 @@ Set the working directory explicitly to the worktree for every implementation co
 
 ### Claude Code session directory
 
-After Git creates the worktree or the checks above verify it for reuse or resumption, enter it with `EnterWorktree` when available, using its verified absolute `path`. Skip entry only if this session is already bound to that exact worktree; do not use `name`, which creates a different branch and checkout. This moves the session's working directory and write access, avoiding Bash's reset to the original project. Complete any permission prompt before proceeding. When already in a worktree session, choose an unused destination under that repository's `.claude/worktrees/` before creation, since `EnterWorktree` only accepts paths there. Honor an explicit user path; if it cannot be entered, report the limitation rather than substituting another location.
+After Git creates the worktree or the checks above verify it for reuse or resumption, enter it with `EnterWorktree` when available, using its verified absolute `path`. Skip entry only if this session is already bound to that exact worktree; do not use `name`, which creates a different branch and checkout. This moves the session's working directory and write access, avoiding Bash's reset to the original project. Complete any permission prompt before proceeding. The Claude Code default destination is under `.claude/worktrees/`, because `EnterWorktree` accepts only paths there from subagents and existing worktree sessions. Honor an explicit user path or repository convention; if `EnterWorktree` cannot enter it, report the limitation rather than substituting another location.
 
 On leaving a worktree entered by this run, use `ExitWorktree` with `action: "keep"`, so the checkout remains resumable. If these tools are unavailable, use explicit absolute tool paths and working directories only if all required read/write access is already available. If entry is denied or access is missing, stop and report it; do not change permission settings or bypass a denial. See the [Claude Code tools reference](https://code.claude.com/docs/en/tools-reference) for availability and path restrictions.
 

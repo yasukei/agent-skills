@@ -5,9 +5,27 @@ Read once the target PR is identified, before local review or tests. When starti
 ## Prepare a detached checkout
 
 - Record the target `OWNER/REPO`, the original checkout's absolute path and the installed skill's absolute directory. Run skill helpers from that absolute directory and use explicit repository arguments for GitHub operations, so neither a missing helper nor a fork remote changes the operation's target.
-- Take repository instructions and worktree location conventions from the PR's base SHA, not its head. Otherwise prefer a sibling directory such as `<repo>-worktrees/pr-<number>-review`, outside the original checkout; honor a user-specified path. Check write permissions and request access if necessary. If setup fails, stop and report it instead of silently reviewing the original checkout's code.
+- Take repository instructions and worktree location conventions from the PR's base SHA, not its head. Choose the destination in this order: a path the user specified; such a convention; otherwise the running agent's default ("Default location" below). Check write permissions and request access if necessary. If setup fails, stop and report it instead of silently reviewing the original checkout's code.
 - Inspect `git worktree list --porcelain` and the destination first. Reuse only a worktree whose Git common directory matches this repository and whose purpose is this PR's review. Check that it is detached and available; a matching path alone does not establish ownership.
 - Check `git -C "${worktree:?}" status --porcelain --untracked-files=all`. If dirty or in use by another session, preserve it and ask before using it. Do not stash, reset, clean or force checkout, and do not detach the author's branch. Choose another unused path if an unrelated destination exists.
+
+### Default location
+
+Without a user path or repository convention, use the running agent's own worktree location. That location is managed by the agent's tools, and it does not depend on the checkout's parent directory being writable; in sandboxes that directory often is not. `<repo>` is the original checkout's directory name.
+
+| Agent | Destination |
+|---|---|
+| Claude Code | `<original checkout>/.claude/worktrees/pr-<number>-review` |
+| Codex | `${CODEX_HOME:-$HOME/.codex}/worktrees/<repo>-pr-<number>-review` |
+| Other | Ask the user for a path |
+
+A destination inside the original checkout must be ignored there. Otherwise the nested checkout shows as untracked, and `git add -A` in the original checkout would stage it as an embedded repository. Check before creating it, and stop and ask if the check fails:
+
+```bash
+git -C "${original_checkout:?}" check-ignore -q "${worktree:?}"
+```
+
+A nested destination is inside the session's working directory, so the location gives no isolation. The Git-object reads in "Review and follow-up checks" still apply. Tools run in the original checkout, such as linters and test globs, may also pick up the nested checkout.
 
 Fetch through a remote verified to point to the PR's **base repository** (often `origin`). Its PR ref also covers fork PRs; fetching the author's branch from the base repository does not. The variables below are values already identified for this run. Choose a unique `fetch_ref`, such as `refs/agent-skills/pr-review/<number>/<unique-run-id>`, so concurrent fetches cannot replace the shared `FETCH_HEAD` between commands.
 
