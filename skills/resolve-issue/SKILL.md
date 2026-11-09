@@ -35,19 +35,22 @@ Claude Code only: the workflow needs subagents and background completion notific
 - Pass `--worktree` to both skills without a path, unless the user gave one. The skills choose a suitable location for each agent. Record the absolute paths the agents report.
 - Do not use the Agent tool's `isolation: "worktree"`, because it would create a second worktree.
 - Do not pass `--watch`; you drive the loop.
-- Run every agent in the background and wait for its completion notification. Do not poll: each check spends a turn.
+- Run every agent, and every wait for CI, in the background, and wait for its completion notification. Do not poll: each check spends a turn.
 - Do not clean up the agents' temporary files or worktrees. They help with follow-up questions, and removing them is the user's call.
 - Merge only through the reviewer with `--merge`, never yourself.
-- Write handoffs to agents in English, unless the user asks otherwise. Report to the user in the user's language.
+- Write handoffs in the user's language. The skills fall back to "the user's language" for commits, PRs and comments in a repository without history, and to them the handoff is the user. Report to the user in the user's language.
+- For your own GitHub reads (issue dependencies, existing PRs, CI state), use `references/github-commands.md`. It also has REST fallbacks for when GraphQL returns HTTP 403.
 
 ## Workflow for one issue
 
 Handoff texts are in `references/handoffs.md`.
 
-1. **Implement.** Start the implementer. From its final report, record the PR URL, worktree, branch, checks run and CI state.
-2. **Review.** Start the reviewer on that PR. Record its verdict, findings, posts and worktree.
-3. **Fix and re-check.** If there are findings, resume the implementer with the review URL and the finding links, then resume the reviewer to re-check. Repeat up to **3 rounds**. After that, ask the user, so two agents cannot loop forever.
-4. **Finish.** When the reviewer reports ready to merge, ask it to merge if `--merge` was given; otherwise stop and report.
+1. **Implement.** Start the implementer. From its final report, record the PR URL, worktree, branch, checks run and CI state. Confirm the PR number with `gh`.
+2. **Wait for CI.** If CI is still running, wait for it in the background. If it fails, resume the implementer with the failing checks, then wait again.
+3. **Review.** Start the reviewer on that PR. Record its verdict, findings, posts and worktree.
+4. **Fix and re-check.** If there are findings, resume the implementer with the review URL and the finding links. Wait for CI as in step 2, then resume the reviewer to re-check.
+5. **Round limit.** Each pass back to the implementer, for CI or for findings, is one round. After **3 rounds** for a PR, ask the user, so two agents cannot loop forever.
+6. **Finish.** When the reviewer reports ready to merge, ask it to merge if `--merge` was given; otherwise stop and report.
 
 When an agent stops with a question, classify and handle it as `references/decisions.md` says. Relay an irregularity it reports to the user unless you can handle it as type C.
 
@@ -62,8 +65,8 @@ When an agent stops with a question, classify and handle it as `references/decis
 
 If an issue already has an open PR, for example from an earlier session, continue from it instead of starting over:
 
-- Start a new reviewer. It reads the PR's threads.
-- For fixes, resume Codex with the `session` value from the `agent=codex` signature in the PR body, if `codex exec resume` accepts it. Otherwise start a new implementer run that handles the PR's review comments.
+- Start a new reviewer. It reads the PR's threads. It will ask before resolving threads opened by the earlier reviewer's session; that is a type A question for the user.
+- For fixes, resume Codex with the `session` value from the `agent=codex` signature in the PR body, if `codex exec resume` accepts it. Otherwise start a new implementer run with "Implementer: existing PR" in `references/handoffs.md`.
 
 ## Final report
 

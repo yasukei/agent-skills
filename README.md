@@ -47,7 +47,7 @@ Otherwise two skills with the same description are listed, and the old one may b
 
 [plugin.json](plugin.json) at the root is the plugin definition in the Agent Plugins 1.0 format, and
 [.agents/plugins/marketplace.json](.agents/plugins/marketplace.json) is the distribution catalog.
-The whole repository is registered as one plugin, `agent-skills`, distributing the same three skills in `skills/` as for Claude.
+The whole repository is registered as one plugin, `agent-skills`, distributing the same skills in `skills/` as for Claude. `resolve-issue` reports itself unsupported outside Claude Code.
 `version` is omitted (it is optional in the [official schema](https://agent-plugins.org/schemas/1.0.0/plugin.schema.json)).
 
 #### Register the marketplace in Codex

@@ -1,6 +1,6 @@
 # Handoffs
 
-Read before writing a prompt or message to the implementer or reviewer. Start each one with the skill invocation, then add only what the skill cannot know. Do not restate the skill's own rules: duplicated rules drift apart. Replace the placeholders, and keep every handoff in plain text.
+Read before writing a prompt or message to the implementer or reviewer. Start each one with the skill invocation, then add only what the skill cannot know. Do not restate the skill's own rules: duplicated rules drift apart. Replace the placeholders, write the text in the user's language (see "Rules" in SKILL.md), and keep every handoff in plain text.
 
 Every handoff ends with these lines:
 
@@ -30,6 +30,28 @@ The reviewer resolves threads after re-checking.
 Final report: how each finding was handled (fix commit, or reason for declining), checks run and their results, CI state, the URLs of the replies you posted.
 ```
 
+## Implementer: existing PR
+
+Use this for a PR from an earlier session when the earlier Codex thread cannot be resumed. Give no worktree path: `issue-to-pr` finds or creates one.
+
+```text
+$agent-skills:issue-to-pr Handle the unresolved review comments and failing CI on PR <OWNER/REPO>#<PR> --worktree.
+
+The reviewer resolves threads after re-checking.
+Final report: how each finding was handled (fix commit, or reason for declining), worktree path, branch, checks run and their results, CI state, the URLs of the replies you posted.
+```
+
+## Implementer: CI failure
+
+```text
+$agent-skills:issue-to-pr Fix the failing CI on PR <OWNER/REPO>#<PR> --worktree. Use the same worktree as before: <path>.
+
+Failing checks:
+- <check name>: <URL>
+
+Final report: the cause, the fix commit (or why it is unrelated to this PR), checks run and their results.
+```
+
 ## Reviewer: first review
 
 Start it with the Agent tool, at `effort: "high"`, in the target repository's checkout.
@@ -37,6 +59,7 @@ Start it with the Agent tool, at `effort: "high"`, in the target repository's ch
 ```text
 Run the skill agent-skills:pr-review with arguments `<OWNER/REPO>#<PR> --worktree`.
 
+You run at effort high; use that value in your signature.
 The PR implements issue #<issue>. It was written by <implementer agent> through issue-to-pr. Fix requests and your re-check will follow later through this same conversation, so remember your findings.
 Final report: verdict (ready to merge, or changes needed), findings (priority, file and line, content), what you posted with URLs, worktree path, checks run and their results.
 ```
