@@ -5,9 +5,38 @@ Read once the target PR is identified, before local review or tests. When starti
 ## Prepare a detached checkout
 
 - Record the target `OWNER/REPO`, the original checkout's absolute path and the installed skill's absolute directory. Run skill helpers from that absolute directory and use explicit repository arguments for GitHub operations, so neither a missing helper nor a fork remote changes the operation's target.
-- Take repository instructions and worktree location conventions from the PR's base SHA, not its head. Otherwise prefer a sibling directory such as `<repo>-worktrees/pr-<number>-review`, outside the original checkout; honor a user-specified path. Check write permissions and request access if necessary. If setup fails, stop and report it instead of silently reviewing the original checkout's code.
+- Take repository instructions and worktree location conventions from the PR's base SHA, not its head. Choose the destination in this order: a path the user specified; such a convention; otherwise the running agent's default ("Destination" below). Check write permissions and request access if necessary. If setup fails, stop and report it instead of silently reviewing the original checkout's code.
 - Inspect `git worktree list --porcelain` and the destination first. Reuse only a worktree whose Git common directory matches this repository and whose purpose is this PR's review. Check that it is detached and available; a matching path alone does not establish ownership.
 - Check `git -C "${worktree:?}" status --porcelain --untracked-files=all`. If dirty or in use by another session, preserve it and ask before using it. Do not stash, reset, clean or force checkout, and do not detach the author's branch. Choose another unused path if an unrelated destination exists.
+
+### Destination
+
+Without a user path or repository convention, use the default below. It does not depend on the checkout's parent directory being writable; in sandboxes that directory often is not. `<main>` is the main worktree's root and `<repo>` is its directory name.
+
+| Agent | Destination |
+|---|---|
+| Claude Code | `${XDG_STATE_HOME:-$HOME/.local/state}/agent-skills/worktrees/<repo>-pr-<number>-review`; if that is not writable, `<main>/.claude/worktrees/pr-<number>-review` |
+| Codex | `<root>/agent-skills/<repo>-pr-<number>-review`, where `<root>` is Codex's worktree root: `${CODEX_HOME:-$HOME/.codex}/worktrees` unless changed in Codex's settings |
+| Other | Ask the user for a path |
+
+Prefer a destination outside the main worktree. The review checkout holds PR code, possibly from a fork, and it is kept after the run. Inside the main worktree, test runners there can find and execute that code later, even though it is gitignored; Vitest's default `include` does. Claude Code's `.claude/worktrees/` is only a fallback, because this skill never enters the checkout with `EnterWorktree`. The `agent-skills/` subdirectory keeps Codex's copy apart from the worktrees Codex itself manages, because Codex may delete older ones automatically.
+
+Use the main worktree, not the current checkout: the current checkout may itself be a linked worktree, for example a `claude --worktree` session. For a non-bare repository the main worktree is the parent of the Git common directory. If that directory is not named `.git` (a bare repository or a separate Git directory), ask the user for a path.
+
+```bash
+common_dir=$(git -C "${original_checkout:?}" rev-parse --path-format=absolute --git-common-dir)
+main_worktree=$(dirname "${common_dir:?}")
+```
+
+These rules apply to every destination, however it was chosen:
+
+- Never place it inside another linked worktree. Removing a linked worktree also deletes anything nested in it, including uncommitted work, because Git treats ignored content as clean.
+- A destination inside the main worktree must be ignored there. Otherwise the nested checkout shows as untracked, and `git add -A` in the main worktree would stage it as an embedded repository. Check before creating it, and stop and ask if the check fails:
+
+  ```bash
+  git -C "${main_worktree:?}" check-ignore -q "${worktree:?}"
+  ```
+- A nested destination is inside the session's working directory, so its location gives no isolation; the Git-object reads in "Review and follow-up checks" still apply. While it exists, do not run checks, linters or test discovery in the main or original checkout, since they can reach and execute PR code. Run authorized checks only with the review checkout as the working directory.
 
 Fetch through a remote verified to point to the PR's **base repository** (often `origin`). Its PR ref also covers fork PRs; fetching the author's branch from the base repository does not. The variables below are values already identified for this run. Choose a unique `fetch_ref`, such as `refs/agent-skills/pr-review/<number>/<unique-run-id>`, so concurrent fetches cannot replace the shared `FETCH_HEAD` between commands.
 
@@ -58,4 +87,4 @@ With `--merge`, retain the existing merge conditions and pin the merge to the la
 
 ## Report and resume
 
-Keep the review worktree on exit, including after merging or a monitoring timeout, so a later request can reuse it. Report the PR URL, absolute worktree path and checked SHA. On resumption, verify its identity, status and the current PR head again; an existing directory is not proof that its code is current. Remove it only when the user requests cleanup and its changes have been preserved; never remove it forcibly.
+Keep the review worktree on exit, including after merging or a monitoring timeout, so a later request can reuse it. Report the PR URL, absolute worktree path and checked SHA. If the checkout is inside the main worktree, also say that it holds unreviewed PR code that test runners in the main worktree can reach, and offer to remove it. On resumption, verify its identity, status and the current PR head again; an existing directory is not proof that its code is current. Remove it only when the user requests cleanup and its changes have been preserved; never remove it forcibly.
