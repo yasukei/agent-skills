@@ -9,6 +9,9 @@ Agent skills shared by Claude Code, ChatGPT and Codex.
 | [create-issue](skills/create-issue/SKILL.md) | Write GitHub issues in a fixed format (task and bug templates) |
 | [issue-to-pr](skills/issue-to-pr/SKILL.md) | Implement an issue, open a PR, and handle CI failures and review comments; `--worktree` isolates the work, `--watch` monitors until ready to merge (never merges) |
 | [pr-review](skills/pr-review/SKILL.md) | Review a PR with prioritized comments (P0–P3, Question), check responses and decide merge readiness; `--worktree` isolates local review, `--watch` monitors, `--merge` merges |
+| [resolve-issue](skills/resolve-issue/SKILL.md) | Claude Code only, invoked explicitly: orchestrate an implementer (Codex, `issue-to-pr`) and a reviewer (Claude Code subagent, `pr-review`) until each PR is ready to merge; `--merge` merges through the reviewer, `--delegate` takes agents' recommendations on design questions |
+
+`resolve-issue` runs in the session's effort. To use a different one, set `/effort` before invoking. Skill frontmatter can change effort only for the current turn, and the orchestrator works across many turns.
 
 Each skill lives in `skills/<name>/SKILL.md`.
 
@@ -44,7 +47,7 @@ Otherwise two skills with the same description are listed, and the old one may b
 
 [plugin.json](plugin.json) at the root is the plugin definition in the Agent Plugins 1.0 format, and
 [.agents/plugins/marketplace.json](.agents/plugins/marketplace.json) is the distribution catalog.
-The whole repository is registered as one plugin, `agent-skills`, distributing the same three skills in `skills/` as for Claude.
+The whole repository is registered as one plugin, `agent-skills`, distributing the same skills in `skills/` as for Claude. `resolve-issue` reports itself unsupported outside Claude Code.
 `version` is omitted (it is optional in the [official schema](https://agent-plugins.org/schemas/1.0.0/plugin.schema.json)).
 
 #### Register the marketplace in Codex
