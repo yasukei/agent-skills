@@ -39,7 +39,7 @@ Claude Code only: the workflow needs subagents and background completion notific
 - Run every agent, and every wait for CI, in the background, and wait for its completion notification. Do not poll: each check spends a turn.
 - Do not clean up the agents' temporary files or worktrees. They help with follow-up questions, and removing them is the user's call.
 - Merge only through the reviewer with `--merge`, never yourself.
-- Write handoffs in the user's language. The skills fall back to "the user's language" for commits, PRs and comments in a repository without history, and to them the handoff is the user. Report to the user in the user's language.
+- Write handoffs, follow-ups and answers to agents in English. Every handoff names the user's language, which repository text falls back to, and asks for reports and questions in English ("Language" in `references/handoffs.md`). Talk to the user in the user's language.
 - For your own GitHub reads (issue dependencies, existing PRs, CI state), use `references/github-commands.md`. It also has REST fallbacks for when GraphQL returns HTTP 403.
 
 ## Workflow for one issue

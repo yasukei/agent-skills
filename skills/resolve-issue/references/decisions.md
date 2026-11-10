@@ -18,6 +18,8 @@ Put the question in one message that the user can answer without scrolling back.
 - what the agent asked, in short
 - the options, with the agent's recommendation and yours
 
+Agents ask in English ("Language" in `handoffs.md`); ask the user in the user's language. Translate without changing the meaning: keep every option the agent gave and its reason for the recommendation. A dropped option or reason changes the choice the user makes.
+
 ## Taking a recommendation under `--delegate`
 
 1. Check the recommendation against the issue and the repository's instructions.
