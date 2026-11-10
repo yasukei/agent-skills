@@ -2,6 +2,8 @@
 
 Read before writing a prompt or message to the implementer or reviewer. Start each one with the skill invocation, then add only what the skill cannot know. Do not restate the skill's own rules: duplicated rules drift apart. Replace the placeholders (`<issue-to-pr>` and `<pr-review>` are the installed skill names, see "Roles" in SKILL.md), write the text in English (see "Language" below), and keep every handoff in plain text.
 
+The "Final report" parts of the implementer's first run and existing-PR run, and of the reviewer's first review and re-check, ask for observations with the fields in `observations.md`, so the final report needs no lookups afterwards. Keep them in step with that file.
+
 Every handoff ends with these lines:
 
 ```text
@@ -32,7 +34,8 @@ $<issue-to-pr> <OWNER/REPO>#<issue> --worktree
 The user's language is <language>. Write repository text (commits, PRs, comments) by the repository's conventions, falling back to the user's language. Report and ask questions in English.
 
 A separate reviewer will review the PR. Review fixes will follow later in this same session.
-Final report: PR number and URL, worktree path, branch, checks run and their results, CI state, anything you noticed but left out as outside the issue.
+Final report: PR number and URL, worktree path, branch, checks run and their results, CI state.
+Also report each thing you noticed but left out of the PR: your head SHA, file:line (several allowed; a file alone if it concerns the whole file), what you noticed, why you left it out (e.g. outside the issue), and the related future issue or milestone (or unknown).
 ```
 
 ## Implementer: review fixes
@@ -62,6 +65,7 @@ You have no context from the earlier implementation. Read the issue, the PR and 
 
 The reviewer resolves threads after re-checking.
 Final report: how each finding was handled (fix commit, or reason for declining), worktree path, branch, checks run and their results, CI state, the URLs of the replies you posted.
+Also report each thing you noticed but left out of the PR: your head SHA, file:line (several allowed; a file alone if it concerns the whole file), what you noticed, why you left it out (e.g. outside the issue), and the related future issue or milestone (or unknown).
 ```
 
 ## Implementer: CI failure
@@ -88,7 +92,8 @@ The user's language is <language>. Write repository text (commits, PRs, comments
 
 You run at effort high; use that value in your signature.
 The PR implements issue #<issue>. It was written by <implementer agent> through issue-to-pr. Fix requests and your re-check will follow later through this same conversation, so remember your findings.
-Final report: verdict (ready to merge, or changes needed), findings (priority, file and line, content), observations you did not raise as findings (e.g. out of the issue's scope, nice to have) with where and why, what you posted with URLs, worktree path, checks run and their results.
+Final report: verdict (ready to merge, or changes needed), findings (priority, file and line, content), what you posted with URLs, worktree path, checks run and their results.
+Also report each thing you noticed but did not raise as a finding: the head SHA you checked, file:line (several allowed; a file alone if it concerns the whole file), what you noticed, why you did not raise it (e.g. out of the issue's scope, no current effect, nice to have), and the related future issue or milestone (or unknown).
 ```
 
 ## Reviewer: re-check
@@ -104,7 +109,8 @@ Implementer's report:
 - <finding>: <fixed in SHA / declined because …>: <reply URL>
 CI: <state>
 
-Final report: each finding (resolved, or not and why), threads resolved, new findings, new observations you did not raise as findings, what you posted with URLs, checks run and their results, final merge verdict.
+Final report: each finding (resolved, or not and why), threads resolved, new findings, what you posted with URLs, checks run and their results, final merge verdict.
+Also report each new thing you noticed but did not raise as a finding: the head SHA you checked, file:line (several allowed; a file alone if it concerns the whole file), what you noticed, why you did not raise it (e.g. out of the issue's scope, no current effect, nice to have), and the related future issue or milestone (or unknown).
 ```
 
 ## Reviewer: merge
