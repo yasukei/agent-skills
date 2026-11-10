@@ -125,7 +125,7 @@ Final report: merge result (method, merge commit, PR and issue state), the pre-m
 
 Resume the same agent. State whose decision the answer is:
 
-- The user's answer: quote the user's words verbatim, then render them in English, naming the chosen option as the agent gave it. A translation alone can shift the intent, and a short reply such as "2で" refers to the options as you relayed them. Leave out the rendering if the user answered in English.
+- The user's answer: quote the user's words verbatim, then render them in English, naming the chosen option as the agent gave it. A translation alone can shift the intent, and a short reply such as "2で" refers to the options as you relayed them. Leave out the rendering only if the user answered in English and named the option as the agent gave it; a bare "2" in English still needs it.
 
   ```text
   The user decided:
