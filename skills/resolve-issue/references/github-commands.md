@@ -1,6 +1,6 @@
 # GitHub commands for the orchestrator
 
-Read when you check an issue's dependencies, look for an existing PR, or wait for CI. Agents do their own GitHub work; these commands are only for your reads. `gh` subcommands such as `gh pr checks` use GraphQL, which some environments reject with HTTP 403. The REST forms (`gh api repos/...`) work there too.
+Read when you check an issue's dependencies, look for an existing PR, wait for CI, or fill in an observation's related issue or milestone. Agents do their own GitHub work; these commands are only for your reads. `gh` subcommands such as `gh pr checks` use GraphQL, which some environments reject with HTTP 403. The REST forms (`gh api repos/...`) work there too.
 
 ## Issue and dependencies
 
@@ -11,6 +11,18 @@ gh api "repos/${repo:?}/issues/${issue:?}" --jq '{number, title, state, body}'
 gh api "repos/${repo:?}/issues/${issue:?}/sub_issues" --jq '.[] | {number, title, state}'
 # Issues this one is blocked by
 gh api "repos/${repo:?}/issues/${issue:?}/dependencies/blocked_by" --jq '.[] | {number, title, state}'
+```
+
+## Issues and milestones
+
+To fill in an observation's related issue or milestone (`observations.md`):
+
+```bash
+# Open issues (the endpoint also returns PRs; drop them)
+gh api --paginate "repos/${repo:?}/issues?state=open&per_page=100" \
+  --jq '.[] | select(.pull_request == null) | {number, title, milestone: .milestone.title}'
+# Milestones
+gh api --paginate "repos/${repo:?}/milestones?state=open&per_page=100" --jq '.[] | {number, title, description}'
 ```
 
 ## Existing PR for an issue
