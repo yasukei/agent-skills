@@ -75,6 +75,6 @@ For each issue, report:
 
 - PR URL and state: merged, ready to merge, or stopped and why.
 - Decisions taken under `--delegate`, with the alternatives.
-- Observations that were not findings, each with its source and location, so the user can decide whether to open issues.
+- Observations that were not findings, as `references/observations.md` says (read it first).
 - Worktree paths the agents reported.
 - Irregularities and how they were handled.
