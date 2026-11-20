@@ -35,7 +35,7 @@ Read `references/environments.md` for the detected kind (sbx sandbox, host PC, c
 
 For each runtime the repository uses, decide the required version with `references/version-pins.md` (precedence among pin files, manifests, ranges and CI). Install it with the manager that is there, following `references/node.md`, `references/python.md` or `references/other-ecosystems.md`.
 
-Then verify, in the same kind of shell the install and tests will run in, that the active version matches the requirement (commands in `references/version-pins.md`). Do not go on with a mismatched version: tests that pass on the wrong runtime prove nothing.
+Then verify, in the same kind of shell the install and tests will run in, that the active version matches the requirement (commands in `references/version-pins.md`); check project environments such as `.venv` again after step 5. Do not go on with a mismatched version: tests that pass on the wrong runtime prove nothing.
 
 ### 4. Devtools
 
@@ -50,7 +50,7 @@ Get the package manager the repository declares (`packageManager`, lockfile, REA
 
 ### 6. Tests
 
-Run the existing test suite with the command CI uses, else the standard one (`npm test`, `uv run pytest`, ...). Set `CI=true` so runners do not stay in watch mode. Long suites may run in the background.
+Run the existing test suite with the command CI uses, else the standard one (`npm test`, `uv run --no-sync pytest`, ...). Set `CI=true` so runners do not stay in watch mode. Long suites may run in the background.
 
 When something fails, classify each failure before acting:
 

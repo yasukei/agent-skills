@@ -8,7 +8,10 @@
 #   ## package managers  managers implied by lockfiles and package.json packageManager
 #   ## manifests         dependency manifests up to 3 levels deep (workspaces, monorepos)
 #   ## setup hints       files that document or automate setup and tests (CI, Makefile, ...)
-#   ## tools             tools on PATH with their versions, "missing" otherwise
+#   ## tools             tools on PATH with their versions, "missing" otherwise. Probed from a neutral
+#                        directory with auto-download switches off, so version-aware shims (corepack, rustup,
+#                        go, mise, a yarnPath) neither act on the repository's pins nor download anything:
+#                        the lines say what the machine has, not what the pins resolve to
 # Several pins for one runtime are all printed; deciding which one wins is the caller's job
 # (see references/version-pins.md), because the right answer depends on the repository.
 #
@@ -46,21 +49,49 @@ PY
   fi
 }
 
-# Print "key = value" values inside a TOML [section] for the given key, quotes and brackets removed
+# Print "key = value" values inside a TOML [section] for the given key, quotes and brackets removed.
+# Header comments are ignored. An inline table prints its version field (node = { version = "22" }),
+# else the table as written, so the caller can read it.
 toml_get() {
   local file="$1" section="$2" key="$3"
   awk -v section="[$section]" -v key="$key" '
-    /^[[:space:]]*\[/ { gsub(/[[:space:]]/, ""); in_section = ($0 == section); next }
+    /^[[:space:]]*\[/ { sub(/#.*/, ""); gsub(/[[:space:]]/, ""); in_section = ($0 == section); next }
     in_section {
       line = $0
       sub(/#.*/, "", line)
       if (match(line, "^[[:space:]]*\"?" key "\"?[[:space:]]*=")) {
         value = substr(line, RLENGTH + 1)
         gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+        if (value ~ /^\{/) {
+          if (match(value, /version[[:space:]]*=[[:space:]]*["\047][^"\047]*["\047]/)) {
+            value = substr(value, RSTART, RLENGTH)
+            sub(/^version[[:space:]]*=[[:space:]]*/, "", value)
+          } else {
+            print value
+            next
+          }
+        }
         gsub(/[\"\047\[\]]/, "", value)
         print value
       }
     }' "$file"
+}
+
+# Print the version range of the node entry in package.json devEngines.runtime (an object or an array)
+devengines_node() {
+  if command -v jq >/dev/null 2>&1; then
+    jq -r '.devEngines.runtime // empty | if type == "array" then .[] else . end
+      | select(type == "object" and .name == "node") | .version // empty' package.json 2>/dev/null | head -1
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 -I - <<'PY' 2>/dev/null
+import json
+runtime = (json.load(open("package.json", encoding="utf-8")).get("devEngines") or {}).get("runtime")
+for entry in runtime if isinstance(runtime, list) else [runtime]:
+    if isinstance(entry, dict) and entry.get("name") == "node" and entry.get("version"):
+        print(entry["version"])
+        break
+PY
+  fi
 }
 
 pin() {
@@ -104,7 +135,7 @@ done
 if [ -f package.json ]; then
   pin node "$(json_get package.json .engines.node)" "package.json engines.node"
   pin node "$(json_get package.json .volta.node)" "package.json volta.node"
-  pin node "$(json_get package.json .devEngines.runtime)" "package.json devEngines.runtime"
+  pin node "$(devengines_node)" "package.json devEngines.runtime"
 fi
 if [ -f pyproject.toml ]; then
   pin python "$(toml_get pyproject.toml project requires-python)" "pyproject.toml requires-python"
@@ -112,7 +143,7 @@ if [ -f pyproject.toml ]; then
 fi
 [ -f runtime.txt ] && pin python "$(first_value runtime.txt)" runtime.txt
 if [ -f go.mod ]; then
-  pin go "$(awk '$1 == "go" { print $2; exit }' go.mod)" "go.mod go"
+  pin go "$(awk '$1 == "go" { print $2; exit }' go.mod)" "go.mod go, minimum"
   pin go "$(awk '$1 == "toolchain" { print $2; exit }' go.mod)" "go.mod toolchain"
 fi
 [ -f rust-toolchain.toml ] && pin rust "$(toml_get rust-toolchain.toml toolchain channel)" rust-toolchain.toml
@@ -127,7 +158,7 @@ echo "## package managers"
 find . -maxdepth 3 \( -name node_modules -o -name .git -o -name .venv -o -name venv -o -name vendor \) -prune -o \
   -type f \( -name package-lock.json -o -name npm-shrinkwrap.json -o -name pnpm-lock.yaml -o -name yarn.lock \
   -o -name bun.lockb -o -name bun.lock -o -name uv.lock -o -name poetry.lock -o -name pdm.lock \
-  -o -name Pipfile.lock -o -name Cargo.lock -o -name go.sum -o -name Gemfile.lock -o -name composer.lock \) \
+  -o -name Pipfile.lock -o -name Cargo.lock -o -name go.sum -o -name Gemfile.lock -o -name composer.lock -o -name packages.lock.json \) \
   -print 2>/dev/null | sed 's|^\./||' | sort | while read -r lock; do
   case "$(basename "$lock")" in
     package-lock.json | npm-shrinkwrap.json) m=npm ;;
@@ -142,6 +173,7 @@ find . -maxdepth 3 \( -name node_modules -o -name .git -o -name .venv -o -name v
     go.sum) m=go ;;
     Gemfile.lock) m=bundler ;;
     composer.lock) m=composer ;;
+    packages.lock.json) m=nuget ;;
   esac
   echo "$m: $lock"
 done
@@ -173,13 +205,16 @@ run_version() {
     "$@" 2>&1 | head -1
   fi
 }
+# Run from / with auto-download off: inside the repository, shims would act on its pins (see the header)
+probe_env=(GOTOOLCHAIN=local RUSTUP_AUTO_INSTALL=0 COREPACK_ENABLE_NETWORK=0 COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+  COREPACK_ENABLE_AUTO_PIN=0 MISE_AUTO_INSTALL=0)
 for tool in node npm pnpm yarn bun deno corepack python3 python uv poetry pdm pipenv pipx pyenv \
   mise fnm volta asdf go cargo rustup java ruby bundle docker; do
   if path="$(command -v "$tool" 2>/dev/null)"; then
     case "$tool" in
-      go) version="$(run_version go version)" ;;
-      java) version="$(run_version java -version)" ;;
-      *) version="$(run_version "$tool" --version)" ;;
+      go) version="$(cd / && run_version env "${probe_env[@]}" go version)" ;;
+      java) version="$(cd / && run_version env "${probe_env[@]}" java -version)" ;;
+      *) version="$(cd / && run_version env "${probe_env[@]}" "$tool" --version)" ;;
     esac
     echo "$tool: ${version:-unknown version} ($path)"
   else

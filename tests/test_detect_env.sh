@@ -19,10 +19,14 @@ fake_tool() {
 }
 fake_tool node v20.11.1
 fake_tool pnpm 9.1.0
+# A shim-like cargo that reports where and with which auto-download switches it was run
+# shellcheck disable=SC2016 # expanded by the fake, not here
+printf '#!/bin/sh\necho "pwd=$PWD go=$GOTOOLCHAIN rustup=$RUSTUP_AUTO_INSTALL corepack=$COREPACK_ENABLE_NETWORK"\n' >"$FAKE/cargo"
+chmod +x "$FAKE/cargo"
 # Keep the basic commands the script needs, but no real node / python / jq from this machine
 BASE="$WORK/base"
 mkdir -p "$BASE"
-for cmd in sed awk find sort basename head grep uname timeout cat; do
+for cmd in sed awk find sort basename head grep uname timeout cat env; do
   real="$(command -v "$cmd")" && ln -s "$real" "$BASE/$cmd"
 done
 
@@ -77,19 +81,22 @@ case "$OUT" in
   *) pass ;;
 esac
 
+t "tools are probed from a neutral directory with auto-download off"
+assert_contains "$OUT" "cargo: pwd=/ go=local rustup=0 corepack=0 ($FAKE/cargo)" "probe environment"
+
 t "python project: .python-version, requires-python, poetry, mise, uv.lock"
 R="$WORK/py"
 mkdir -p "$R"
 echo "3.12" >"$R/.python-version"
 cat >"$R/pyproject.toml" <<'EOF'
-[project]
+[project]  # metadata
 name = "x"
 requires-python = ">=3.11"  # comment
 
 [tool.poetry.dependencies]
 python = "^3.11"
 EOF
-printf '[tools]\nnode = "22"\npython = ["3.12", "3.11"]\n' >"$R/mise.toml"
+printf '[tools] # runtimes\nnode = { version = "22", postinstall = "x" }\npython = ["3.12", "3.11"]\ngo = { path = "x" }\n' >"$R/mise.toml"
 touch "$R/uv.lock" "$R/requirements-dev.txt"
 detect "$R"
 assert_contains "$OUT" "python: 3.12 (.python-version)" ".python-version"
@@ -97,6 +104,7 @@ assert_contains "$OUT" "python: >=3.11 (pyproject.toml requires-python)" "requir
 assert_contains "$OUT" "python: ^3.11 (pyproject.toml tool.poetry python)" "poetry python"
 assert_contains "$OUT" "node: 22 (mise.toml [tools])" "mise node"
 assert_contains "$OUT" "python: 3.12, 3.11 (mise.toml [tools])" "mise python list"
+assert_contains "$OUT" 'go: { path = "x" } (mise.toml [tools])' "inline table without version, as written"
 assert_contains "$OUT" "uv: uv.lock" "uv lock"
 assert_contains "$OUT" "requirements-dev.txt" "requirements"
 
@@ -116,12 +124,31 @@ printf 'module x\n\ngo 1.22\n\ntoolchain go1.22.3\n' >"$R/go.mod"
 printf '[toolchain]\nchannel = "1.79.0"\n' >"$R/rust-toolchain.toml"
 echo "3.3.0" >"$R/.ruby-version"
 echo "java=21.0.2-tem" >"$R/.sdkmanrc"
+echo '{}' >"$R/packages.lock.json"
 detect "$R"
-assert_contains "$OUT" "go: 1.22 (go.mod go)" "go"
+assert_contains "$OUT" "go: 1.22 (go.mod go, minimum)" "go"
 assert_contains "$OUT" "go: go1.22.3 (go.mod toolchain)" "toolchain"
 assert_contains "$OUT" "rust: 1.79.0 (rust-toolchain.toml)" "rust"
 assert_contains "$OUT" "ruby: 3.3.0 (.ruby-version)" "ruby"
 assert_contains "$OUT" "java: 21.0.2-tem (.sdkmanrc)" "java"
+assert_contains "$OUT" "nuget: packages.lock.json" "nuget lock"
+
+t "devEngines.runtime: the node entry's version range, as an object or in an array"
+R="$WORK/dev"
+mkdir -p "$R/obj" "$R/arr" "$R/other"
+echo '{"devEngines": {"runtime": {"name": "node", "version": ">=20"}}}' >"$R/obj/package.json"
+echo '{"devEngines": {"runtime": [{"name": "bun", "version": "1"}, {"name": "node", "version": "^22"}]}}' \
+  >"$R/arr/package.json"
+echo '{"devEngines": {"runtime": {"name": "deno", "version": "2"}}}' >"$R/other/package.json"
+detect "$R/obj"
+assert_contains "$OUT" "node: >=20 (package.json devEngines.runtime)" "object"
+detect "$R/arr"
+assert_contains "$OUT" "node: ^22 (package.json devEngines.runtime)" "array"
+detect "$R/other"
+case "$OUT" in
+  *devEngines*) fail "a non-node runtime must not be reported as node" ;;
+  *) pass ;;
+esac
 
 t "environment: sbx from SANDBOX_NAME, cloud from CLAUDE_CODE_REMOTE, nvm from NVM_DIR"
 mkdir -p "$WORK/nvm"

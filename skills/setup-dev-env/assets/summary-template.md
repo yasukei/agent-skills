@@ -12,7 +12,7 @@
 | Node | 20.x | `.nvmrc` | v20.11.1 (nvm) | ✅ |
 | Python | >=3.11 | `pyproject.toml` requires-python | 3.12.4 (`.venv`, uv) | ✅ |
 
-<Disagreements between pin sources, if any.>
+<Disagreements between pin sources, and versions chosen inside an open range (with the reason), if any.>
 
 ### Tools and dependencies
 | Tool | Version | How it was obtained | Install command | Result |
