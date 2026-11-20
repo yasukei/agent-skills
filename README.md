@@ -10,6 +10,7 @@ Agent skills shared by Claude Code, ChatGPT and Codex.
 | [issue-to-pr](skills/issue-to-pr/SKILL.md) | Implement an issue, open a PR, and handle CI failures and review comments; `--worktree` isolates the work, `--watch` monitors until ready to merge (never merges) |
 | [pr-review](skills/pr-review/SKILL.md) | Review a PR with prioritized comments (P0–P3, Question), check responses and decide merge readiness; `--worktree` isolates local review, `--watch` monitors, `--merge` merges |
 | [resolve-issue](skills/resolve-issue/SKILL.md) | Claude Code only, invoked explicitly: orchestrate an implementer (Codex, `issue-to-pr`) and a reviewer (Claude Code subagent, `pr-review`) until each PR is ready to merge; `--merge` merges through the reviewer, `--delegate` takes agents' recommendations on design questions |
+| [setup-dev-env](skills/setup-dev-env/SKILL.md) | Set up a freshly cloned repository (sbx sandbox, host PC or cloud): pinned runtime versions, devtools, frozen dependency install and a run of the existing tests, ending with a summary of what was set up |
 
 `resolve-issue` runs in the session's effort. To use a different one, set `/effort` before invoking. Skill frontmatter can change effort only for the current turn, and the orchestrator works across many turns.
 

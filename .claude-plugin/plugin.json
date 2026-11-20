@@ -1,6 +1,6 @@
 {
   "name": "agent-skills",
-  "description": "Skills for writing GitHub issues, implementing them as PRs, and reviewing PRs",
+  "description": "Skills for writing GitHub issues, implementing them as PRs, reviewing PRs, and setting up development environments",
   "author": {
     "name": "yasukei"
   },
