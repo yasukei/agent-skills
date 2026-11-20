@@ -21,7 +21,7 @@ Most ranges are open-ended (`>=18`, `>=3.9`), so "the newest release" is often t
 
 1. The installed version, if it satisfies the range and is not a Node odd-numbered (Current) line.
 2. The version CI uses, if it is inside the range.
-3. Node: the newest LTS line inside the range (`nvm install --lts`, `mise install node@lts`, `fnm install --lts`), not an odd-numbered Current line, which never becomes LTS and which many native modules do not support.
+3. Node: the newest LTS release that satisfies the range, not an odd-numbered Current line, which never becomes LTS and which many native modules do not support. List the LTS releases (`nvm ls-remote --lts`, `fnm ls-remote --lts`, `mise ls-remote node`), pick the newest that satisfies the range, and install that version explicitly (`nvm install 22`). The bare LTS aliases (`nvm install --lts`, `mise install node@lts`) select the newest LTS overall, so use them only when that release satisfies the range (e.g. `>=18 <23` excludes Node 24).
 4. Python: the newest minor inside the range for which the lockfile has wheels for the compiled dependencies (`uv.lock` and `poetry.lock` list wheel file names with tags such as `cp313`); without a lockfile, the newest minor before the latest release. A brand-new minor often lacks wheels, and building from source then fails on compilers and headers for a reason that is only the version choice.
 
 Nothing pinned this choice, so record it in the summary as a decision, with the reason.
