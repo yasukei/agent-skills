@@ -18,7 +18,7 @@ I will open the PR and report its state once. To handle reviews later, ask again
 
 ## `verdict.status`
 
-Monitoring ends when `verdict.done` is `true` (`status` is `ready`, `merged` or `closed`), or after 60 minutes without reviewer activity ("Monitoring schedule"). Otherwise keep monitoring, except for an explicit completion without a marker (below).
+Monitoring ends when `verdict.done` is `true` (`status` is `ready`, `merged` or `closed`), or after 60 minutes without reviewer activity ("Monitoring schedule"). Otherwise keep monitoring, except for an explicit completion without a marker (below). On a PR this skill did not open, `ready` ends monitoring only after the check in "PRs this skill did not open" in `handling-updates.md` confirms it; otherwise keep waiting on the review schedule.
 
 | `verdict.status` | State | Next step |
 |---|---|---|

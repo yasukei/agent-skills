@@ -98,10 +98,10 @@ Handle each event as in `references/handling-updates.md` (for review comments, a
 With `--watch`, run `scripts/pr_status.sh <PR number>` (state and the exit decision `verdict` as JSON) periodically. **Keep monitoring until the exit condition in section 7 is met (as a rule, until `verdict.done` is `true`).** Passing CI without any review is "waiting for review", not the end.
 
 - Poll as in "Monitoring schedule" in `references/exit-conditions.md` (CI every 30–60 s, reviewers every 5–10 min).
-- If monitoring must stop early (e.g. a session time limit), report as `references/exit-conditions.md` says.
+- If monitoring must stop early, report as `references/exit-conditions.md` says.
 
 ## 7. Exit conditions (`--watch`)
 
-Stop when `verdict.done` is `true` (`status` is `ready`, `merged` or `closed`), or after 60 min without reviewer activity (not complete). The single exception: a same-account human reviewer clearly wrote "review complete, no findings" without the marker, CI passes and there are no conflicts; ask in chat if the wording is unclear.
+Stop when `verdict.done` is `true` (`status` is `ready`, `merged` or `closed`; check `ready` on a PR it did not open), or after 60 min without reviewer activity (not complete). The single exception: a same-account human reviewer clearly wrote "review complete, no findings" without the marker, CI passes and there are no conflicts; ask in chat if the wording is unclear.
 
 Read `references/exit-conditions.md` for each `verdict.status` and what to report. Never report "ready to merge" unless `verdict.status` is `ready` or the exception applies, with or without `--watch`.
