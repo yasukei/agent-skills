@@ -23,4 +23,5 @@ After pushing fixes, **check that the PR title and body still match the implemen
 - Rewrite only the parts that disagree, so they describe the final implementation. Leave content unrelated to describing the implementation (HTML comments, content added by others or by tools) as is.
 - Do not append a change history of which commit fixed what; the thread replies and commits already record it.
 - Keep the signature as the last lines. If you rewrote the body, replace it with this run's signature, since this run now wrote it.
+- On a PR this skill did not open, keep the body's own structure: do not convert it to the template or add `Closes`. If it has no signature, add this run's only when you change the body.
 - Update at the same time as the push, like the thread replies, so the body matches when the reviewer looks next.

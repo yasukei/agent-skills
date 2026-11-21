@@ -18,7 +18,7 @@ I will open the PR and report its state once. To handle reviews later, ask again
 
 ## `verdict.status`
 
-Monitoring ends when `verdict.done` is `true` (`status` is `ready`, `merged` or `closed`), or after 60 minutes without reviewer activity ("Monitoring schedule"). Otherwise keep monitoring, except for an explicit completion without a marker (below).
+Monitoring ends when `verdict.done` is `true` (`status` is `ready`, `merged` or `closed`), or after 60 minutes without reviewer activity ("Monitoring schedule"). Otherwise keep monitoring, except for an explicit completion without a marker (below). On a PR this skill did not open, `ready` ends monitoring only after the check in "PRs this skill did not open" in `handling-updates.md` confirms it; otherwise keep waiting on the review schedule.
 
 | `verdict.status` | State | Next step |
 |---|---|---|
@@ -65,6 +65,7 @@ The condition depends on whether the account that reviewed is different from the
 
 - Having no reviewer on another account does not mean "reviewed by the same account". There must be actual reviewer activity as defined above.
 - If the reviewer posted findings as threads: every reviewer thread is resolved. The reviewer resolves them; this skill does not.
+- On a PR this skill did not open, the author's earlier unmarked comments also look like reviewer activity. Check a `ready` verdict as in "PRs this skill did not open" in `handling-updates.md` before reporting it.
 - If there were no findings and no threads: a review or PR comment without the `<!-- issue-to-pr -->` marker contains the completion marker `<!-- review-complete -->`, and there is no reviewer activity (such as a question) after it (`review.explicitCompletion`).
 
 A question or an intermediate comment alone is not completion. Examples:
