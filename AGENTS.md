@@ -12,7 +12,7 @@ Agent skills shared by Claude Code, ChatGPT and Codex. Most work here is editing
 
 - `skills/<name>/SKILL.md` with YAML frontmatter; `name` matches the directory.
 - A skill references only files in its own directory (`references/`, `scripts/`, `assets/`), because skills are installed one directory at a time. Files in `scripts/` are executable.
-- To add a skill, also add it to the skill table in `README.md`. The plugin manifests and `scripts/setup.sh` pick it up automatically.
+- To add a skill, also add it to the skill table in `README.md`. The plugin manifests pick it up automatically.
 
 ## Writing skills
 

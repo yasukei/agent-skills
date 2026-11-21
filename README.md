@@ -80,86 +80,6 @@ After importing, set the plugin's installation policy. Updates come with the dai
 See the [official import and sync guide](https://help.openai.com/en/articles/20001504-importing-and-syncing-plugin-marketplaces-from-github) for details.
 
 Running the skills needs an environment that can work on the target repository, commands such as `git` and `gh`, and GitHub authentication.
-Where the plugin is installed, putting the same skills in `.agents/skills/` too duplicates them, so use only one of the two installation methods.
-
-### As a git submodule
-
-Not needed if both Claude and Codex get the skills from the plugin.
-The repository is added as a submodule, and `.claude/skills/` and `.agents/skills/` get one symbolic link per skill.
-Linking per skill lets the repository's own skills live in the same directories.
-
-Run [scripts/setup.sh](scripts/setup.sh) inside the target repository:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/yasukei/agent-skills/main/scripts/setup.sh | bash
-git commit -m "chore: add shared agent skills"
-```
-
-What the script does:
-
-- Adds the repository at `.agent-skills` as a submodule tracking the `main` branch (skipped if already added)
-- Creates symbolic links to each skill at `.claude/skills/<name>` and `.agents/skills/<name>` (an option limits this to one side)
-- If the repository has its own skill with the same name (a real directory, or a link to somewhere other than `.agent-skills`), warns and skips it instead of overwriting
-- Removes links to skills that were removed from the shared repository
-- Stages the changes (never commits)
-
-It is safe to run any number of times, so rerun it after skills are added to or removed from this repository to bring the links up to date.
-
-#### Using the submodule for one side only
-
-When one side uses the plugin and the other the submodule, use these options:
-
-| Option | Where links are created | Where links this script created earlier are removed |
-|---|---|---|
-| None | `.claude/skills/` and `.agents/skills/` | Nowhere |
-| `--codex-only` | `.agents/skills/` | `.claude/skills/` |
-| `--claude-only` | `.claude/skills/` | `.agents/skills/` |
-
-Claude from the plugin, links for Codex only:
-
-```bash
-# First time
-curl -fsSL https://raw.githubusercontent.com/yasukei/agent-skills/main/scripts/setup.sh | bash -s -- --codex-only
-# To switch a repository that already has it
-.agent-skills/scripts/setup.sh --codex-only
-
-git commit -m "chore: link shared agent skills for Codex only"
-```
-
-Codex from the plugin, links for Claude only:
-
-```bash
-# First time
-curl -fsSL https://raw.githubusercontent.com/yasukei/agent-skills/main/scripts/setup.sh | bash -s -- --claude-only
-# To switch a repository that already has it
-.agent-skills/scripts/setup.sh --claude-only
-
-git commit -m "chore: link shared agent skills for Claude only"
-```
-
-Both remove only the links this script created pointing into the submodule's `skills/`. The repository's own real directories and links to other places are left alone.
-`--codex-only` and `--claude-only` cannot be used together. Either can be combined with `--update`.
-
-Installing both the plugin and links to the same skills lists two skills with the same description.
-If the submodule is outdated, which of the old and new versions is used can differ from conversation to conversation, so use only one.
-
-`--codex-only` / `--claude-only` are not remembered. Running without them recreates the links on both sides, so pass the option every time, including with `--update`.
-
-#### Update policy
-
-The submodule always follows the latest `main`. `--update` updates the submodule to the latest, then recreates the links.
-
-```bash
-.agent-skills/scripts/setup.sh --update
-# In a repository set up with --codex-only
-.agent-skills/scripts/setup.sh --update --codex-only
-# In a repository set up with --claude-only
-.agent-skills/scripts/setup.sh --update --claude-only
-
-git commit -m "chore: update shared agent skills"
-```
-
-In cloud environments (Codex Cloud, Claude Code on the web), the submodule may need to be initialized in the environment's setup script; see [Cloud environments](docs/cloud-environments.md#submodule-initialization).
 
 ## Development
 
@@ -173,7 +93,7 @@ claude plugin validate .        # validate the Claude manifests (needs Claude Co
 ```
 
 What each check covers, how the tests work and the tools they need are in [tests/README.md](tests/README.md).
-Notes on cloud environments (Claude Code on the web, GitHub GraphQL being unavailable, submodule initialization) are in [docs/cloud-environments.md](docs/cloud-environments.md).
+Notes on cloud environments (Claude Code on the web, GitHub GraphQL being unavailable) are in [docs/cloud-environments.md](docs/cloud-environments.md).
 
 ## License
 

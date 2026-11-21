@@ -4,10 +4,7 @@ Notes on using these skills in cloud environments (Claude Code on the web, Codex
 
 ## Claude Code on the web and plugins
 
-Whether Claude Code on the web loads the plugin synced from claude.ai (`agent-skills@synced`) decides how to use `setup.sh`:
-
-- If it is loaded: Claude can rely on the plugin alone. If Codex also uses the plugin, no submodule is needed. If Codex uses the submodule, pass `--codex-only`.
-- If it is not loaded: links for Claude are needed. If Codex uses the plugin, pass `--claude-only`; if both use the submodule, pass neither option.
+Whether Claude Code on the web loads the plugin synced from claude.ai (`agent-skills@synced`) decides whether the plugin is enough there.
 
 Result: **it is loaded** (verified on 2026-10-17). Claude can rely on the plugin alone on the web too.
 
@@ -22,13 +19,3 @@ In Claude Code on the web sessions, the GitHub GraphQL API is rejected with `HTT
 
 - `skills/issue-to-pr/scripts/pr_status.sh` switches to REST and the CCR route automatically when GraphQL returns 403.
 - Each skill documents the replacement commands: [create-issue](../skills/create-issue/SKILL.md), [issue-to-pr](../skills/issue-to-pr/references/github-commands.md), [pr-review](../skills/pr-review/references/github-commands.md).
-
-## Submodule initialization
-
-Codex Cloud and Claude Code on the web may not initialize submodules automatically, so put this in the environment's setup script. `--remote` fetches the latest `main` instead of the recorded commit.
-
-```bash
-git submodule update --init --recursive --remote
-```
-
-When the fetched commit is newer than the recorded one, `git status` shows `.agent-skills` as modified. To keep it out of unrelated commits, update the submodule in a separate commit as described in [Update policy](../README.md#update-policy).
