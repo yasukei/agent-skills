@@ -47,10 +47,10 @@ Commands, with REST forms that work where GraphQL returns HTTP 403, are in `refe
    - Leftovers to repair: missing rows and missing PRs on the no-observations line, per log.
    - Issues with no merged PR, sub-issues in other repositories, logs that look hand-written, and open logs found without `--log`.
 
-   If nothing is to be collected or repaired, report that and stop.
-4. **Create the log** (new log only) from `assets/log-template.md`, with only the status table's header rows, so the comments have an issue to go to. Note its number and URL.
+   Repairs go to the log that holds the leftover, which may not be the log this run writes to. With nothing to collect, the plan names no log to create or append to and lists only the repairs: a new log would stay empty. If there is nothing to collect or repair, report that and stop.
+4. **Create the log** (new log with PRs to collect only) from `assets/log-template.md`, with only the status table's header rows, so the comments have an issue to go to. Note its number and URL.
 5. **Post the log comments** ("Log comment" in `references/log-format.md`). Before posting, and before retrying a failed post, read the log's comments for the source markers you are about to post; skip a PR whose marker is already there. A lost response can hide a post that succeeded.
-6. **Update the body** with a row for each new item, linking the comment that holds it, the new PRs with no observations, and the leftovers ("Log body", "Status rows" and "Leftovers" in `references/log-format.md`). A repair-only run skips step 5 and does this step. Read the body again right before you write it.
+6. **Update the body** with a row for each new item, linking the comment that holds it, the new PRs with no observations, and the leftovers ("Log body", "Status rows" and "Leftovers" in `references/log-format.md`). Write each leftover into the body of the log that holds it. A repair-only run skips steps 4 and 5. Read the body again right before you write it.
 
 If a post fails, stop and report what was posted, with the error. A later run picks up from the markers: a PR whose comment was posted is skipped, and its missing rows are found as leftovers.
 
