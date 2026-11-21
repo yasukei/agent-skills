@@ -12,7 +12,8 @@ Each agent removes its own worktree, so you keep out of hands-on work and the ag
 | Implementer | Its worktree, then its local branch | After you confirmed the merge, in one resumed run ("Implementer: cleanup" in `handoffs.md`) |
 
 - Only after a merge. Confirm `merged` is `true` ("PR state" in `github-commands.md`) before sending the implementer's cleanup. An unmerged PR keeps its worktrees, because a later session needs them to continue.
-- A worktree is removed with `git worktree remove` and never with `--force`. Git refuses when there are uncommitted changes or untracked files, so a worktree with leftovers is kept and reported instead of lost.
+- A worktree is removed with `git worktree remove` and never with `--force`. Git refuses when there are uncommitted changes or untracked files that are not ignored, so a worktree with possible unfinished work is kept and reported instead of lost.
+- Files ignored by `.gitignore` are removed with the worktree, on purpose. Git does not count them as changes, and they are not part of the repository by design: dependencies, build output, caches, test logs, or a copy of a local file such as `.env` whose original stays in the main checkout. A file that should have been committed but is ignored is an implementation or review miss, to be caught before the merge, not by keeping worktrees.
 - The local branch is deleted only when its tip is the merged PR's head SHA. A squash or rebase merge makes `git branch -d` refuse, so the check stands in for it before `git branch -D`. Otherwise the branch has commits that are not in the PR, and it is kept.
 - Keep the Codex run files in your scratch directory (`codex.md`). They are the record of each run, and removing them is the user's call.
 
