@@ -33,23 +33,6 @@ assert_contains() {
   esac
 }
 
-assert_link() {
-  # assert_link <path> <expected link target>
-  if [ -L "$1" ] && [ "$(readlink "$1")" = "$2" ]; then
-    pass
-  else
-    fail "$1 is not a link to $2"
-  fi
-}
-
-assert_dir() {
-  if [ -d "$1" ] && [ ! -L "$1" ]; then pass; else fail "$1 is not a real directory"; fi
-}
-
-assert_missing() {
-  if [ ! -e "$1" ] && [ ! -L "$1" ]; then pass; else fail "$1 still exists"; fi
-}
-
 done_testing() {
   echo "$PASSED passed, $FAILED failed"
   [ "$FAILED" -eq 0 ]
