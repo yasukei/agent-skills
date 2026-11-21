@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Print the signature that ends every comment issue-to-pr and pr-review post, right before their markers.
+# Print the signature that ends every comment issue-to-pr, pr-review and orchestrate-issue post, right before their markers.
 #   signature.sh [--agent claude-code|codex|chatgpt] [--model MODEL] [--effort LEVEL]
 #
 # Output (format: "Signature" in references/review-protocol.md):

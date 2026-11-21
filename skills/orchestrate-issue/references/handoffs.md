@@ -35,7 +35,7 @@ The user's language is <language>. Write repository text (commits, PRs, comments
 
 A separate reviewer will review the PR. Review fixes will follow later in this same session.
 Final report: PR number and URL, worktree path, branch, checks run and their results, CI state.
-Also report each thing you noticed but left out of the PR: your head SHA, file:line (several allowed; a file alone if it concerns the whole file), what you noticed, why you left it out (e.g. outside the issue), and the related future issue or milestone (or unknown).
+Also report each thing you noticed but left out of the PR: your head SHA, file:line (several allowed; a file alone if it concerns the whole file), what you noticed, why you left it out (e.g. outside the issue), and the related future issue or milestone (or none, or unknown).
 ```
 
 ## Implementer: review fixes
@@ -65,7 +65,7 @@ You have no context from the earlier implementation. Read the issue, the PR and 
 
 The reviewer resolves threads after re-checking.
 Final report: how each finding was handled (fix commit, or reason for declining), worktree path, branch, checks run and their results, CI state, the URLs of the replies you posted.
-Also report each thing you noticed but left out of the PR: your head SHA, file:line (several allowed; a file alone if it concerns the whole file), what you noticed, why you left it out (e.g. outside the issue), and the related future issue or milestone (or unknown).
+Also report each thing you noticed but left out of the PR: your head SHA, file:line (several allowed; a file alone if it concerns the whole file), what you noticed, why you left it out (e.g. outside the issue), and the related future issue or milestone (or none, or unknown).
 ```
 
 ## Implementer: CI failure
@@ -93,7 +93,7 @@ The user's language is <language>. Write repository text (commits, PRs, comments
 You run at effort high; use that value in your signature.
 The PR implements issue #<issue>. It was written by <implementer agent> through issue-to-pr. Fix requests and your re-check will follow later through this same conversation, so remember your findings.
 Final report: verdict (ready to merge, or changes needed), findings (priority, file and line, content), what you posted with URLs, worktree path, checks run and their results.
-Also report each thing you noticed but did not raise as a finding: the head SHA you checked, file:line (several allowed; a file alone if it concerns the whole file), what you noticed, why you did not raise it (e.g. out of the issue's scope, no current effect, nice to have), and the related future issue or milestone (or unknown).
+Also report each thing you noticed but did not raise as a finding: the head SHA you checked, file:line (several allowed; a file alone if it concerns the whole file), what you noticed, why you did not raise it (e.g. out of the issue's scope, no current effect, nice to have), and the related future issue or milestone (or none, or unknown).
 ```
 
 ## Reviewer: re-check
@@ -110,7 +110,7 @@ Implementer's report:
 CI: <state>
 
 Final report: each finding (resolved, or not and why), threads resolved, new findings, what you posted with URLs, checks run and their results, final merge verdict.
-Also report each new thing you noticed but did not raise as a finding: the head SHA you checked, file:line (several allowed; a file alone if it concerns the whole file), what you noticed, why you did not raise it (e.g. out of the issue's scope, no current effect, nice to have), and the related future issue or milestone (or unknown).
+Also report each new thing you noticed but did not raise as a finding: the head SHA you checked, file:line (several allowed; a file alone if it concerns the whole file), what you noticed, why you did not raise it (e.g. out of the issue's scope, no current effect, nice to have), and the related future issue or milestone (or none, or unknown).
 ```
 
 ## Reviewer: merge

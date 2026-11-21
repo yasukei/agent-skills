@@ -25,7 +25,7 @@ Checks each skill directly under `skills/`. On problems, prints the file and fie
 - The `references/`, `scripts/` and `assets/` paths and the relative Markdown link targets in the body exist in that skill's directory; a link pointing outside it is an error, because skills are installed one directory at a time.
 - Files under `scripts/` are executable.
 - `SKILL.md` is at most 200 lines and 7,000 bytes (UTF-8, frontmatter included) (`SKILL_MAX_LINES` and `SKILL_MAX_BYTES`), the budget in [AGENTS.md](../AGENTS.md). Bytes and lines stand in for tokens.
-- Files shared between skills are byte-identical. Each skill is installed on its own, so a shared file is copied into each skill that uses it; `SHARED_FILES` lists the groups (currently `references/review-protocol.md` and `scripts/signature.sh` of `issue-to-pr` and `pr-review`). A missing copy is an error; a group is skipped only when none of its skills exists.
+- Files shared between skills are byte-identical. Each skill is installed on its own, so a shared file is copied into each skill that uses it; `SHARED_FILES` lists the groups (currently `references/review-protocol.md` of `issue-to-pr` and `pr-review`, and `scripts/signature.sh` of those two and `orchestrate-issue`). A missing copy is an error; a group is skipped only when none of its skills exists.
 
 ## `scripts/check-plugin-policy.py`
 
@@ -45,7 +45,7 @@ Runs without authentication, so CI has no API key configured. The Claude Code ve
 Runs [lint.sh](lint.sh) (`bash -n` and `shellcheck` on `scripts/*.sh`, `skills/*/scripts/*.sh` and the tests) and every `test_*.sh`. Each test file sources [lib.sh](lib.sh) for its assertions.
 
 - **`test_pr_status.sh`** (`skills/issue-to-pr/scripts/pr_status.sh`): puts a fake `gh` ([fake-bin/gh](fake-bin/gh)) first in `PATH` to control its output and exit status. Each case runs on both the GraphQL path and the REST / CCR route path used where GraphQL returns 403, and checks that both give the same output.
-- **`test_signature.sh`** (`scripts/signature.sh` of `issue-to-pr` and `pr-review`): runs the script under `env -i` with only the variables each case sets (Claude Code cloud and local, Codex, an explicit `--agent`, inherited or mixed hints, no environment), and feeds `pr_status.sh` (with the fake `gh`, on both paths) comments that carry a signature before the original markers.
+- **`test_signature.sh`** (`scripts/signature.sh` of `issue-to-pr`, `pr-review` and `orchestrate-issue`): runs the script under `env -i` with only the variables each case sets (Claude Code cloud and local, Codex, an explicit `--agent`, inherited or mixed hints, no environment), and feeds `pr_status.sh` (with the fake `gh`, on both paths) comments that carry a signature before the original markers.
 - **`test_detect_env.sh`** (`skills/setup-dev-env/scripts/detect.sh`): builds repositories in a temporary directory (Node, Python, Yarn classic and berry, other ecosystems, empty) and runs the script under `env -i` with fake tools on `PATH`, so the report does not depend on what this machine has installed.
 - **`test_validate_skills.sh`** (`scripts/validate-skills.py`): breaks a skill created in a temporary directory one thing at a time and checks that validation fails and reports where.
 - **`test_check_plugin_policy.sh`** (`scripts/check-plugin-policy.py`): does the same with manifests created in a temporary directory.

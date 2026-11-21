@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # orchestrate-issue
 
-Act as the orchestrator. Hand implementation and review to separate agents and drive the loop between them. **Do not implement, review or post to GitHub yourself.** That keeps each role's judgment separate. Also, a Claude Code subagent signs its comments with this session's ID, so your posts could be mistaken for the reviewer's.
+Act as the orchestrator. Hand implementation and review to separate agents and drive the loop between them. **Do not implement, review or post to GitHub yourself**, except the observations comment after a merge. That keeps each role's judgment separate. Also, a Claude Code subagent signs its comments with this session's ID, so your posts could be mistaken for the reviewer's.
 
 ## Environment
 
@@ -40,7 +40,7 @@ Claude Code only: the workflow needs subagents and background completion notific
 - Do not clean up the agents' temporary files or worktrees. They help with follow-up questions, and removing them is the user's call.
 - Merge only through the reviewer with `--merge`, never yourself.
 - Write handoffs, follow-ups and answers to agents in English. Every handoff names the user's language, which repository text falls back to, and asks for reports and questions in English ("Language" in `references/handoffs.md`). Talk to the user in the user's language.
-- For your own GitHub reads (issue dependencies, existing PRs, CI state), use `references/github-commands.md`. It also has REST fallbacks for when GraphQL returns HTTP 403.
+- For your own GitHub calls, use `references/github-commands.md`. It has REST fallbacks for when GraphQL returns HTTP 403.
 
 ## Workflow for one issue
 
@@ -51,9 +51,9 @@ Handoff texts are in `references/handoffs.md`.
 3. **Review.** Start the reviewer on that PR. Record its verdict, findings, posts and worktree.
 4. **Fix and re-check.** If there are findings, resume the implementer with the review URL and the finding links. Wait for CI as in step 2, then resume the reviewer to re-check.
 5. **Round limit.** Count the reviewer's checks of a PR: the first review and each re-check. If the **3rd check** does not end in ready to merge, stop and ask the user, so two agents cannot loop forever. CI fixes made before a check (step 2) do not count. A CI failure the reviewer raises as a finding is part of that check.
-6. **Finish.** When the reviewer reports ready to merge, ask it to merge if `--merge` was given; otherwise stop and report.
+6. **Finish.** When the reviewer reports ready to merge, ask it to merge if `--merge` was given; otherwise stop and report. After a merge, post the observations on the PR as `references/observations.md` says (read it first).
 
-Collect the observations each agent reports that are not findings, such as something out of the issue's scope or a nice-to-have. Do not pass them to the implementer: acting on them would widen the PR. When an agent stops with a question, classify and handle it as `references/decisions.md` says. Relay an irregularity it reports to the user unless you can handle it as type C.
+Collect the observations each agent reports that are not findings. Do not pass them to the implementer: acting on them would widen the PR. When an agent stops with a question, classify and handle it as `references/decisions.md` says. Relay an irregularity it reports to the user unless you can handle it as type C.
 
 ## Several issues
 
@@ -64,7 +64,7 @@ Collect the observations each agent reports that are not findings, such as somet
 
 ## Existing PR
 
-If an issue already has an open PR, for example from an earlier session, continue from it instead of starting over:
+If an issue already has an open PR (e.g. from an earlier session), continue from it instead of starting over:
 
 - Start a new reviewer. It reads the PR's threads. It will ask before resolving threads opened by the earlier reviewer's session; that is a type A question for the user.
 - For fixes, resume Codex with the `session` value from the `agent=codex` signature in the PR body, if `codex exec resume` accepts it. Otherwise start a new implementer run with "Implementer: existing PR" in `references/handoffs.md`.
@@ -75,6 +75,6 @@ For each issue, report:
 
 - PR URL and state: merged, ready to merge, or stopped and why.
 - Decisions taken under `--delegate`, with the alternatives.
-- Observations that were not findings, as `references/observations.md` says (read it first).
+- Observations: the comment's URL, or the items and why they were not posted (`references/observations.md`).
 - Worktree paths the agents reported.
 - Irregularities and how they were handled.

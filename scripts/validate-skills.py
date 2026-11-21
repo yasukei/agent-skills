@@ -35,7 +35,11 @@ SKILL_MAX_BYTES = 7000
 # A group is skipped when none of its skills exists (e.g. a skills directory created by the tests)
 SHARED_FILES = [
     ("issue-to-pr/references/review-protocol.md", "pr-review/references/review-protocol.md"),
-    ("issue-to-pr/scripts/signature.sh", "pr-review/scripts/signature.sh"),
+    (
+        "issue-to-pr/scripts/signature.sh",
+        "pr-review/scripts/signature.sh",
+        "orchestrate-issue/scripts/signature.sh",
+    ),
 ]
 
 # Pick up references/... scripts/... assets/... in the body.
