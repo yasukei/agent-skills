@@ -26,6 +26,16 @@ After pushing fixes, update the PR title and body if they no longer match the im
 
 After pushing fixes, **do not re-request review.** Instead, summarize in chat which comments you fixed, which you declined and why, and what you answered.
 
+## PRs this skill did not open
+
+A PR opened by hand or by another tool can be handled the same way, with these differences:
+
+- **Requirements**: there may be no issue. Take the PR's purpose from its title, body and comments, plus any issue it closes, and keep fixes within it.
+- **Earlier replies carry no marker.** The author's own replies posted before this skill took over look like reviewer comments: `scripts/pr_status.sh` counts them as reviewer activity and shows `lastCommentByMe: false`. Judge such threads by content: if the latest comment already answers the finding (a fix with its commit, a reason, an answer) and nothing after it asks for more, do not reply again. Ask in chat if you cannot tell who wrote it. The `verdict` may say `review_in_progress` where only the author has commented; report what you see.
+- **Unlabeled comments** (human reviewers, bots) are judged by their content ("Findings and priority labels" in `review-protocol.md`).
+- **Another account's PR**: before the first push, confirm in chat that the user wants you to push to that branch (`gh api user` against the PR's `user.login`, `github-commands.md`). The branch is that person's work, and fork branches may not accept pushes.
+- From this run on, every comment carries the signature and the marker as usual, so later runs see them as the author's.
+
 ## When the PR conflicts
 
 - Resolve by **merging the base branch** (`git merge origin/<base branch>`). Do not rebase.

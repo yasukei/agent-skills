@@ -8,6 +8,10 @@ In some environments, such as Claude Code on the web, the GitHub GraphQL API is 
 
 | Purpose | Normal | Without GraphQL |
 |---|---|---|
+| Issue or PR | `gh api repos/{owner}/{repo}/issues/<number> --jq 'if .pull_request then "pr" else "issue" end'` | Same (REST) |
+| The current branch's PR | `gh pr view --json number,url` | `gh api "repos/{owner}/{repo}/pulls?head=<head owner>:<branch>&state=open" --jq '.[] \| {number, html_url}'` |
+| Read a PR (author, head, body) | `gh pr view <PR number> --json author,headRepository,headRefName,body,closingIssuesReferences,comments` | `gh api repos/{owner}/{repo}/pulls/<PR number> --jq '{user: .user.login, head: .head.repo.full_name, ref: .head.ref, body}'`; find closed issues in the body (`Closes`, `Fixes`, `Resolves`) |
+| Current account | `gh api user --jq .login` | Same (REST) |
 | Read an issue | `gh issue view <number> --comments` | `gh api repos/{owner}/{repo}/issues/<number>` and `gh api --paginate "repos/{owner}/{repo}/issues/<number>/comments?per_page=100"` |
 | Recent PRs | `gh pr list --state all --limit 10` | `gh api "repos/{owner}/{repo}/pulls?state=all&per_page=10" --jq '.[] \| {number, title}'` |
 | Default branch | `gh repo view --json defaultBranchRef` | `gh api repos/{owner}/{repo} --jq .default_branch` |
@@ -25,7 +29,9 @@ In some environments, such as Claude Code on the web, the GitHub GraphQL API is 
 ## Before implementing
 
 ```bash
+gh api repos/{owner}/{repo}/issues/<number> --jq 'if .pull_request then "pr" else "issue" end'   # is the target an issue or a PR?
 gh issue view <number> --comments                # read the issue and its comments
+gh pr view <PR number> --comments                # for a PR target: its body and comments
 git log --oneline -20                            # language and style of existing commits
 gh pr list --state all --limit 10                # language and style of existing PRs
 gh repo view --json defaultBranchRef             # base branch
