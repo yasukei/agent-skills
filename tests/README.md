@@ -52,7 +52,7 @@ Runs [lint.sh](lint.sh) (`bash -n` and `shellcheck` on `scripts/*.sh`, `skills/*
 
 ## `zizmor`
 
-The `zizmor` job runs [zizmor](https://docs.zizmor.sh/) on the workflows and `dependabot.yml` to find security problems, such as actions not pinned to a commit SHA, credentials left by `actions/checkout`, or packages installed outside a lockfile. Run it locally with `uvx zizmor .github/`. The zizmor version is pinned in [ci.yml](../.github/workflows/ci.yml) (`version` of `zizmor-action`) and is bumped by hand.
+The `zizmor` job runs [zizmor](https://docs.zizmor.sh/) on the workflows and `dependabot.yml` to find security problems, such as actions not pinned to a commit SHA, credentials left by `actions/checkout`, or packages installed outside a lockfile. Run it locally with `uvx zizmor .github/`. zizmor itself is not pinned, so CI always uses the latest release; a release with new audits can fail CI without a change in this repository.
 
 Dependabot updates the pinned action SHAs together with their `# vX.Y.Z` comments. Its updates wait 7 days after a release (`cooldown`).
 
