@@ -8,7 +8,7 @@ In some environments, such as Claude Code on the web, the GitHub GraphQL API is 
 
 | Purpose | Normal | Without GraphQL |
 |---|---|---|
-| Issue or PR | `gh api repos/{owner}/{repo}/issues/<number> --jq 'if .pull_request then "pr" else "issue" end'` | Same (REST) |
+| Issue or PR | `gh api repos/{owner}/{repo}/issues/<number> --jq 'if .pull_request then "pr" else "issue" end'` (`repos/OWNER/REPO/...` for a target that names its repository, see below) | Same (REST) |
 | The current branch's PR | `gh pr view --json number,url` | `gh api "repos/{owner}/{repo}/pulls?head=<head owner>:<branch>&state=open" --jq '.[] \| {number, html_url}'` |
 | Read a PR (author, head, body) | `gh pr view <PR number> --json author,headRepository,headRefName,body,closingIssuesReferences,comments` | `gh api repos/{owner}/{repo}/pulls/<PR number> --jq '{user: .user.login, head: .head.repo.full_name, ref: .head.ref, base: .base.repo.full_name, base_ref: .base.ref, body}'` and the comments as in "Read an issue" (the issue comments endpoint also serves PRs); find closed issues in the body (`Closes`, `Fixes`, `Resolves`) |
 | Current account | `gh api user --jq .login` | Same (REST) |
