@@ -100,8 +100,8 @@ jobs:
           # Print findings as annotations instead of uploading SARIF, which needs security-events: write
           advanced-security: false
           annotations: true
-          # zizmor itself is not pinned (the action uses the latest release): new audits may fail CI
-          # without a change here, which is accepted in exchange for no maintenance
+          # No version: the action's `latest` is the zizmor release bundled with the pinned action
+          # SHA. A newer zizmor (with new audits) arrives with Dependabot's update PR for this action
 
   # Succeeds only when all jobs succeed.
   # Branch protection only needs this job as the required check, so adding jobs needs no settings change
