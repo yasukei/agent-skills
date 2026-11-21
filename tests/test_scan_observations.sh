@@ -134,6 +134,26 @@ assert_eq '"uncollected"' "$(field 1 .status)" "status"
 assert_eq '[]' "$(field 1 .unmarked_mentions)" "unmarked mentions"
 
 # ---------------------------------------------------------------------------
+t "repository names are compared without regard to case"
+reset
+pull 41 true
+write repos/o/r/issues/41/comments "[$(comment 222 "x$OBS")]"
+write repos/o/r/issues/41/timeline "[$(xref O/R 50 false)]"
+issue 50 "$LOG" "[$(comment 900 "$(source_marker 41 222)")]"
+scan o/r 41
+assert_eq '"collected"' "$(field 1 .status)" "status"
+
+# ---------------------------------------------------------------------------
+t "a PR given as --log is rejected"
+reset
+pull 41 true
+write repos/o/r/issues/38 '{"number": 38, "body": "", "pull_request": {}}'
+scan o/r --log 38 41
+assert_eq 2 "$RC" "exit status"
+assert_contains "$ERR" "--log 38 is a pull request" "message"
+assert_eq "" "$OUT" "no output"
+
+# ---------------------------------------------------------------------------
 t "--log is read even without a cross-reference"
 reset
 pull 41 true

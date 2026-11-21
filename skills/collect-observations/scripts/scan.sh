@@ -16,7 +16,9 @@
 #    "unmarked_mentions": [N...]}                  issues that mention the PR but have no log marker
 # status: not-merged  | no-comment (merged, no observations comment)
 #       | uncollected | partial (some comments collected) | collected
-# Exit status: 0 on success, 2 on a usage or GitHub API error.
+# Exit status: 0 on success, 2 on a usage or GitHub API error, or when --log is a PR.
+# Repository names are compared in lowercase, because GitHub accepts any casing in OWNER/REPO
+# but returns its own in repository_url.
 # Only REST endpoints are used, so it works where GraphQL returns HTTP 403.
 set -euo pipefail
 
@@ -92,14 +94,24 @@ load_log() {
   fi
 }
 
+# The issues endpoint also returns PRs, and comments and body edits work on them too, so a PR given as
+# the log would be written to
+if [ -n "$log" ]; then
+  get "repos/$repo/issues/$log" "$work/issue"
+  if jq -e '.pull_request != null' "$work/issue" >/dev/null; then
+    fail "--log $log is a pull request, not an issue"
+  fi
+fi
+
 for pr in "${prs[@]}"; do
   get "repos/$repo/pulls/$pr" "$work/pull"
   list "repos/$repo/issues/$pr/comments?per_page=100" "$work/comments"
   list "repos/$repo/issues/$pr/timeline?per_page=100" "$work/timeline"
 
   candidates="$(jq -r --arg api "https://api.github.com/repos/$repo" --arg log "$log" '
-    [.[] | select(.event == "cross-referenced") | .source.issue // empty
-     | select(.pull_request == null and .repository_url == $api) | .number]
+    ($api | ascii_downcase) as $api
+    | [.[] | select(.event == "cross-referenced") | .source.issue // empty
+     | select(.pull_request == null and (.repository_url // "" | ascii_downcase) == $api) | .number]
     + (if $log == "" then [] else [$log | tonumber] end) | unique | .[]' "$work/timeline")"
   logs=()
   for n in $candidates; do
