@@ -14,7 +14,7 @@ uvx zizmor .github/              # security audit of the workflows and dependabo
 
 ## Required tools
 
-`bash`, `git`, `jq`, `shellcheck`, `python3` with PyYAML, Claude Code for `claude plugin validate .`, and `uv` for `uvx zizmor .github/`. Only the zizmor check needs network access: `uvx` downloads zizmor on first run, and its online audits call the GitHub API (`uvx zizmor --offline .github/` skips them). No GitHub authentication is needed.
+`bash`, `git`, `jq`, `shellcheck`, `python3` with PyYAML, Claude Code for `claude plugin validate .`, and `uv` for `uvx zizmor .github/`. Only the zizmor check needs network access, because `uvx` downloads zizmor on first run. Without a GitHub token, zizmor runs offline and skips its online audits; that check, and everything else here, needs no GitHub authentication. To reproduce CI, which passes a token and runs the online audits too, set `GH_TOKEN` (e.g. `GH_TOKEN=$(gh auth token) uvx zizmor .github/`).
 
 ## `scripts/validate-skills.py`
 
