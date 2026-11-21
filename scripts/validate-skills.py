@@ -39,6 +39,7 @@ SHARED_FILES = [
         "issue-to-pr/scripts/signature.sh",
         "pr-review/scripts/signature.sh",
         "orchestrate-issue/scripts/signature.sh",
+        "collect-observations/scripts/signature.sh",
     ),
 ]
 

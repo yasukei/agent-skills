@@ -1,6 +1,6 @@
 # Observations
 
-Read before posting the observations comment or writing the final report. Observations are what an agent noticed but did not raise as a finding or include in the PR. Record them on the PR they came from, as one comment in the fixed format below, so they are not lost in agent reports and can be collected into a log and decided on later without asking the agents again.
+Read before posting the observations comment or writing the final report. Observations are what an agent noticed but did not raise as a finding or include in the PR. Record them on the PR they came from, as one comment in the fixed format below, so they are not lost in agent reports and can be collected into a log and decided on later without asking the agents again. `collect-observations` builds that log from these comments, so keep the format and the marker as they are.
 
 ## When to post
 
