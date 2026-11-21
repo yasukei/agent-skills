@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "description": "Pins the Claude Code version used by CI for claude plugin validate. Dependabot opens PRs to update it.",
+  "devDependencies": {
+    "@anthropic-ai/claude-code": "2.1.302"
+  }
+}

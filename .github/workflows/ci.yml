@@ -53,9 +53,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      # Pinned, because the latest version can suddenly fail on changed validation rules.
-      # Before bumping it, check that claude plugin validate . passes locally with the same version
-      CLAUDE_CODE_VERSION: 2.1.302
       DISABLE_AUTOUPDATER: 1
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: 1
     steps:
@@ -63,8 +60,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      # Pinned in .github/claude-code/package.json, because the latest version can suddenly fail
+      # on changed validation rules. Dependabot opens a PR to update it, and that PR's CI checks it
       - name: Install Claude Code
-        run: npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
+        run: |
+          version=$(jq -r '.devDependencies["@anthropic-ai/claude-code"]' .github/claude-code/package.json)
+          npm install -g "@anthropic-ai/claude-code@${version}"
       - name: Tool versions
         run: |
           claude --version
