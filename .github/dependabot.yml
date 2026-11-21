@@ -9,3 +9,11 @@ updates:
       interval: monthly
     commit-message:
       prefix: ci
+
+  # Actions used by the workflows, so they do not fall behind (e.g. the Node.js 20 deprecation)
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: ci
