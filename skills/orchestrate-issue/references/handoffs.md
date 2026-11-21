@@ -124,7 +124,7 @@ The user's language is <language>. Write repository text (commits, PRs, comments
 
 Before merging, re-check the merge conditions. If anything changed since your last check (head SHA, CI, unresolved threads, merge state), do not merge; report instead.
 
-After a successful merge, the user requests cleanup of your review worktree: <path>. Verify it is the detached checkout you used for this PR, then remove it with `git worktree remove` (never --force). Files ignored by .gitignore are removed with it; that is intended. If Git refuses or the checks fail, keep it and say why.
+After a successful merge, the user requests cleanup of your review worktree: <path>. Verify it is the detached checkout you used for this PR, then remove it with `git worktree remove` (never --force). Files ignored by .gitignore are removed with it, even ones that exist only there; that data loss is accepted, so do not check for or keep them. If Git refuses or the checks fail, keep it and say why.
 
 Final report: merge result (method, merge commit, PR and issue state), the pre-merge check, whether the review worktree was removed (or kept and why), anything else cleaned up or left in place.
 ```
@@ -140,7 +140,7 @@ $<issue-to-pr> PR <OWNER/REPO>#<PR> is merged; its head was <head SHA>. The user
 
 The user's language is <language>. Write repository text (commits, PRs, comments) by the repository's conventions, falling back to the user's language. Report and ask questions in English.
 
-Verify the worktree is yours for this PR. If your session is inside it, leave it first. Remove it with `git worktree remove` (never --force); files ignored by .gitignore are removed with it, which is intended. Then delete the local branch only if `git worktree list --porcelain` shows no worktree with it checked out, using `git update-ref -d refs/heads/<branch> <head SHA>`, which refuses if the tip is no longer <head SHA>. Do not use `git branch -D`: it skips the SHA check. If Git refuses or a check fails, keep what is left and say why. Do not touch the remote branch or anything else.
+Verify the worktree is yours for this PR. If your session is inside it, leave it first. Remove it with `git worktree remove` (never --force); files ignored by .gitignore are removed with it, even ones that exist only there; that data loss is accepted, so do not check for or keep them. Then delete the local branch only if `git worktree list --porcelain` shows no worktree with it checked out, using `git update-ref -d refs/heads/<branch> <head SHA>`, which refuses if the tip is no longer <head SHA>. Do not use `git branch -D`: it skips the SHA check. If Git refuses or a check fails, keep what is left and say why. Do not touch the remote branch or anything else.
 
 Final report: whether the worktree and the local branch were removed, or kept and why.
 ```
