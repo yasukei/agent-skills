@@ -38,18 +38,21 @@ Commands, with REST forms that work where GraphQL returns HTTP 403, are in `refe
    A PR in `unmarked_mentions` is mentioned by an issue without the log marker. Most are ordinary issues; one that looks like a log (e.g. its title says "observations log") was written by hand or before this skill, and may already hold the PR's items. Name it in the plan.
 
    Without `--log`, also look for open logs ("Existing logs").
+
+   Then check for leftovers of an earlier run: in the `--log` issue and in every log `scan.sh` names under `collected`, compare the marked comments with the body ("Leftovers" in `references/log-format.md`). A run that posted comments but failed to update the body leaves its PRs `collected` with no rows, and only this check finds them.
 3. **Plan.** Show the user, and wait for approval:
    - The log: a new log (title, labels, milestone, parent), or the issue to append to, and whether its body needs the log marker.
    - The PRs to collect, with the number of items in each.
    - The PRs skipped, by status, with where each collected one is.
-   - Issues with no merged PR, logs that look hand-written, and open logs found without `--log`.
+   - Leftovers to repair: missing rows and missing PRs on the no-observations line, per log.
+   - Issues with no merged PR, sub-issues in other repositories, logs that look hand-written, and open logs found without `--log`.
 
-   If nothing is to be collected, report that and stop.
+   If nothing is to be collected or repaired, report that and stop.
 4. **Create the log** (new log only) from `assets/log-template.md`, with only the status table's header rows, so the comments have an issue to go to. Note its number and URL.
 5. **Post the log comments** ("Log comment" in `references/log-format.md`). Before posting, and before retrying a failed post, read the log's comments for the source markers you are about to post; skip a PR whose marker is already there. A lost response can hide a post that succeeded.
-6. **Update the body** with a row for each new item, linking the comment that holds it, and the new PRs with no observations ("Log body" and "Status rows" in `references/log-format.md`). Read the body again right before you write it.
+6. **Update the body** with a row for each new item, linking the comment that holds it, the new PRs with no observations, and the leftovers ("Log body", "Status rows" and "Leftovers" in `references/log-format.md`). A repair-only run skips step 5 and does this step. Read the body again right before you write it.
 
-If a post fails, stop and report what was posted, with the error. A later run picks up from the markers: a PR whose comment was posted is skipped, and its rows are added when they are missing from the table.
+If a post fails, stop and report what was posted, with the error. A later run picks up from the markers: a PR whose comment was posted is skipped, and its missing rows are found as leftovers.
 
 ## Language
 

@@ -69,13 +69,13 @@ A new log uses `assets/log-template.md`:
 - Keep the section headings in English, like `create-issue`. The prose follows "Language" in SKILL.md.
 - Labels: an existing documentation label (e.g. `documentation`) if the repository has one. Do not create labels.
 - Milestone: the milestone, when the scope is one. Parent: the parent issue, when the scope is its sub-issues; end the body with `Part of #<parent>.` and drop that line otherwise.
-- Leave out the **PRs with no observations** line when there are none.
+- Leave out the **PRs with no observations** line when no copied source is a no-observations one.
 - The last line is `<!-- collect-observations:log -->`.
 
 When appending to an existing log, change only:
 
 - The status table: add the new rows after the existing ones. Do not change, reorder or delete existing rows; their statuses are decisions people made.
-- The **PRs with no observations** line: add the new PRs (add the line after the status values line if it is missing).
+- The **PRs with no observations** line: add the new PRs (add the line after the status values line if it is missing). See "PRs with no observations" below for which PRs go there.
 - The log marker: add `<!-- collect-observations:log -->` as the last line if the body does not have it (a log written before this skill). The plan says so first.
 
 ## Status rows
@@ -90,6 +90,21 @@ One row per item, in the order of the log comments:
 
 Never set a status other than `open`, and never write a reason in the Summary. Deciding each item (an issue, folding it into one, dropping it) is the user's step after this skill.
 
-Before adding rows, compare the item IDs in the log's marked comments with the IDs in the table. An ID in a comment but not in the table is left over from a run that posted a comment and then failed to update the body: add its row too. An ID already in the table is not added again.
+An ID already in the table is not added again.
 
 If the body would exceed 65,536 characters, do not cut rows. Stop and tell the user, who can start a next log and move the open items to it.
+
+## PRs with no observations
+
+The line lists only PRs whose copied source is the no-observations line (`No observations were reported in this session for PR #<PR> ...`): a recorded "none". `orchestrate-issue` posts that line so a log can tell "none" from "forgotten".
+
+Never list a `no-comment` or `not-merged` PR there. Nothing was recorded for them, so listing them would turn "forgotten" into "none". They appear only in the plan and the final report.
+
+## Leftovers
+
+A run that posted log comments and then failed to update the body leaves items in the comments with no row. The next run usually scans the same PRs, finds them `collected`, and would have nothing to post, so check every log the run reads (the `--log` issue and the logs under `collected`):
+
+- An item ID in a comment with a source marker but not in the status table: add its row.
+- A PR whose copied source is the no-observations line but not on the **PRs with no observations** line: add it.
+
+List these in the plan as repairs. They are written in step 6 even when no comment is posted.
