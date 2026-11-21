@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fake gh for the pr_status.sh tests. Output and exit status are set through environment variables.
+# Fake gh for the pr_status.sh, wait_ci.sh and scan.sh tests. Output and exit status are set through environment variables.
 #   FAKE_GRAPHQL       file printed to stdout by gh api graphql
 #   FAKE_GRAPHQL_ERR   stderr of gh api graphql (when FAKE_GRAPHQL_RC is non-zero)
 #   FAKE_GRAPHQL_RC    exit status of gh api graphql (when non-zero, FAKE_GRAPHQL is not printed)

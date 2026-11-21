@@ -21,6 +21,7 @@ Agent skills shared by Claude Code, ChatGPT and Codex. Most work here is editing
 - State the reason for each rule in a short clause; agents handle edge cases better when they know why.
 - Skills that call `gh` must also work when GitHub GraphQL returns HTTP 403 (cloud sessions): give REST (`gh api repos/...`) alternatives in `references/`.
 - `issue-to-pr` and `pr-review` interoperate through comment markers, priority labels and completion signals. Change both in the same PR.
+- `collect-observations` reads the observations comments `orchestrate-issue` posts (their marker, groups and item IDs). Change both in the same PR.
 
 ## Before pushing
 
