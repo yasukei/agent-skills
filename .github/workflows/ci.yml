@@ -20,7 +20,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No job pushes, so do not leave the token in .git/config
+          persist-credentials: false
       - name: Tool versions
         run: |
           bash --version | head -1
@@ -39,7 +42,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No job pushes, so do not leave the token in .git/config
+          persist-credentials: false
       - name: Tool versions
         run: |
           python3 --version
@@ -56,16 +62,20 @@ jobs:
       DISABLE_AUTOUPDATER: 1
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: 1
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No job pushes, so do not leave the token in .git/config
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
-      # Pinned in .github-ci/claude-code/package.json, because the latest version can suddenly fail
-      # on changed validation rules. Dependabot opens a PR to update it, and that PR's CI checks it
+      # Pinned in .github-ci/claude-code (package.json and its lockfile), because the latest version
+      # can suddenly fail on changed validation rules. Dependabot opens a PR to update it, and that
+      # PR's CI checks it
       - name: Install Claude Code
         run: |
-          version=$(jq -r '.devDependencies["@anthropic-ai/claude-code"]' .github-ci/claude-code/package.json)
-          npm install -g "@anthropic-ai/claude-code@${version}"
+          npm ci --prefix .github-ci/claude-code --no-audit --no-fund
+          echo "$GITHUB_WORKSPACE/.github-ci/claude-code/node_modules/.bin" >> "$GITHUB_PATH"
       - name: Tool versions
         run: |
           claude --version
@@ -77,10 +87,27 @@ jobs:
         if: ${{ !cancelled() }}
         run: claude plugin validate .
 
+  # Static analysis of the workflows and dependabot.yml for security problems
+  zizmor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
+        with:
+          # Print findings as annotations instead of uploading SARIF, which needs security-events: write
+          advanced-security: false
+          annotations: true
+          # Pinned, because a new release can add audits that suddenly fail CI. Dependabot does not
+          # update this input; bump it by hand when updating zizmor-action
+          version: 1.32.0
+
   # Succeeds only when all jobs succeed.
   # Branch protection only needs this job as the required check, so adding jobs needs no settings change
   ci-ok:
-    needs: [scripts, skills, plugin]
+    needs: [scripts, skills, plugin, zizmor]
     # Run always, so that this job fails instead of being skipped when a job in needs fails
     if: always()
     runs-on: ubuntu-latest

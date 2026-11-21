@@ -9,6 +9,7 @@ tests/run.sh                    # lint and all tests
 tests/run.sh lint               # bash -n and shellcheck only
 tests/run.sh test               # tests only
 claude plugin validate .        # schema validation of the manifests in .claude-plugin/ (needs Claude Code)
+uvx zizmor .github/              # security audit of the workflows and dependabot.yml (needs uv)
 ```
 
 ## Required tools
@@ -37,7 +38,7 @@ Checks the two files in `.claude-plugin/`, the root `plugin.json` and `.agents/p
 
 ## `claude plugin validate .`
 
-Runs without authentication, so CI has no API key configured. The Claude Code version in CI is pinned in [.github-ci/claude-code/package.json](../.github-ci/claude-code/package.json) so that changed validation rules cannot suddenly break CI. Dependabot ([dependabot.yml](../.github/dependabot.yml)) opens a PR to update it every month, and that PR's CI runs `claude plugin validate .` with the new version. It warns that there is no `version`; that follows the policy above, so `--strict` is not used.
+Runs without authentication, so CI has no API key configured. The Claude Code version in CI is pinned in [.github-ci/claude-code/package.json](../.github-ci/claude-code/package.json) and its lockfile, and installed with `npm ci`, so that changed validation rules cannot suddenly break CI. Dependabot ([dependabot.yml](../.github/dependabot.yml)) opens a PR to update it every month, and that PR's CI runs `claude plugin validate .` with the new version. It warns that there is no `version`; that follows the policy above, so `--strict` is not used.
 
 ## `tests/run.sh`
 
@@ -48,6 +49,12 @@ Runs [lint.sh](lint.sh) (`bash -n` and `shellcheck` on `scripts/*.sh`, `skills/*
 - **`test_detect_env.sh`** (`skills/setup-dev-env/scripts/detect.sh`): builds repositories in a temporary directory (Node, Python, Yarn classic and berry, other ecosystems, empty) and runs the script under `env -i` with fake tools on `PATH`, so the report does not depend on what this machine has installed.
 - **`test_validate_skills.sh`** (`scripts/validate-skills.py`): breaks a skill created in a temporary directory one thing at a time and checks that validation fails and reports where.
 - **`test_check_plugin_policy.sh`** (`scripts/check-plugin-policy.py`): does the same with manifests created in a temporary directory.
+
+## `zizmor`
+
+The `zizmor` job runs [zizmor](https://docs.zizmor.sh/) on the workflows and `dependabot.yml` to find security problems, such as actions not pinned to a commit SHA, credentials left by `actions/checkout`, or packages installed outside a lockfile. Run it locally with `uvx zizmor .github/`. The zizmor version is pinned in [ci.yml](../.github/workflows/ci.yml) (`version` of `zizmor-action`) and is bumped by hand.
+
+Dependabot updates the pinned action SHAs together with their `# vX.Y.Z` comments. Its updates wait 7 days after a release (`cooldown`).
 
 ## CI jobs
 
