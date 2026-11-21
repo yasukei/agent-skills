@@ -2,8 +2,9 @@ version: 2
 updates:
   # The Claude Code version CI uses for claude plugin validate.
   # Monthly, because Claude Code is released almost every day
+  # Outside .github/, because GitHub rejected Dependabot's npm update PR for .github/claude-code
   - package-ecosystem: npm
-    directory: /.github/claude-code
+    directory: /.github-ci/claude-code
     schedule:
       interval: monthly
     commit-message:

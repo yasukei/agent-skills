@@ -60,11 +60,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      # Pinned in .github/claude-code/package.json, because the latest version can suddenly fail
+      # Pinned in .github-ci/claude-code/package.json, because the latest version can suddenly fail
       # on changed validation rules. Dependabot opens a PR to update it, and that PR's CI checks it
       - name: Install Claude Code
         run: |
-          version=$(jq -r '.devDependencies["@anthropic-ai/claude-code"]' .github/claude-code/package.json)
+          version=$(jq -r '.devDependencies["@anthropic-ai/claude-code"]' .github-ci/claude-code/package.json)
           npm install -g "@anthropic-ai/claude-code@${version}"
       - name: Tool versions
         run: |
