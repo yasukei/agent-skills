@@ -70,10 +70,10 @@ The script waits for the PR's head when it starts. Start it after the implemente
 
 ## PR state
 
-To confirm the merge before posting the observations comment (`observations.md`) and before the implementer's cleanup (`cleanup.md`, which also needs the head SHA and branch):
+To confirm the merge before posting the observations comment (`observations.md`) and before the implementer's cleanup (`cleanup.md`):
 
 ```bash
-gh api "repos/${repo:?}/pulls/${pr:?}" --jq '{number, state, merged, merge_commit_sha, head_sha: .head.sha, head_ref: .head.ref}'
+gh api "repos/${repo:?}/pulls/${pr:?}" --jq '{number, state, merged, merge_commit_sha}'
 ```
 
 ## Finding the observations comment

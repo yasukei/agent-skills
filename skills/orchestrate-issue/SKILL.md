@@ -77,5 +77,5 @@ For each issue, report:
 - PR URL and state: merged, ready to merge, or stopped and why.
 - Decisions taken under `--delegate`, with the alternatives.
 - Observations: the comment's URL, or the items and why they were not posted (`references/observations.md`).
-- Worktrees and local branches: removed, or kept with path and reason.
+- Worktrees: removed, or kept with path and reason. Local branches kept.
 - Irregularities and how they were handled.

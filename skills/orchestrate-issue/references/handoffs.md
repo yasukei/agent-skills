@@ -136,13 +136,13 @@ Leave out the cleanup paragraph when the user gave `--keep-worktrees` (`cleanup.
 Send this after you confirmed the merge, unless the user gave `--keep-worktrees` (`cleanup.md`). Resume the same implementer.
 
 ```text
-$<issue-to-pr> PR <OWNER/REPO>#<PR> is merged; its head was <head SHA>. The user requests cleanup of your worktree for it: <path>, branch <branch>.
+$<issue-to-pr> PR <OWNER/REPO>#<PR> is merged. The user requests cleanup of your worktree for it: <path>.
 
 The user's language is <language>. Write repository text (commits, PRs, comments) by the repository's conventions, falling back to the user's language. Report and ask questions in English.
 
-Verify the worktree is yours for this PR. If your session is inside it, leave it first. Remove it with `git worktree remove` (never --force); files ignored by .gitignore are removed with it, even ones that exist only there; that data loss is accepted, so do not check for or keep them. Then, if the local branch's tip is <head SHA>, delete it with `git branch -D <branch>` (a squash merge makes `-d` refuse; `-D` still refuses a branch in use by a worktree, rebase or bisect). Compare the SHA in its "was <SHA>" output with <head SHA>; if it differs, the branch moved after your check: recreate it at once with `git branch <branch> <that SHA>` and report it. Do not use `git update-ref -d`: it skips the in-use checks. If Git refuses or a check fails, keep what is left and say why. Do not touch the remote branch or anything else.
+Verify the worktree is yours for this PR. If your session is inside it, leave it first. Remove it with `git worktree remove` (never --force); files ignored by .gitignore are removed with it, even ones that exist only there; that data loss is accepted, so do not check for or keep them. If Git refuses or a check fails, keep it and say why. Keep the local branch, and do not touch the remote branch or anything else.
 
-Final report: whether the worktree and the local branch were removed, or kept and why.
+Final report: whether the worktree was removed, or kept and why, and the name of the local branch you kept.
 ```
 
 ## Answering a question
