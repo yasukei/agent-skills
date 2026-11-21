@@ -13,10 +13,10 @@ Comments and the PR body end with a signature (`scripts/signature.sh`, "Signatur
 
 ## Target
 
-The argument is an issue or a PR (`#<n>`, `OWNER/REPO#<n>`, URL), else the current branch's PR. Check which it is (`references/github-commands.md`).
+The argument is an issue or a PR (`#<n>`, `OWNER/REPO#<n>`, URL), else the current branch's PR. Check which it is and its repository (`references/github-commands.md`).
 
 - **Issue**: steps 1–5 open a PR, then step 6.
-- **PR**: steps 1–2, then step 6. It need not come from this skill or close an issue ("PRs this skill did not open" in `references/handling-updates.md`). If another account opened it, ask before pushing: the branch is their work.
+- **PR**: steps 1–2, then step 6. It need not come from this skill or close an issue ("PRs this skill did not open" in `references/handling-updates.md`). If another account opened it, ask before pushing to their branch.
 
 ## Isolated checkout (`--worktree`)
 
@@ -38,7 +38,7 @@ Do not take over the reviewer's decisions or break the review history.
 
 ## Monitoring (`--watch`)
 
-Monitor (steps 6–7) only when the arguments contain `--watch` or the user explicitly asks for it (e.g. 「監視して」「マージまで見て」); 「レビュー対応して」 alone is not. Monitoring keeps the session busy.
+Monitor (steps 6–7) only with `--watch` or an explicit request (e.g. 「監視して」「マージまで見て」); 「レビュー対応して」 alone is not. Monitoring keeps the session busy.
 
 Without `--watch`, do one pass and end:
 
