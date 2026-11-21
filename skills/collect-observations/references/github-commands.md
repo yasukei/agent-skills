@@ -1,8 +1,8 @@
 # GitHub commands
 
-Read when you resolve the targets to PRs, look for existing logs, create the log, post a log comment or update the log body. Every command here uses REST (`gh api repos/...`), which works where GitHub GraphQL returns HTTP 403 (e.g. Claude Code on the web). `gh issue create`, `gh issue list` and `gh issue edit` use GraphQL; do not use them.
+Read when you resolve the targets to PRs, look for existing logs, create the log, post a log comment or update the log body. Every command here except the first one under "Merged PRs of an issue" uses REST (`gh api repos/...`), which works where GitHub GraphQL returns HTTP 403 (e.g. Claude Code on the web); that one has a REST fallback. `gh issue create`, `gh issue list` and `gh issue edit` use GraphQL; do not use them.
 
-`repo` is `OWNER/REPO`. The issues endpoints also return PRs; `.pull_request != null` marks a PR.
+`repo` is `OWNER/REPO`. The issues endpoints also return PRs; `.pull_request != null` marks a PR. GitHub accepts any letter case in `OWNER/REPO` but returns its own casing in `repository_url` and `nameWithOwner`, so compare repository names in lowercase (`ascii_downcase` in jq).
 
 ## Resolving the targets
 
@@ -14,16 +14,29 @@ gh api "repos/${repo:?}/issues/${n:?}" --jq '{number, title, state, is_pr: (.pul
 
 ### Merged PRs of an issue
 
-Candidates are PRs in the same repository that the issue's timeline lists as cross-references. A PR in another repository can mention the issue too, and its number means nothing here, so drop it:
+Use GitHub's own closing relationship first. It covers both closing keywords in a PR body and a PR linked in the issue's Development sidebar, which has no keyword. Keep the merged PRs in the same repository; a PR in another repository has a number that means nothing here:
+
+```bash
+gh api graphql -f owner="${repo%%/*}" -f name="${repo#*/}" -F n="${issue:?}" -f query='
+  query($owner: String!, $name: String!, $n: Int!) {
+    repository(owner: $owner, name: $name) { issue(number: $n) {
+      closedByPullRequestsReferences(first: 50, includeClosedPrs: true) {
+        nodes { number merged repository { nameWithOwner } } } } } }' |
+  jq --arg repo "${repo:?}" '[.data.repository.issue.closedByPullRequestsReferences.nodes[]
+    | select(.merged and (.repository.nameWithOwner | ascii_downcase) == ($repo | ascii_downcase)) | .number]'
+```
+
+Where GraphQL returns HTTP 403, fall back to the timeline. Candidates are PRs in the same repository that the issue's timeline lists as cross-references:
 
 ```bash
 gh api --paginate "repos/${repo:?}/issues/${issue:?}/timeline?per_page=100" | jq -s --arg repo "${repo:?}" '
   [.[][] | select(.event == "cross-referenced") | .source.issue
-   | select(.pull_request != null and .repository_url == "https://api.github.com/repos/" + $repo)
+   | select(.pull_request != null
+            and (.repository_url | ascii_downcase) == ("https://api.github.com/repos/" + $repo | ascii_downcase))
    | .number] | unique'
 ```
 
-A mention does not make a PR the issue's implementation. Keep a candidate only if it is merged and its body closes the issue (`Closes #<issue>`, `Fixes`, `Resolves`, also as `OWNER/REPO#<issue>`), as `issue-to-pr` writes it:
+A mention does not make a PR the issue's implementation. In the fallback, keep a candidate only if it is merged and its body closes the issue (`Closes #<issue>`, `Fixes`, `Resolves`, also as `OWNER/REPO#<issue>`), as `issue-to-pr` writes it:
 
 ```bash
 gh api "repos/${repo:?}/pulls/${pr:?}" | jq --arg repo "${repo:?}" --arg issue "${issue:?}" '
@@ -31,15 +44,16 @@ gh api "repos/${repo:?}/pulls/${pr:?}" | jq --arg repo "${repo:?}" --arg issue "
    closes_issue: (.body // "" | test("(?i)\\b(close[sd]?|fix(e[sd])?|resolve[sd]?):?\\s+(" + $repo + ")?#" + $issue + "\\b"))}'
 ```
 
-An issue with no such PR goes into the plan as "no merged PR found", with the merged candidates that only mention it, so the user can add one by number.
+The fallback cannot see a PR linked only in the Development sidebar. An issue with no PR found goes into the plan as "no merged PR found", with the merged candidates that only mention it, so the user can add one by number. Say in the plan that the fallback was used.
 
 ### Sub-issues
 
 ```bash
-gh api --paginate "repos/${repo:?}/issues/${issue:?}/sub_issues?per_page=100" --jq '.[] | {number, title, state}'
+gh api --paginate "repos/${repo:?}/issues/${issue:?}/sub_issues?per_page=100" \
+  --jq '.[] | {number, title, state, repo: (.repository_url | sub("^https://api.github.com/repos/"; ""))}'
 ```
 
-Repeat for each sub-issue, so sub-issues of sub-issues are included. Keep a set of the numbers you visited, so a loop cannot repeat.
+A sub-issue can be in another repository, and its number means nothing in `repo`. Keep only sub-issues whose `repo` equals `repo` (in lowercase), and list the others in the plan as skipped: they need a log in their own repository. Repeat for each kept sub-issue, so sub-issues of sub-issues are included. Keep a set of the numbers you visited, so a loop cannot repeat.
 
 ### Milestone
 
