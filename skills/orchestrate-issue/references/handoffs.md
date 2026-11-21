@@ -124,7 +124,25 @@ The user's language is <language>. Write repository text (commits, PRs, comments
 
 Before merging, re-check the merge conditions. If anything changed since your last check (head SHA, CI, unresolved threads, merge state), do not merge; report instead.
 
-Final report: merge result (method, merge commit, PR and issue state), the pre-merge check, anything cleaned up or left in place.
+After a successful merge, the user requests cleanup of your review worktree: <path>. Verify it is the detached checkout you used for this PR, then remove it with `git worktree remove` (never --force). Files ignored by .gitignore are removed with it, even ones that exist only there; that data loss is accepted, so do not check for or keep them. If Git refuses or the checks fail, keep it and say why.
+
+Final report: merge result (method, merge commit, PR and issue state), the pre-merge check, whether the review worktree was removed (or kept and why), anything else cleaned up or left in place.
+```
+
+Leave out the cleanup paragraph when the user gave `--keep-worktrees` (`cleanup.md`).
+
+## Implementer: cleanup
+
+Send this after you confirmed the merge, unless the user gave `--keep-worktrees` (`cleanup.md`). Resume the same implementer.
+
+```text
+$<issue-to-pr> PR <OWNER/REPO>#<PR> is merged. The user requests cleanup of your worktree for it: <path>.
+
+The user's language is <language>. Write repository text (commits, PRs, comments) by the repository's conventions, falling back to the user's language. Report and ask questions in English.
+
+Verify the worktree is yours for this PR. If your session is inside it, leave it first. Remove it with `git worktree remove` (never --force); files ignored by .gitignore are removed with it, even ones that exist only there; that data loss is accepted, so do not check for or keep them. If Git refuses or a check fails, keep it and say why. Keep the local branch, and do not touch the remote branch or anything else.
+
+Final report: whether the worktree was removed, or kept and why, and the name of the local branch you kept.
 ```
 
 ## Answering a question

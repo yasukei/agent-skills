@@ -42,7 +42,7 @@ The handoffs ask the agents for these fields except the item ID, which you assig
 
 ## Missing fields
 
-- `file:line` and Related: if the agent did not report them, you may fill them, so the user does not have to look them up. Look up a line at the group's SHA, not at the worktree's current head, which has usually moved on (e.g. `git -C <worktree> grep -n <pattern> <SHA>`). Find issues and milestones with "Issues and milestones" in `github-commands.md`. Mark each value you filled with `(filled in by the orchestrator)`, so the user can tell it from what the agent reported. If you cannot fill it, write `unknown`.
+- `file:line` and Related: if the agent did not report them, you may fill them, so the user does not have to look them up. Look up a line at the group's SHA, not at a checkout's current head, which has usually moved on (e.g. `git -C <checkout> grep -n <pattern> <SHA>`). Worktrees share Git objects, so the target repository's checkout works after the agents' worktrees are removed (`cleanup.md`). Find issues and milestones with "Issues and milestones" in `github-commands.md`. Mark each value you filled with `(filled in by the orchestrator)`, so the user can tell it from what the agent reported. If you cannot fill it, write `unknown`.
 - Not raised because: never guess it. Write that it was not reported. A guessed reason looks like the agent's judgment and can lead the user to drop an item for a reason nobody gave.
 - Any other field the agent did not report: write that it was not reported.
 

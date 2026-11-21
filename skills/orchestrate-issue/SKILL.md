@@ -30,6 +30,7 @@ Claude Code only: the workflow needs subagents and background completion notific
 - One or more issue numbers, optionally with `OWNER/REPO`.
 - `--merge`: when a PR is ready, ask the reviewer to merge it with `--merge`. Without it, stop at ready to merge. If the user approves a merge later, send it to the same reviewer as `--merge`.
 - `--delegate`: answer design questions that have a recommendation with that recommendation (type B in `references/decisions.md`).
+- `--keep-worktrees`: keep the agents' worktrees after a merge.
 
 ## Rules
 
@@ -37,9 +38,9 @@ Claude Code only: the workflow needs subagents and background completion notific
 - Do not use the Agent tool's `isolation: "worktree"`, because it would create a second worktree.
 - Do not pass `--watch`; you drive the loop.
 - Run every agent, and every wait for CI, in the background, and wait for its completion notification. Do not poll: each check spends a turn.
-- Do not clean up the agents' temporary files or worktrees. They help with follow-up questions, and removing them is the user's call.
+- Do not remove the agents' files or worktrees yourself. After a merge, each agent removes its own (`references/cleanup.md`).
 - Merge only through the reviewer with `--merge`, never yourself.
-- Write handoffs, follow-ups and answers to agents in English. Every handoff names the user's language, which repository text falls back to, and asks for reports and questions in English ("Language" in `references/handoffs.md`). Talk to the user in the user's language.
+- Write handoffs, follow-ups and answers to agents in English, as "Language" in `references/handoffs.md` says. Talk to the user in the user's language.
 - For your own GitHub calls, use `references/github-commands.md`. It has REST fallbacks for when GraphQL returns HTTP 403.
 
 ## Workflow for one issue
@@ -51,7 +52,7 @@ Handoff texts are in `references/handoffs.md`.
 3. **Review.** Start the reviewer on that PR. Record its verdict, findings, posts and worktree.
 4. **Fix and re-check.** If there are findings, resume the implementer with the review URL and the finding links. Wait for CI as in step 2, then resume the reviewer to re-check.
 5. **Round limit.** Count the reviewer's checks of a PR: the first review and each re-check. If the **3rd check** does not end in ready to merge, stop and ask the user, so two agents cannot loop forever. CI fixes made before a check (step 2) do not count. A CI failure the reviewer raises as a finding is part of that check.
-6. **Finish.** When the reviewer reports ready to merge, ask it to merge if `--merge` was given; otherwise stop and report. After a merge, post the observations on the PR as `references/observations.md` says (read it first).
+6. **Finish.** When the reviewer reports ready to merge, ask it to merge if `--merge` was given; otherwise stop and report. After a merge, post the observations on the PR (`references/observations.md`) and clean up (`references/cleanup.md`).
 
 Collect the observations each agent reports that are not findings. Do not pass them to the implementer: acting on them would widen the PR. When an agent stops with a question, classify and handle it as `references/decisions.md` says. Relay an irregularity it reports to the user unless you can handle it as type C.
 
@@ -66,7 +67,7 @@ Collect the observations each agent reports that are not findings. Do not pass t
 
 If an issue already has an open PR (e.g. from an earlier session), continue from it instead of starting over:
 
-- Start a new reviewer. It reads the PR's threads. It will ask before resolving threads opened by the earlier reviewer's session; that is a type A question for the user.
+- Start a new reviewer. It will ask before resolving threads of the earlier reviewer's session; that is a type A question for the user.
 - For fixes, resume Codex with the `session` value from the `agent=codex` signature in the PR body, if `codex exec resume` accepts it. Otherwise start a new implementer run with "Implementer: existing PR" in `references/handoffs.md`.
 
 ## Final report
@@ -76,5 +77,5 @@ For each issue, report:
 - PR URL and state: merged, ready to merge, or stopped and why.
 - Decisions taken under `--delegate`, with the alternatives.
 - Observations: the comment's URL, or the items and why they were not posted (`references/observations.md`).
-- Worktree paths the agents reported.
+- Worktrees: removed, or kept with path and reason. Local branches kept.
 - Irregularities and how they were handled.
