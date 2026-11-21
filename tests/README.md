@@ -37,7 +37,7 @@ Checks the two files in `.claude-plugin/`, the root `plugin.json` and `.agents/p
 
 ## `claude plugin validate .`
 
-Runs without authentication, so CI has no API key configured. The Claude Code version in CI is pinned (`CLAUDE_CODE_VERSION` in [ci.yml](../.github/workflows/ci.yml)) so that changed validation rules cannot suddenly break CI. It warns that there is no `version`; that follows the policy above, so `--strict` is not used.
+Runs without authentication, so CI has no API key configured. The Claude Code version in CI is pinned in [.github/claude-code/package.json](../.github/claude-code/package.json) so that changed validation rules cannot suddenly break CI. Dependabot ([dependabot.yml](../.github/dependabot.yml)) opens a PR to update it every month, and that PR's CI runs `claude plugin validate .` with the new version. It warns that there is no `version`; that follows the policy above, so `--strict` is not used.
 
 ## `tests/run.sh`
 
