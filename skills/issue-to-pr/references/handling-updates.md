@@ -40,6 +40,6 @@ A PR opened by hand or by another tool can be handled the same way, with these d
 
 ## When the PR conflicts
 
-- Resolve by **merging the base branch** (`git merge origin/<base branch>`). Do not rebase.
+- Resolve by **merging the base branch** of the PR's base repository (`base.repo.full_name` and `base.ref` of the PR, "Monitoring" in `github-commands.md`). Do not rebase. `origin` may point to a fork, whose copy of the branch can be behind and leave the conflict in place.
 - After resolving, pass lint and tests locally before pushing.
 - If the conflict is so large or complex that rebasing and opening a new PR seems better, do not touch it; ask in chat.

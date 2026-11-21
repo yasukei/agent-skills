@@ -52,7 +52,11 @@ gh pr create --base <base branch> --title "<title>" --body-file <body file>
 scripts/pr_status.sh <PR number> [owner/repo]    # CI, reviews, threads and verdict as JSON
 gh run view <run-id> --log-failed                # logs of the failed jobs
 gh run rerun <run-id> --failed                   # re-run the failed jobs once (suspected flaky)
-git merge origin/<base branch>                   # resolve a conflict by merging, never rebase
+# Resolve a conflict by merging the base branch of the PR's base repository, never by rebasing.
+# <base remote> is the remote whose URL is that repository (git remote -v); origin may be a fork.
+gh api repos/{owner}/{repo}/pulls/<PR number> --jq '{base: .base.repo.full_name, base_ref: .base.ref}'
+git fetch <base remote> <base ref>
+git merge FETCH_HEAD
 ```
 
 ## Signature
