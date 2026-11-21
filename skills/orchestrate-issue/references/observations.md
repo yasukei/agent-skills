@@ -14,9 +14,10 @@ Post the comment yourself; it is the one GitHub post this skill makes. Post it o
 | Merged, with observations | Post every item in one comment |
 | Merged, no agent reported an observation | Post a one-line comment saying so, so a log can tell "none" from "forgotten" |
 | Not merged (no `--merge`, or the issue stopped) | Do not post. Put the items in the final report in the same format and say they were not posted. If the user approves the merge later in the conversation and the reviewer merges, post then |
-| The post fails | Put the items in the final report in the same format, with the error |
+| A comment with the marker is already on the PR | Do not post. Report that comment's URL |
+| The post fails, and no comment with the marker is on the PR afterwards | Put the items in the final report in the same format, with the error |
 
-Post once per PR. A second comment would duplicate every item in the log.
+Post once per PR: a second comment would duplicate every item in the log. Before posting, and again before retrying a post that failed, look for a comment with the marker ("Finding the observations comment" in `github-commands.md`). A post can succeed even when its response is lost, so a failure alone does not mean nothing was posted.
 
 ## Fields
 

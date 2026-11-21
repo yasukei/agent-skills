@@ -1,6 +1,6 @@
 # GitHub commands for the orchestrator
 
-Read when you check an issue's dependencies, look for an existing PR, wait for CI, fill in an observation's related issue or milestone, or post the observations comment. Agents do their own GitHub work; apart from that one comment, these commands are only for your reads. `gh` subcommands such as `gh pr checks` use GraphQL, which some environments reject with HTTP 403. The REST forms (`gh api repos/...`) work there too.
+Read when you check an issue's dependencies, look for an existing PR, wait for CI, fill in an observation's related issue or milestone, or look for and post the observations comment. Agents do their own GitHub work; apart from that one comment, these commands are only for your reads. `gh` subcommands such as `gh pr checks` use GraphQL, which some environments reject with HTTP 403. The REST forms (`gh api repos/...`) work there too.
 
 ## Issue and dependencies
 
@@ -74,6 +74,15 @@ To confirm the merge before posting the observations comment (`observations.md`)
 
 ```bash
 gh api "repos/${repo:?}/pulls/${pr:?}" --jq '{number, state, merged, merge_commit_sha}'
+```
+
+## Finding the observations comment
+
+Before posting, and before retrying a failed post, look for a comment that already carries the marker. An empty result means none was posted:
+
+```bash
+gh api --paginate "repos/${repo:?}/issues/${pr:?}/comments" \
+  --jq '.[] | select(.body // "" | contains("<!-- orchestrate-issue:observations -->")) | {id, html_url, created_at}'
 ```
 
 ## Posting the observations comment
