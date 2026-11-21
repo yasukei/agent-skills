@@ -1,49 +1,86 @@
 # Observations
 
-Read before writing the final report. Observations are what an agent noticed but did not raise as a finding or include in the PR. Report them in this fixed format, so the user can paste them into a log issue and decide on each later without asking the agents again.
+Read before posting the observations comment or writing the final report. Observations are what an agent noticed but did not raise as a finding or include in the PR. Record them on the PR they came from, as one comment in the fixed format below, so they are not lost in agent reports and can be collected into a log and decided on later without asking the agents again.
+
+## When to post
+
+Post the comment yourself; it is the one GitHub post this skill makes. Post it only after the PR is merged:
+
+- The reviewer reported the merge, and `merged` is `true` in "PR state" in `github-commands.md`.
+- Before the merge, the comment would disturb the loop. `issue-to-pr` counts every comment without its `<!-- issue-to-pr -->` marker as reviewer activity, and `pr-review` takes every comment without `<!-- pr-review -->` as the author's. After the merge, no agent works on the PR.
+
+| Case | What to do |
+|---|---|
+| Merged, with observations | Post every item in one comment |
+| Merged, no agent reported an observation | Post a one-line comment saying so, so a log can tell "none" from "forgotten" |
+| Not merged (no `--merge`, or the issue stopped) | Do not post. Put the items in the final report in the same format and say they were not posted. If the user approves the merge later in the conversation and the reviewer merges, post then |
+| The post fails | Put the items in the final report in the same format, with the error |
+
+Post once per PR. A second comment would duplicate every item in the log.
 
 ## Fields
 
 | Field | Content |
 |---|---|
-| PR | The PR number |
+| Item ID | `#<PR>-<n>`: the PR number and a sequence number from 1, counting on across the PR's groups, so an ID is unique in the log |
 | SHA | The head the reporting agent had checked when it reported the item: the reviewer's head at that review or re-check, or the implementer's head when it reported. The line numbers refer to this SHA |
 | `file:line` | One or more locations. A file without a line when the observation is about the whole file |
 | Observation | What was noticed |
 | Not raised because | Why it was not a finding or part of the PR, e.g. out of the issue's scope, no current effect, nice to have |
-| Related issue or milestone | A future issue or milestone it belongs to, or `unknown` |
+| Related | A future issue or milestone it belongs to, or `none`, or `unknown` |
 | Source | `reviewer` or `implementer` |
 
-The handoffs ask the agents for these fields ("Final report" lines in `handoffs.md`).
+The handoffs ask the agents for these fields except the item ID, which you assign ("Final report" lines in `handoffs.md`).
 
 ## Missing fields
 
-- `file:line` and the related issue or milestone: if the agent did not report them, you may fill them, so the user does not have to look them up. Look up a line at the group's SHA, not at the worktree's current head, which has usually moved on (e.g. `git -C <worktree> grep -n <pattern> <SHA>`). Find issues and milestones with "Issues and milestones" in `github-commands.md`. Mark each value you filled with `(filled in by the orchestrator)`, so the user can tell it from what the agent reported. If you cannot fill it, write `unknown`.
+- `file:line` and Related: if the agent did not report them, you may fill them, so the user does not have to look them up. Look up a line at the group's SHA, not at the worktree's current head, which has usually moved on (e.g. `git -C <worktree> grep -n <pattern> <SHA>`). Find issues and milestones with "Issues and milestones" in `github-commands.md`. Mark each value you filled with `(filled in by the orchestrator)`, so the user can tell it from what the agent reported. If you cannot fill it, write `unknown`.
 - Not raised because: never guess it. Write that it was not reported. A guessed reason looks like the agent's judgment and can lead the user to drop an item for a reason nobody gave.
 - Any other field the agent did not report: write that it was not reported.
 
 ## Grouping
 
-Group the items by PR, with the PR number and SHA in the group heading, so they are not repeated in every item. Items reported at different SHAs go into separate groups, one per SHA. This is the normal case for a PR with fixes: the implementer's first report, the first review and each re-check usually see different heads.
+Group the items by PR, with the PR number, the issue number and the SHA in the group heading, so they are not repeated in every item. Items reported at different SHAs go into separate groups, one per SHA. This is the normal case for a PR with fixes: the first review and each re-check usually see different heads. The implementer's first report and the first review often share a head; their items share a group, and Source tells them apart.
 
 ## Language
 
-The final report is in the user's language. Field names may be translated; keep each item's content as defined above. Translate the agents' English prose without changing its meaning, but keep paths, identifiers, SHAs and issue references as they are, so they still link and match the code.
+- The comment follows the target repository's language (its existing issues, PRs and comments), else the user's language, like everything the agents write there.
+- The final report is in the user's language.
 
-## Template
+Translate field names and the agents' English prose without changing their meaning. Keep the item IDs, paths, identifiers, SHAs, issue references, the signature and the marker as they are, so they still link, match the code and can be found by a later log.
+
+## Comment
+
+End the comment with the signature and the marker `<!-- orchestrate-issue:observations -->`, on lines of their own, so a later log can find these comments. "Posting the observations comment" in `github-commands.md` has the commands.
 
 ```markdown
-### PR #<number> at <SHA>
+### PR #<PR> (issue #<issue>) — at <SHA>
 
-- `<file>:<line>`, `<file>`
-  - Observation: <what was noticed>
-  - Not raised because: <reason, or "not reported">
-  - Related issue or milestone: <#issue, milestone, or unknown>
-  - Source: <reviewer or implementer>
+**#<PR>-1** — `<file>:<line>`, `<file>`
+- Observation: <what was noticed>
+- Not raised because: <reason, or "not reported">
+- Related: <#issue, milestone, none, or unknown>
+- Source: <reviewer or implementer>
 
-### PR #<number> at <later SHA>
-
+**#<PR>-2** — `<file>:<line>`
 - ...
+
+### PR #<PR> (issue #<issue>) — at <later SHA>
+
+**#<PR>-3** — ...
+
+---
+<sub>Generated by Claude Code · ...</sub>
+<!-- agent-signature v=1 ... -->
+<!-- orchestrate-issue:observations -->
 ```
 
-If no agent reported an observation for an issue, say so in one line instead of leaving the section out, so the user can tell "none" from "forgotten".
+With no observations, the body is one line, then the signature and the marker:
+
+```markdown
+No observations were reported for PR #<PR> (issue #<issue>).
+```
+
+## Final report
+
+For a posted comment, report its URL and the number of items. Otherwise report the items in the format above and why they were not posted.

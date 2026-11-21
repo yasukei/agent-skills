@@ -35,7 +35,7 @@ EOF
 }
 
 # Add the skills issue-to-pr and pr-review to $WORK/skills, each with an identical references/review-protocol.md
-# and scripts/signature.sh, so that the shared-file check applies
+# and scripts/signature.sh, and orchestrate-issue with the same scripts/signature.sh, so that the shared-file check applies
 add_shared_skills() {
   local skill
   for skill in issue-to-pr pr-review; do
@@ -45,6 +45,10 @@ add_shared_skills() {
     printf '#!/bin/sh\n' >"$WORK/skills/$skill/scripts/signature.sh"
     chmod +x "$WORK/skills/$skill/scripts/signature.sh"
   done
+  # orchestrate-issue shares only scripts/signature.sh
+  cp -r "$WORK/skills/my-skill" "$WORK/skills/orchestrate-issue"
+  sed -i 's/^name: my-skill$/name: orchestrate-issue/' "$WORK/skills/orchestrate-issue/SKILL.md"
+  cp "$WORK/skills/pr-review/scripts/signature.sh" "$WORK/skills/orchestrate-issue/scripts/signature.sh"
 }
 
 # Run the validation and store the results in OUT, ERR and RC. The argument is the skills directory (default $WORK/skills)
@@ -232,7 +236,7 @@ make_skill
 add_shared_skills
 run_validate
 assert_eq 0 "$RC" "exit status ($ERR)"
-assert_contains "$OUT" "3 skills ok: issue-to-pr, my-skill, pr-review" "stdout"
+assert_contains "$OUT" "4 skills ok: issue-to-pr, my-skill, orchestrate-issue, pr-review" "stdout"
 
 # ---------------------------------------------------------------------------
 t "shared files differ"
@@ -265,6 +269,22 @@ add_shared_skills
 rm "$WORK/skills/pr-review/scripts/signature.sh"
 run_validate
 assert_fails_with "skills/pr-review/scripts/signature.sh: shared file not found"
+
+# ---------------------------------------------------------------------------
+t "orchestrate-issue's signature script differs"
+make_skill
+add_shared_skills
+echo 'echo changed' >>"$WORK/skills/orchestrate-issue/scripts/signature.sh"
+run_validate
+assert_fails_with "skills/issue-to-pr/scripts/signature.sh and skills/orchestrate-issue/scripts/signature.sh: shared files differ"
+
+# ---------------------------------------------------------------------------
+t "orchestrate-issue's signature script is missing"
+make_skill
+add_shared_skills
+rm "$WORK/skills/orchestrate-issue/scripts/signature.sh"
+run_validate
+assert_fails_with "skills/orchestrate-issue/scripts/signature.sh: shared file not found"
 
 # ---------------------------------------------------------------------------
 t "reports every problem when there are several"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tests for scripts/signature.sh (both skills ship a byte-identical copy), and for pr_status.sh reading comments
+# Tests for scripts/signature.sh (issue-to-pr, pr-review and orchestrate-issue ship byte-identical copies), and for pr_status.sh reading comments
 # that carry its output before the original markers.
 set -uo pipefail
 

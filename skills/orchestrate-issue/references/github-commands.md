@@ -1,6 +1,6 @@
 # GitHub commands for the orchestrator
 
-Read when you check an issue's dependencies, look for an existing PR, wait for CI, or fill in an observation's related issue or milestone. Agents do their own GitHub work; these commands are only for your reads. `gh` subcommands such as `gh pr checks` use GraphQL, which some environments reject with HTTP 403. The REST forms (`gh api repos/...`) work there too.
+Read when you check an issue's dependencies, look for an existing PR, wait for CI, fill in an observation's related issue or milestone, or post the observations comment. Agents do their own GitHub work; apart from that one comment, these commands are only for your reads. `gh` subcommands such as `gh pr checks` use GraphQL, which some environments reject with HTTP 403. The REST forms (`gh api repos/...`) work there too.
 
 ## Issue and dependencies
 
@@ -67,3 +67,32 @@ Run `scripts/wait_ci.sh` once in the background. It loops by itself, so waiting 
 Exit 2 means a usage or GitHub API error, which is never read as "no CI". Report it instead of continuing.
 
 The script waits for the PR's head when it starts. Start it after the implementer has pushed, not while the implementer is still working.
+
+## PR state
+
+To confirm the merge before posting the observations comment (`observations.md`):
+
+```bash
+gh api "repos/${repo:?}/pulls/${pr:?}" --jq '{number, state, merged, merge_commit_sha}'
+```
+
+## Posting the observations comment
+
+Generate the signature once into `SIG_FILE`, a file outside the repository (e.g. from `mktemp`). Pass `--model` only with the model ID your own instructions state, and `--effort` only if they state one; never guess:
+
+```bash
+"${skill_dir:?}/scripts/signature.sh" --agent claude-code --model MODEL_ID > SIG_FILE
+```
+
+Write the body to `BODY_FILE` with a quoted heredoc, so backticks and `$` in it stay as they are. Append a blank line, the signature and the marker, and post it through REST, which works where GraphQL returns HTTP 403:
+
+```bash
+cat > BODY_FILE <<'EOF'
+### PR #123 (issue #45) — at 1a2b3c4
+...
+EOF
+{ echo; cat SIG_FILE; echo '<!-- orchestrate-issue:observations -->'; } >> BODY_FILE
+gh api "repos/${repo:?}/issues/${pr:?}/comments" -X POST -F body=@BODY_FILE --jq .html_url
+```
+
+Read `SIG_FILE` in the post rather than a shell variable: variables do not survive between tool calls, and an empty one posts an unsigned comment without any error.
