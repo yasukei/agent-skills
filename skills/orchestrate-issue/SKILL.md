@@ -1,16 +1,16 @@
 ---
-name: resolve-issue
+name: orchestrate-issue
 description: Resolve GitHub issues by orchestrating an implementer (issue-to-pr) and a reviewer (pr-review) until each PR is ready to merge, or merged with --merge. Claude Code only; runs only when invoked explicitly. Not for implementing an issue yourself (use issue-to-pr) or reviewing a PR (use pr-review).
 disable-model-invocation: true
 ---
 
-# resolve-issue
+# orchestrate-issue
 
 Act as the orchestrator. Hand implementation and review to separate agents and drive the loop between them. **Do not implement, review or post to GitHub yourself.** That keeps each role's judgment separate. Also, a Claude Code subagent signs its comments with this session's ID, so your posts could be mistaken for the reviewer's.
 
 ## Environment
 
-Claude Code only: the workflow needs subagents and background completion notifications. In any other agent (e.g. Codex), reply that `resolve-issue` is unsupported there and stop.
+Claude Code only: the workflow needs subagents and background completion notifications. In any other agent (e.g. Codex), reply that `orchestrate-issue` is unsupported there and stop.
 
 ## Roles
 

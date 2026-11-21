@@ -65,7 +65,7 @@ assert_fails_with() {
 t "this repository's skills"
 run_validate "$ROOT/skills"
 assert_eq 0 "$RC" "exit status ($ERR)"
-assert_contains "$OUT" "create-issue, issue-to-pr, pr-review" "validated skills"
+assert_contains "$OUT" "create-issue, issue-to-pr, orchestrate-issue, pr-review" "validated skills"
 
 # ---------------------------------------------------------------------------
 t "valid skill"
@@ -79,7 +79,7 @@ t "validates the repository's skills/ when given no argument"
 RC=0
 (cd "$WORK" && "$SCRIPT") >"$WORK/out" 2>"$WORK/err" || RC=$?
 assert_eq 0 "$RC" "exit status"
-assert_contains "$(cat "$WORK/out")" "create-issue, issue-to-pr, pr-review" "validated skills"
+assert_contains "$(cat "$WORK/out")" "create-issue, issue-to-pr, orchestrate-issue, pr-review" "validated skills"
 
 # ---------------------------------------------------------------------------
 t "name is quoted"

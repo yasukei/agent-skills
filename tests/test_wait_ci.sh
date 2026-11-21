@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Tests for skills/resolve-issue/scripts/wait_ci.sh.
+# Tests for skills/orchestrate-issue/scripts/wait_ci.sh.
 # A fake gh (tests/fake-bin/gh) goes first in PATH and serves REST responses from files, so the tests do not
 # depend on GitHub authentication or the network. Responses are static, so waiting cases use zero timeouts.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SCRIPT="$ROOT/skills/resolve-issue/scripts/wait_ci.sh"
+SCRIPT="$ROOT/skills/orchestrate-issue/scripts/wait_ci.sh"
 # shellcheck source=tests/lib.sh
 . "$ROOT/tests/lib.sh"
 
