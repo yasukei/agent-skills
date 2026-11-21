@@ -43,7 +43,6 @@ Runs without authentication, so CI has no API key configured. The Claude Code ve
 
 Runs [lint.sh](lint.sh) (`bash -n` and `shellcheck` on `scripts/*.sh`, `skills/*/scripts/*.sh` and the tests) and every `test_*.sh`. Each test file sources [lib.sh](lib.sh) for its assertions.
 
-- **`test_setup.sh`** (`scripts/setup.sh`): creates, in a temporary directory, a local bare repository acting as the shared repository and a target repository, and runs `setup.sh` with `AGENT_SKILLS_URL` pointing to the former.
 - **`test_pr_status.sh`** (`skills/issue-to-pr/scripts/pr_status.sh`): puts a fake `gh` ([fake-bin/gh](fake-bin/gh)) first in `PATH` to control its output and exit status. Each case runs on both the GraphQL path and the REST / CCR route path used where GraphQL returns 403, and checks that both give the same output.
 - **`test_signature.sh`** (`scripts/signature.sh` of `issue-to-pr` and `pr-review`): runs the script under `env -i` with only the variables each case sets (Claude Code cloud and local, Codex, an explicit `--agent`, inherited or mixed hints, no environment), and feeds `pr_status.sh` (with the fake `gh`, on both paths) comments that carry a signature before the original markers.
 - **`test_detect_env.sh`** (`skills/setup-dev-env/scripts/detect.sh`): builds repositories in a temporary directory (Node, Python, Yarn classic and berry, other ecosystems, empty) and runs the script under `env -i` with fake tools on `PATH`, so the report does not depend on what this machine has installed.
