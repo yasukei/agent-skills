@@ -140,7 +140,7 @@ $<issue-to-pr> PR <OWNER/REPO>#<PR> is merged; its head was <head SHA>. The user
 
 The user's language is <language>. Write repository text (commits, PRs, comments) by the repository's conventions, falling back to the user's language. Report and ask questions in English.
 
-Verify the worktree is yours for this PR. If your session is inside it, leave it first. Remove it with `git worktree remove` (never --force); files ignored by .gitignore are removed with it, which is intended. Then delete the local branch only if its tip is <head SHA>; a squash merge makes `git branch -d` refuse, so use `git branch -D` after that check. If Git refuses or a check fails, keep what is left and say why. Do not touch the remote branch or anything else.
+Verify the worktree is yours for this PR. If your session is inside it, leave it first. Remove it with `git worktree remove` (never --force); files ignored by .gitignore are removed with it, which is intended. Then delete the local branch only if `git worktree list --porcelain` shows no worktree with it checked out, using `git update-ref -d refs/heads/<branch> <head SHA>`, which refuses if the tip is no longer <head SHA>. Do not use `git branch -D`: it skips the SHA check. If Git refuses or a check fails, keep what is left and say why. Do not touch the remote branch or anything else.
 
 Final report: whether the worktree and the local branch were removed, or kept and why.
 ```
