@@ -12,12 +12,19 @@ Post the comment yourself; it is the one GitHub post this skill makes. Post it o
 | Case | What to do |
 |---|---|
 | Merged, with observations | Post every item in one comment |
-| Merged, no agent reported an observation | Post a one-line comment saying so, so a log can tell "none" from "forgotten" |
+| Merged, no agent reported an observation | Post a one-line comment saying none were reported in this session, so a log can tell "none" from "forgotten" |
 | Not merged (no `--merge`, or the issue stopped) | Do not post. Put the items in the final report in the same format and say they were not posted. If the user approves the merge later in the conversation and the reviewer merges, post then |
 | A comment with the marker is already on the PR | Do not post. Report that comment's URL |
 | The post fails, and no comment with the marker is on the PR afterwards | Put the items in the final report in the same format, with the error |
 
 Post once per PR: a second comment would duplicate every item in the log. Before posting, and again before retrying a post that failed, look for a comment with the marker ("Finding the observations comment" in `github-commands.md`). A post can succeed even when its response is lost, so a failure alone does not mean nothing was posted.
+
+## Earlier sessions
+
+When you continued a PR from an earlier session ("Existing PR" in SKILL.md), its agents' observations were only in that session's final report, which you cannot read. The current agents do not know them either.
+
+- If the user gave you the earlier final report in this conversation (e.g. pasted it), include its items with the SHA and Source it states.
+- Otherwise, start the comment with the incomplete-history line in "Comment" below, and say in the final report that the earlier observations are not in the comment. Without the line, a log would read the PR's history as complete, and a "none" as no observations at all.
 
 ## Fields
 
@@ -54,6 +61,12 @@ Translate field names and the agents' English prose without changing their meani
 
 End the comment with the signature and the marker `<!-- orchestrate-issue:observations -->`, on lines of their own, so a later log can find these comments. "Posting the observations comment" in `github-commands.md` has the commands.
 
+When "Earlier sessions" above calls for it, the comment starts with this line, followed by a blank line:
+
+```markdown
+Observations from earlier sessions on this PR are not included.
+```
+
 ```markdown
 ### PR #<PR> (issue #<issue>) — at <SHA>
 
@@ -76,10 +89,10 @@ End the comment with the signature and the marker `<!-- orchestrate-issue:observ
 <!-- orchestrate-issue:observations -->
 ```
 
-With no observations, the body is one line, then the signature and the marker:
+With no observations, the body is one line (after the incomplete-history line, if any), then the signature and the marker:
 
 ```markdown
-No observations were reported for PR #<PR> (issue #<issue>).
+No observations were reported in this session for PR #<PR> (issue #<issue>).
 ```
 
 ## Final report
