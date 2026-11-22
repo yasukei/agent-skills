@@ -30,6 +30,7 @@ Agent skills shared by Claude Code, ChatGPT and Codex. Most work here is editing
 - `issue-to-pr` and `pr-review` interoperate through comment markers, priority labels and completion signals. Change both in the same PR.
 - `cleanup-local`, `issue-to-pr` and `pr-review` share the worktree guard path, worktree ID rule, guard lifetime and Git lock reason format. Update all three in the same PR when changing this contract, so cleanup and agent startup stay coordinated.
 - `collect-observations` reads the observations comments `orchestrate-issue` posts (their marker, groups and item IDs). Change both in the same PR.
+- `triage-observations` reads the log that `collect-observations` writes (its markers, status table and status values). Change both in the same PR when changing this contract.
 
 ## Before pushing
 
