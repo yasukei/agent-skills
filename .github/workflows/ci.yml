@@ -25,6 +25,9 @@ jobs:
           # No job pushes, so do not leave the token in .git/config
           persist-credentials: false
       - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with:
+          # Update both jobs together. Dependabot updates the action SHA only.
+          version: "0.13.9"
       - name: Tool versions
         run: |
           bash --version | head -1
@@ -49,6 +52,9 @@ jobs:
           # No job pushes, so do not leave the token in .git/config
           persist-credentials: false
       - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with:
+          # Keep in sync with the scripts job.
+          version: "0.13.9"
       - name: Tool versions
         run: |
           uv --version
