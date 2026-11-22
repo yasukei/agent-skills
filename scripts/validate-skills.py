@@ -3,6 +3,7 @@
 
   scripts/validate-skills.py               validate the repository's skills/
   scripts/validate-skills.py <skills_dir>  validate the given directory (for tests)
+  scripts/validate-skills.py --summary [skills_dir]  print a Markdown size table
 
 On problems, prints which file and field to stderr and exits with status 1.
 The limits on name and description follow the Agent Skills spec (https://agentskills.io/specification).
@@ -12,6 +13,7 @@ import os
 import re
 import stat
 import sys
+from html import escape
 from urllib.parse import unquote
 
 try:
@@ -133,12 +135,13 @@ def check_references(skill_dir, rel, body, errors):
             errors.append(f"{rel}: reference {ref}: file not found")
 
 
-def check_size(rel, data, errors):
-    lines = len(data.splitlines())
+def size_violations(size, lines):
+    errors = []
     if lines > SKILL_MAX_LINES:
-        errors.append(f"{rel}: longer than {SKILL_MAX_LINES} lines ({lines})")
-    if len(data) > SKILL_MAX_BYTES:
-        errors.append(f"{rel}: larger than {SKILL_MAX_BYTES} bytes ({len(data)})")
+        errors.append(f"longer than {SKILL_MAX_LINES} lines ({lines})")
+    if size > SKILL_MAX_BYTES:
+        errors.append(f"larger than {SKILL_MAX_BYTES} bytes ({size})")
+    return errors
 
 
 def check_shared_files(skills_dir, errors):
@@ -174,12 +177,40 @@ def check_scripts(skills_dir, skill_dir, errors):
                 errors.append(f"{rel}: not executable")
 
 
-def validate(skills_dir):
-    errors = []
-    skills = sorted(
+def skill_names(skills_dir):
+    return sorted(
         d for d in os.listdir(skills_dir)
         if not d.startswith(".") and os.path.isdir(os.path.join(skills_dir, d))
     )
+
+
+def print_size_summary(skills_dir):
+    print("| Skill | Bytes | Bytes left | Lines |")
+    print("| --- | ---: | ---: | ---: |")
+    for skill in skill_names(skills_dir):
+        path = os.path.join(skills_dir, skill, "SKILL.md")
+        name = escape(skill).replace("|", "&#124;").replace("\r", "&#13;").replace("\n", "&#10;")
+        if not os.path.isfile(path):
+            print(f"| {name} (missing SKILL.md) | — | — | — |")
+            continue
+        with open(path, "rb") as fp:
+            data = fp.read()
+        size = len(data)
+        lines = data.count(b"\n")
+        validation_lines = len(data.splitlines())
+        mark = " **Over limit**" if size_violations(size, validation_lines) else ""
+        line_count = f"{lines:,} / {SKILL_MAX_LINES:,}"
+        # wc -l counts newline bytes, but validation also counts a final unterminated line.
+        if lines <= SKILL_MAX_LINES < validation_lines:
+            line_count += f" ({validation_lines:,} counted by validation)"
+        print(
+            f"| {name}{mark} | {size:,} / {SKILL_MAX_BYTES:,} | {SKILL_MAX_BYTES - size:,} | {line_count} |"
+        )
+
+
+def validate(skills_dir):
+    errors = []
+    skills = skill_names(skills_dir)
     if not skills:
         errors.append(f"{skills_dir}: no skill directories")
     base = os.path.dirname(skills_dir)
@@ -192,7 +223,7 @@ def validate(skills_dir):
             continue
         with open(path, "rb") as fp:
             data = fp.read()
-        check_size(rel, data, errors)
+        errors.extend(f"{rel}: {error}" for error in size_violations(len(data), len(data.splitlines())))
         parts = split_frontmatter(data.decode("utf-8-sig"))
         if parts is None:
             errors.append(f"{rel}: does not start with a YAML frontmatter enclosed in '---'")
@@ -206,17 +237,24 @@ def validate(skills_dir):
 
 
 def main(argv):
-    if len(argv) > 2:
-        print(f"usage: {argv[0]} [skills_dir]", file=sys.stderr)
+    summary = "--summary" in argv[1:]
+    args = [arg for arg in argv[1:] if arg != "--summary"]
+    if len(args) > 1:
+        option = " [--summary]" if summary else ""
+        print(f"usage: {argv[0]}{option} [skills_dir]", file=sys.stderr)
         return 1
-    if len(argv) == 2:
-        skills_dir = argv[1]
+    if args:
+        skills_dir = args[0]
     else:
         skills_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "skills")
     skills_dir = os.path.normpath(os.path.abspath(skills_dir))
     if not os.path.isdir(skills_dir):
         print(f"{skills_dir}: directory not found", file=sys.stderr)
         return 1
+
+    if summary:
+        print_size_summary(skills_dir)
+        return 0
 
     skills, errors = validate(skills_dir)
     for e in errors:

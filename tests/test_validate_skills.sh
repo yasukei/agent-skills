@@ -54,10 +54,13 @@ add_shared_skills() {
   done
 }
 
-# Run the validation and store the results in OUT, ERR and RC. The argument is the skills directory (default $WORK/skills)
+# Run the validator with the given arguments (default: $WORK/skills) and capture its results.
 run_validate() {
+  if [ "$#" -eq 0 ]; then
+    set -- "$WORK/skills"
+  fi
   RC=0
-  "$SCRIPT" "${1:-$WORK/skills}" >"$WORK/out" 2>"$WORK/err" || RC=$?
+  "$SCRIPT" "$@" >"$WORK/out" 2>"$WORK/err" || RC=$?
   OUT="$(cat "$WORK/out")"
   ERR="$(cat "$WORK/err")"
 }
@@ -232,6 +235,32 @@ printf '%*s\n' $((7001 - bytes - 1)) '' | tr ' ' a >>"$WORK/skills/my-skill/SKIL
 run_validate
 assert_fails_with "skills/my-skill/SKILL.md: larger than 7000 bytes (7001)"
 assert_eq "" "$(grep lines <<<"$ERR")" "line limit is not reported"
+
+# ---------------------------------------------------------------------------
+t "summary reports raw file sizes and succeeds when either limit is exceeded"
+make_skill
+printf '%s\n' '---' 'name: my-skill' 'description: Example' '---' >"$WORK/skills/my-skill/SKILL.md"
+printf '\xe3\x81\x82' >>"$WORK/skills/my-skill/SKILL.md"
+mkdir "$WORK/skills/over-bytes" "$WORK/skills/over-lines" "$WORK/skills/unterminated"
+mkdir "$WORK/skills/invalid|"$'\n'"name"
+printf '%7000s\n' '' >"$WORK/skills/over-bytes/SKILL.md"
+for _ in $(seq 201); do echo; done >"$WORK/skills/over-lines/SKILL.md"
+for _ in $(seq 200); do echo; done >"$WORK/skills/unterminated/SKILL.md"
+printf x >>"$WORK/skills/unterminated/SKILL.md"
+run_validate --summary "$WORK/skills"
+assert_eq 0 "$RC" "exit status"
+assert_eq "" "$ERR" "stderr"
+expected="$(cat <<'EOF'
+| Skill | Bytes | Bytes left | Lines |
+| --- | ---: | ---: | ---: |
+| invalid&#124;&#10;name (missing SKILL.md) | — | — | — |
+| my-skill | 47 / 7,000 | 6,953 | 4 / 200 |
+| over-bytes **Over limit** | 7,001 / 7,000 | -1 | 1 / 200 |
+| over-lines **Over limit** | 201 / 7,000 | 6,799 | 201 / 200 |
+| unterminated **Over limit** | 201 / 7,000 | 6,799 | 200 / 200 (201 counted by validation) |
+EOF
+)"
+assert_eq "$expected" "$OUT" "summary table"
 
 # ---------------------------------------------------------------------------
 t "identical shared files"
