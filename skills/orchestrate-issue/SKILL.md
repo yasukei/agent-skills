@@ -63,7 +63,7 @@ Collect the observations each agent reports that are not findings. Do not pass t
 - Work serially, one issue at a time.
 - If the issues' descriptions show dependencies (e.g. "Depends on", sub-issues), announce the order at the start.
 - Without `--merge`, stop before an issue that depends on an unmerged one, and ask the user to merge first. Its branch must start from a default branch that contains the dependency.
-- If one issue stops (a type A question, CI the implementer cannot fix, the round limit), stop the batch and report. Later issues may depend on it.
+- On a type A question, unfixable CI, or the round limit, stop the batch because later issues may depend on it. Clean up (`references/cleanup.md`) before reporting.
 
 ## Final report
 

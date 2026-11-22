@@ -21,7 +21,7 @@ Each agent removes its own worktree, so you keep out of hands-on work and the ag
 1. The reviewer merges and removes its review worktree, in the same handoff.
 2. You confirm the merge and post the observations comment (`observations.md`). Its line lookups read Git objects, so they work from the target repository's checkout after the worktrees are gone.
 3. You resume the implementer once with the cleanup handoff.
-4. As the final cleanup step, run the installed `cleanup-local` skill yourself with `OWNER/REPO --pull` in the target repository's main checkout, after the agents have finished their worktree handoffs. This is mechanical cleanup following the requested merge. With several issues, finish each issue's worktree handoffs before starting the next one and run `cleanup-local --pull` once at the end for each target checkout where a PR merged. Report deleted refs by name and SHA, including local branches, kept refs with reasons, and the main checkout's before and after state.
+4. As the final cleanup step, run the installed `cleanup-local` skill yourself with `OWNER/REPO --pull` in the target repository's main checkout, after the agents have finished the applicable worktree handoffs. This is mechanical cleanup following the requested merge. With several issues, finish each merged issue's worktree handoffs before starting the next one. Before the final report, run `cleanup-local --pull` once for each target checkout where a PR merged in this run, including when the batch stops early. Report deleted refs by name and SHA, including local branches, kept refs with reasons, and the main checkout's before and after state.
 
 ## When cleanup does not happen
 
