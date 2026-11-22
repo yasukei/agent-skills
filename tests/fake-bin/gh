@@ -11,6 +11,7 @@
 #                      (e.g. repos/o/r/pulls/1/reviews?per_page=100 → repos_o_r_pulls_1_reviews.json).
 #                      If the file does not exist, exits with status 1 as HTTP 404
 #                      If <file>.next exists, use it for subsequent requests
+#                      If <file>.err exists, print it to stderr and exit with status 1
 #   FAKE_GH_LOG        if set, append the arguments of each call as one line
 if [ -n "${FAKE_GH_LOG:-}" ]; then
   echo "$*" >>"$FAKE_GH_LOG"
@@ -39,6 +40,10 @@ case "$1 ${2:-}" in
       esac
     done
     file="${FAKE_REST_DIR:-/nonexistent}/$(printf '%s' "${path%%\?*}" | tr / _).json"
+    if [ -f "$file.err" ]; then
+      cat "$file.err" >&2
+      exit 1
+    fi
     if [ ! -f "$file" ]; then
       echo "gh: Not Found (HTTP 404)" >&2
       exit 1

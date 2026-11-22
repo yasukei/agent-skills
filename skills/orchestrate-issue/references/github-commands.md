@@ -49,17 +49,17 @@ If no candidate closes the issue, treat the issue as having no PR. If more than 
 
 ## Waiting for CI
 
-Run `scripts/wait_ci.sh` once in the background. It loops by itself, so waiting spends no turns and its completion notification wakes you once. It reads check runs and commit statuses through REST, so it works where GraphQL returns HTTP 403, and it covers CI that reports only commit statuses. It checks mergeability during the wait and again when CI finishes. It returns as soon as GitHub reports a conflict because a conflicting PR may register no CI.
+Run `scripts/wait_ci.sh` once in the background. It loops by itself, so waiting spends no turns and its completion notification wakes you once. It reads check runs and commit statuses through REST, so it works where GraphQL returns HTTP 403, and it covers CI that reports only commit statuses. If the check-runs request returns HTTP 403, it reads jobs from the latest attempt of each GitHub Actions workflow run for that head SHA and still reads commit statuses. It checks mergeability during the wait and again when CI finishes. It returns as soon as GitHub reports a conflict because a conflicting PR may register no CI.
 
 ```bash
 "${skill_dir:?}/scripts/wait_ci.sh" "${pr:?}" "${repo:?}"
 ```
 
-`skill_dir` is this skill's absolute directory. The script prints one JSON line with the head `sha`, `state`, `mergeable`, and `failing` checks.
+`skill_dir` is this skill's absolute directory. The script prints one JSON line with the head `sha`, `state`, `mergeable`, `failing` checks, and `checks_source` (`check-runs`, `actions`, or `null` if CI was never queried). When `checks_source` is `actions`, mention in the final report that the check covered Actions jobs and commit statuses and could not see check runs from other GitHub Apps.
 
 | `state` | Exit | Meaning | Next |
 |---|---|---|---|
-| `success` | 0 | Every check run and status passed | Continue |
+| `success` | 0 | Every check run or Actions job read, and every commit status, passed | Continue |
 | `failure` | 1 | `failing` lists each failed check's name and URL | Pass them to the implementer |
 | `none` | 0 | Nothing was registered within 5 minutes; the repository may have no CI | Continue, and mention it in the final report |
 | `timeout` | 3 | Still running after 60 minutes | Ask the user |
