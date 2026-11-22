@@ -9,14 +9,17 @@ The PR can be merged when all of these hold:
 1. Every finding thread this skill opened is resolved (deferred ones too, after checking the issue). That includes threads from another or unknown session ("Thread ownership" in `review-protocol.md`): while the user has not answered whether to resolve one, it stays open and the PR cannot be merged.
 2. No other reviewer's thread is unresolved and no Request changes remains. Another agent's `pr-review` thread (a different `agent` in the root comment's signature) is another reviewer's thread, even with the `<!-- pr-review -->` marker. If one remains, do not merge; ask the user.
 3. All CI checks pass. Pending checks leave this condition unmet.
-4. No conflicts, and branch protection rules (required approvals, etc.) are met. A required approval may be met by the Approve below.
-5. The PR is not a draft.
-6. **The PR description matches the implementation.** With a squash merge it becomes the commit message, so a description left stale by review changes leaves a wrong record. If it contradicts the implementation, post a new finding (usually P2; P1 if it misleads about behavior or compatibility).
-7. The head SHA at merge time is the last one you checked, so unchecked commits are never merged. In a new session, that is the SHA you checked in this pass ("On new commits" in `monitoring.md`).
+4. No conflicts.
+5. Branch protection rules (required approvals, etc.) are met. An Approve may satisfy a required approval.
+6. The PR is not a draft.
+7. **The PR description matches the implementation.** With a squash merge it becomes the commit message, so a description left stale by review changes leaves a wrong record. If it contradicts the implementation, post a new finding (usually P2; P1 if it misleads about behavior or compatibility).
+8. The head SHA at merge time is the last one you checked, so unchecked commits are never merged. In a new session, that is the SHA you checked in this pass ("On new commits" in `monitoring.md`).
 
 ## Approve
 
-When the PR author and the account running this skill differ, post an Approve review (a short record that the conditions are met, with the signature and the marker) once every condition except 4 is met, **whether or not `--merge` was given**: `issue-to-pr` takes the latest non-author Approve as its completion signal, and it may also satisfy a required approval in condition 4. On the same account, Approve is impossible; all threads resolved (or the no-findings review with the completion marker) is the signal instead.
+When the PR author and the account running this skill differ, post an Approve review with the signature and the marker once every merge condition except branch protection (condition 5) is met, **whether or not `--merge` was given**. Because `issue-to-pr` uses Approve as its completion signal, post it only after any conflicts are resolved and you have checked the resolution.
+
+On the same account, Approve is impossible. All threads resolved (or the no-findings review with the completion marker) is the signal instead.
 
 ## Without `--merge`
 

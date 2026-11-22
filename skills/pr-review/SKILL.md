@@ -83,7 +83,7 @@ Check new commits and replies once as in `references/monitoring.md`.
 
 Read `references/merging.md`. In short: every finding thread this skill opened is resolved, no other reviewer's thread or Request changes remains, CI passes, no conflicts, branch protection is met, not a draft, the description matches the implementation, and the head SHA is the last one checked.
 
-- When the author is a different account, post an Approve once every condition except conflicts and branch protection is met, **whether or not `--merge` was given**: it is `issue-to-pr`'s completion signal.
+- When the author is a different account, post an Approve once every merge condition except branch protection is met, **whether or not `--merge` was given**. Approve is `issue-to-pr`'s completion signal.
 - Without `--merge`, report whether it can be merged and end. With `--merge`, follow `references/merging.md`. If the merge fails, report it without working around it.
 
 ## Reporting to the user
