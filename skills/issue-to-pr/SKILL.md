@@ -21,7 +21,7 @@ The argument is an issue or a PR (`#<n>`, `OWNER/REPO#<n>`, URL), else the curre
 ## Isolated checkout (`--worktree`)
 
 Read `references/worktrees.md` for `--worktree` or when using a linked checkout. With `--worktree`, use a dedicated checkout for all changes, checks and pushes so the original stays available. Resolve helper paths first.
-Lock any linked checkout used so cleanup skips it. On stop, unlock and report its path and branch. Combines with `--watch`.
+Protect linked checkouts in use so cleanup skips them. On stop, release your protection and report its path and branch. Combines with `--watch`.
 
 ## Prohibited actions
 

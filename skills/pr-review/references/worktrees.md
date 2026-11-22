@@ -1,6 +1,6 @@
 # Isolated review (`--worktree`)
 
-Read once the target PR is identified, before local review or tests. When starting from an issue, wait to find its PR as usual; do not create a speculative review checkout. This option does not authorize code fixes, commits, pushes, monitoring or merging. Without `--worktree`, if reviewing from a linked checkout, follow "Guard startup of a linked worktree" and release the Git lock on stop. Keep the existing review workflow. The main checkout needs no lock.
+Read once the target PR is identified, before local review or tests. When starting from an issue, wait to find its PR as usual; do not create a speculative review checkout. This option does not authorize code fixes, commits, pushes, monitoring or merging. Without `--worktree`, if reviewing from a linked checkout, follow "Guard startup of a linked worktree" and follow the stop instructions below. Keep the existing review workflow. The main checkout needs no lock.
 
 ## Prepare a detached checkout
 
@@ -64,7 +64,11 @@ Keep hooks disabled per command on creation and refresh: Git otherwise runs `pos
 
 ## Guard startup of a linked worktree
 
-Acquire the shared guard after identifying the linked checkout. While holding it, verify again that it is the expected worktree and is unlocked. Recheck clean status when reusing a dedicated `--worktree` checkout. Then run `git worktree lock --reason "pr-review ${repo:?}#${pr:?}" "${worktree:?}"` before using it. Release the guard after the Git lock succeeds, keeping the Git lock for the rest of the run. If acquiring the guard, verification or locking fails, release any guard this run acquired, then stop and report. The guard prevents two startups from claiming the same worktree and keeps cleanup from checking the Git lock before startup acquires it.
+Acquire the shared guard before using the linked checkout. Under the guard, verify its identity and read its lock state and reason from `git worktree list --porcelain -z`. Recheck clean status when reusing a dedicated `--worktree` checkout.
+
+- If unlocked, run `git worktree lock --reason "pr-review ${repo:?}#${pr:?}" "${worktree:?}"`. Release the guard after locking succeeds and keep the Git lock for the run.
+- If already locked, an in-place run may continue under a pre-existing lock from outside these skills. For dedicated `--worktree` reuse, accept a pre-existing lock only if you can verify it belongs to this session's harness. A matching reason alone is insufficient. If continuing, report the existing lock and its reason and keep the guard until the run stops. This protects the checkout even if the owner releases its Git lock. Leave that Git lock to its owner.
+- Treat an existing `issue-to-pr` or `pr-review` lock as possible agent use and stop. Also stop if the guard is unavailable, verification fails, or a needed Git lock cannot be acquired. Release any guard this run acquired and report the reason.
 
 The startup and cleanup guard is the directory `<common-dir>/agent-skills-worktree-guards/<worktree-id>`. Use Git's absolute common directory and the linked worktree's absolute Git directory (`git -C "$worktree" rev-parse --path-format=absolute --git-common-dir` and `git -C "$worktree" rev-parse --absolute-git-dir`). Verify the common directory is the target repository's and that the Git directory is directly under its `worktrees/` directory. Use that Git directory's final component as the ID, because Git can give the worktree a different ID than its checkout basename.
 
@@ -91,13 +95,13 @@ On each new head, whether with `--watch` or a later re-check:
 
 1. Retain the last checked SHA as defined in `monitoring.md`; the checkout's HEAD alone is not the review baseline.
 2. Refresh PR metadata and fetch and verify the head as above.
-3. Confirm the review worktree is still detached, clean and locked by this run. If tests left changes or another session took it over, preserve the files and ask before reusing it, or unlock any lock this run acquired there and create another unused, locked detached worktree.
+3. Confirm the review worktree is still detached, clean and protected by this run's lock or guard. If tests left changes or another session took it over, preserve the files and ask before reusing it, or release this run's protection there and create another unused, locked detached worktree.
 4. Use `git -C "${worktree:?}" -c core.hooksPath=/dev/null checkout --detach "${head_sha:?}"` without force, verify HEAD, then inspect the new commits and run only authorized checks before posting or resolving threads.
 
 With `--merge`, retain the existing merge conditions and pin the merge to the last checked SHA. Perform remote branch deletion only as the merge procedure allows; do not switch or delete a local branch held by the author's worktree, or remove that worktree. Use the REST merge and remote deletion commands in `github-commands.md` if the CLI would try to change a local checkout. For a fork PR, branch deletion targets the head repository, never a same-named branch in the base repository.
 
 ## Report and resume
 
-When the run stops for any reason, finish worktree commands and release this run's lock with `git worktree unlock "${worktree:?}"`. Report any failure. A crashed run may leave a lock, which `cleanup-local` skips and reports.
+When the run stops for any reason, finish worktree commands. Unlock with `git worktree unlock "${worktree:?}"` only if the current Git lock is the one this run acquired. Release any guard still held by this run. Report release failures. A crashed run can leave a lock or guard, which `cleanup-local` skips and reports.
 
 Keep the review worktree for resuming and report the PR URL, absolute path and checked SHA. If it is inside the main worktree, report that test runners in the main worktree can reach PR code there. Point to `cleanup-local` for removal after the merge. On resumption, verify its identity, status and the current PR head again, because an existing directory may hold an old head.

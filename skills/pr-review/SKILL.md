@@ -31,7 +31,7 @@ Read when the step needs them:
 ## Isolated checkout (`--worktree`)
 
 Read `references/worktrees.md` for `--worktree` or when using a linked checkout. With `--worktree`, use a detached PR head so the author's branch stays available. Read base instructions. Fork setup/tests need explicit authorization to execute PR code.
-Lock any linked checkout used so cleanup skips it. Refresh new heads and pin reviews to the SHA checked. On stop, unlock and report the preserved absolute path and SHA. Resolve helper paths first. Combines with `--watch` and `--merge`.
+Protect linked checkouts in use so cleanup skips them. Refresh new heads and pin reviews to the SHA checked. On stop, release your protection and report the preserved absolute path and SHA. Resolve helper paths first. Combines with `--watch` and `--merge`.
 
 ## Monitoring (`--watch`)
 
