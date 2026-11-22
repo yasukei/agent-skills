@@ -24,18 +24,20 @@ jobs:
         with:
           # No job pushes, so do not leave the token in .git/config
           persist-credentials: false
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
       - name: Tool versions
         run: |
           bash --version | head -1
           shellcheck --version | head -2
           jq --version
           git --version
-          python3 --version
-          python3 -c 'import yaml; print("PyYAML", yaml.__version__)'
+          uv --version
+          uv run --locked python3 --version
+          uv run --locked python3 -c 'import yaml; print("PyYAML", yaml.__version__)'
       - name: Lint (bash -n, shellcheck)
-        run: tests/run.sh lint
+        run: uv run --locked tests/run.sh lint
       - name: Test (pr_status.sh, signature.sh, detect.sh, wait_ci.sh, scan.sh, validate-skills.py, check-plugin-policy.py)
-        run: tests/run.sh test
+        run: uv run --locked tests/run.sh test
 
   # Validate the frontmatter of skills/*/SKILL.md and the files it references
   skills:
@@ -46,12 +48,14 @@ jobs:
         with:
           # No job pushes, so do not leave the token in .git/config
           persist-credentials: false
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
       - name: Tool versions
         run: |
-          python3 --version
-          python3 -c 'import yaml; print("PyYAML", yaml.__version__)'
+          uv --version
+          uv run --locked python3 --version
+          uv run --locked python3 -c 'import yaml; print("PyYAML", yaml.__version__)'
       - name: Validate SKILL.md
-        run: scripts/validate-skills.py
+        run: uv run --locked scripts/validate-skills.py
 
   # Policy check of the Claude / ChatGPT / Codex manifests, and Claude's schema validation.
   # claude plugin validate runs without authentication, so no API key etc. is configured

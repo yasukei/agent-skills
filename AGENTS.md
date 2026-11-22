@@ -47,8 +47,9 @@ git log -E --grep='^[a-z]+(\([^)]+\))?!: '
 Run the same checks as CI:
 
 ```bash
-scripts/validate-skills.py
+uv lock --check
+uv run scripts/validate-skills.py
 scripts/check-plugin-policy.py
-tests/run.sh
+uv run tests/run.sh
 claude plugin validate .
 ```

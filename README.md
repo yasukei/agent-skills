@@ -87,10 +87,11 @@ Running the skills needs an environment that can work on the target repository, 
 Rules for editing and adding skills are in [AGENTS.md](AGENTS.md). CI runs the same checks on every PR; run them locally before pushing:
 
 ```bash
-scripts/validate-skills.py      # validate SKILL.md (frontmatter, references, size) and shared files
-scripts/check-plugin-policy.py  # check the four manifests against the repository's policy
-tests/run.sh                    # lint and all tests
-claude plugin validate .        # validate the Claude manifests (needs Claude Code)
+uv lock --check                     # check that uv.lock matches pyproject.toml
+uv run scripts/validate-skills.py   # validate SKILL.md (frontmatter, references, size) and shared files
+scripts/check-plugin-policy.py      # check the four manifests against the repository's policy
+uv run tests/run.sh                 # lint and all tests
+claude plugin validate .            # validate the Claude manifests (needs Claude Code)
 ```
 
 What each check covers, how the tests work and the tools they need are in [tests/README.md](tests/README.md).

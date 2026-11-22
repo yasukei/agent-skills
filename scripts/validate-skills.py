@@ -17,7 +17,10 @@ from urllib.parse import unquote
 try:
     import yaml
 except ImportError:
-    print("PyYAML not found (install it, e.g. with pip install pyyaml)", file=sys.stderr)
+    print(
+        "PyYAML not found. Run `uv run scripts/validate-skills.py` from the repository root.",
+        file=sys.stderr,
+    )
     sys.exit(2)
 
 NAME_MAX = 64
