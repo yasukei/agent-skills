@@ -31,6 +31,7 @@ Agent skills shared by Claude Code, ChatGPT and Codex. Most work here is editing
 - `cleanup-local`, `issue-to-pr` and `pr-review` share the worktree guard path, worktree ID rule, guard lifetime and Git lock reason format. Update all three in the same PR when changing this contract, so cleanup and agent startup stay coordinated.
 - `collect-observations` reads the observations comments `orchestrate-issue` posts (their marker, groups and item IDs). Change both in the same PR.
 - `triage-observations` reads the log that `collect-observations` writes (its markers, status table and status values). Change both in the same PR when changing this contract.
+- `create-issue` and `triage-observations` share the issue format reference and the task and bug templates. Change both copies in the same PR so the two skills file issues in the same format.
 
 ## Before pushing
 

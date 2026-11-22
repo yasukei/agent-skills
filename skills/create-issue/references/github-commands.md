@@ -9,8 +9,8 @@ In some environments, such as Claude Code on the web, the GitHub GraphQL API is 
 | Purpose | Normal | Without GraphQL |
 |---|---|---|
 | List labels | `gh label list` | `gh api --paginate "repos/<owner>/<repo>/labels?per_page=100" --jq '.[].name'` |
-| Recent issues | `gh issue list --state all --limit 10` | See "Recent issues without GraphQL" below |
-| Recent PRs | `gh pr list --state all --limit 10` | `gh api "repos/<owner>/<repo>/pulls?state=all&per_page=10" --jq '.[].title'` |
+| Recent issues | `gh issue list --repo <owner>/<repo> --state all --limit 10` | See "Recent issues without GraphQL" below |
+| Recent PRs | `gh pr list --repo <owner>/<repo> --state all --limit 10` | `gh api "repos/<owner>/<repo>/pulls?state=all&per_page=10" --jq '.[].title'` |
 | Create an issue | `gh issue create ...` | See "Creating the issue" below |
 
 ### Recent issues without GraphQL
@@ -30,7 +30,7 @@ gh api repos/<owner>/<repo>/contents/.github/ISSUE_TEMPLATE --jq '.[].name'     
 gh api -H 'Accept: application/vnd.github.raw' repos/<owner>/<repo>/contents/<path>  # read one file
 ```
 
-The same calls work for the other locations in SKILL.md (`.github/ISSUE_TEMPLATE.md`, `ISSUE_TEMPLATE.md`, `docs/ISSUE_TEMPLATE.md`) and for the owner's shared repository `<owner>/.github`. A 404 means the path does not exist.
+The same calls work for the other locations in `references/issue-format.md` (`.github/ISSUE_TEMPLATE.md`, `ISSUE_TEMPLATE.md`, `docs/ISSUE_TEMPLATE.md`) and for the owner's shared repository `<owner>/.github`. A 404 means the path does not exist.
 
 ## Creating the issue
 

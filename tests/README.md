@@ -28,7 +28,10 @@ Checks each skill directly under `skills/`. On problems, prints the file and fie
 - The `references/`, `scripts/` and `assets/` paths and the relative Markdown link targets in the body exist in that skill's directory; a link pointing outside it is an error, because skills are installed one directory at a time.
 - Files under `scripts/` are executable.
 - `SKILL.md` is at most 200 lines and 7,000 bytes (UTF-8, frontmatter included) (`SKILL_MAX_LINES` and `SKILL_MAX_BYTES`), the budget in [AGENTS.md](../AGENTS.md). Bytes and lines stand in for tokens.
-- Files shared between skills are byte-identical. Each skill is installed on its own, so a shared file is copied into each skill that uses it; `SHARED_FILES` lists the groups (currently `references/review-protocol.md` of `issue-to-pr` and `pr-review`, and `scripts/signature.sh` of those two, `orchestrate-issue` and `collect-observations`). A missing copy is an error; a group is skipped only when none of its skills exists.
+- Files shared between skills are byte-identical. Each skill is installed on its own, so a shared file is copied into each skill that uses it. `SHARED_FILES` lists the groups below. A missing copy is an error. A group is skipped only when none of its skills exists.
+  - `issue-to-pr` and `pr-review` share `references/review-protocol.md`.
+  - `issue-to-pr`, `pr-review`, `orchestrate-issue` and `collect-observations` share `scripts/signature.sh`.
+  - `create-issue` and `triage-observations` share `references/issue-format.md`, `assets/task-template.md` and `assets/bug-template.md`.
 
 ## `scripts/check-plugin-policy.py`
 

@@ -24,7 +24,9 @@ gh api -H 'Accept: application/vnd.github.raw+json' "repos/$repo/contents/$path?
 
 If search is unavailable or its results are incomplete, use the paginated repository issue listing under “Find earlier posts and recover retries”. Match the titles and bodies locally using the item's symptom, affected paths, or feature names, and inspect relevant matches in both states. If neither route gives enough information to check an item for duplicate or completed work, recommend Keep open and explain what could not be checked.
 
-To find issue templates without a checkout, list `gh api "repos/$repo/contents/.github/ISSUE_TEMPLATE" --hostname "$host" --jq '.[].name'` and fetch each candidate with the Contents API and the raw media type above. Check the other paths and the owner's shared repository listed in the formats reference. A 404 means the path is absent. For existing labels use `gh label list -R "$host/$repo"`, or `gh api --paginate "repos/$repo/labels?per_page=100" --hostname "$host" --jq '.[].name'`.
+To find issue templates without a checkout, list `gh api "repos/$repo/contents/.github/ISSUE_TEMPLATE" --hostname "$host" --jq '.[].name'` and fetch each candidate with the Contents API and the raw media type above. Check the other paths and the owner's shared repository listed in `references/issue-format.md`. A 404 means the path is absent. For existing labels use `gh label list -R "$host/$repo"`, or `gh api --paginate "repos/$repo/labels?per_page=100" --hostname "$host" --jq '.[].name'`.
+
+To check the target repository's language, use `gh issue list -R "$host/$repo" --state all --limit 10` and `gh pr list -R "$host/$repo" --state all --limit 10`. With REST, take the ten most recent issues from the paginated issue listing below and use `gh api "repos/$repo/pulls?state=all&per_page=10" --hostname "$host" --jq '.[].title'` for PRs.
 
 ## Find earlier posts and recover retries
 
@@ -41,6 +43,8 @@ Look for a standalone line anywhere in the body that exactly matches the marker 
 
 Read markers while planning and refresh the check before executing the approved plan or retrying a post. If a marker already covers an item, skip posting it and use the existing result when it matches the approved plan. If only some members of a planned group are covered or the recovered outcome differs from the plan, present the updated plan for approval before posting anything for that group. On a failed or uncertain POST, check the markers before considering any retry. If the lookup fails, stop and report the uncertainty instead of posting again.
 
+For a recovered issue with a `Part of #N.` line, verify its parent relationship while planning (see "Link approved sub-issues" below). Include a missing link in the plan for approval before recording the row's status. If the sub-issues API is unavailable, report the body-only fallback in the plan.
+
 ## Publish approved issues and comments
 
 Verify that each fold target is still an open issue in the log repository. Once a plan is approved, write its Markdown bodies to temporary files. Pass any approved metadata and use the returned issue number and URLs when updating the log and reporting.
@@ -54,12 +58,24 @@ With REST (works when GraphQL returns HTTP 403):
 
 ```bash
 gh api "repos/$repo/issues" --hostname "$host" -X POST -f title="$title" -F body=@"$issue_file" \
-  --jq '{number, html_url}'
+  --jq '{number, id, html_url}'
 gh api "repos/$repo/issues/$target/comments" --hostname "$host" -X POST -F body=@"$comment_file" \
   --jq '{html_url}'
 ```
 
 Append the approved metadata to issue creation as needed. For REST use `-f 'labels[]=LABEL'`, `-f 'assignees[]=LOGIN'`, and `-F milestone=N`, with the milestone number from `gh api --paginate "repos/$repo/milestones?state=all&per_page=100" --hostname "$host"`. For `gh issue create` use `--label`, `--assignee` and `--milestone`.
+
+### Link approved sub-issues
+
+Use the child issue's REST `id` as `sub_issue_id`. If creation returned only the URL or the issue was recovered by its marker, get the ID by its issue number.
+
+```bash
+child_id=$(gh api "repos/$repo/issues/$child" --hostname "$host" --jq .id)
+gh api "repos/$repo/issues/$parent/sub_issues" --hostname "$host" \
+  -X POST -F sub_issue_id="$child_id"
+```
+
+To verify the relationship, check `gh api --paginate "repos/$repo/issues/$parent/sub_issues?per_page=100" --hostname "$host" --jq '.[].id'` for the child ID. Refresh this check before linking a recovered issue and skip the POST if the relationship already exists. If the API is unavailable, follow the body-only fallback in `references/issue-format.md`. If the link cannot be verified or applied for another reason, stop before recording that issue's status and report the issue URL and the link state so a retry can recover it.
 
 ## Record the approved statuses
 
