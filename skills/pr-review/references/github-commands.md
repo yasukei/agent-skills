@@ -382,7 +382,8 @@ gh api repos/OWNER/REPO/commits/SHA -H 'Accept: application/vnd.github.patch' | 
   - With `PR_TITLE`, the squash subject starts with the PR title followed by `(#number)`.
   - With `COMMIT_OR_PR_TITLE`, also accept the sole PR commit's subject for a one-commit PR, with or without the `(#number)` suffix.
   - For rebase, check that the landed single-parent commits ending at the merge SHA match the complete list of PR commits in order by subject and patch ID. Unrelated commits can have the same subjects.
-  - Leave a one-commit PR unclassified when the landed subject equals the original subject. A rebase preserves that subject, and a default squash or a manual title edit can produce it too.
+  - With `PR_TITLE`, apply the rebase check to one-commit PRs too. A manual squash title that matches the original subject can still resemble a rebase if the patch ID also matches.
+  - With `COMMIT_OR_PR_TITLE` or an unknown setting, leave a one-commit PR unclassified when the landed subject equals the original subject. A default squash and a rebase can produce the same subject and patch.
 - Count a sample only when it points to one method. Leave it out when both methods fit, when required commit data is missing, or when no rule fits. An unfamiliar squash subject alone gives no evidence of rebase.
 
 Use the majority among classified samples for currently allowed methods. If no method can be inferred, follow the allowed-method fallback in "With `--merge`" in `merging.md`.
