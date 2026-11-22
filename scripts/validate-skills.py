@@ -46,6 +46,12 @@ SHARED_FILES = [
         "orchestrate-issue/scripts/signature.sh",
         "collect-observations/scripts/signature.sh",
     ),
+    (
+        "create-issue/references/issue-format.md",
+        "triage-observations/references/issue-format.md",
+    ),
+    ("create-issue/assets/task-template.md", "triage-observations/assets/task-template.md"),
+    ("create-issue/assets/bug-template.md", "triage-observations/assets/bug-template.md"),
 ]
 
 # Pick up references/... scripts/... assets/... in the body.
