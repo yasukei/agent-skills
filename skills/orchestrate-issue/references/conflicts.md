@@ -15,4 +15,4 @@ Read when a conflict is detected, before handing off review fixes or a merge, or
 3. After the push, return to step 2 and wait for CI on the new head. Once CI permits review and the PR has no conflict, start the first review if the reviewer has yet to start. Otherwise resume the same reviewer with "Reviewer: re-check" in `handoffs.md`, identifying the conflict resolution commit. The reviewer checks the new head even if it approved the previous one.
 4. If a conflict interrupted a merge, send the merge handoff again only after the re-check is ready and the fresh pre-merge check passes.
 
-Apply the round-limit rule in SKILL.md. For a conflict-resolution merge, the base branch commits brought in by the merge do not count as new PR-branch commits.
+Apply the round-limit rule in SKILL.md.
