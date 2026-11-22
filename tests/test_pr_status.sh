@@ -21,8 +21,9 @@ mkdir -p "$FAKE_REST_DIR"
 
 # gh api graphql error where GraphQL is not available (Claude Code on the web)
 GRAPHQL_403='gh: GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). (HTTP 403)'
-# PR head SHA used on the REST path
+# Current PR head and an earlier commit
 SHA=abc123
+OLDER_SHA=abc012
 
 # Path of the file the fake gh api <path> returns
 rest_file() {
@@ -33,20 +34,22 @@ rest_file() {
 write_rest_from_graphql() {
   local pr
   pr="$(jq '.data.repository.pullRequest' "$FAKE_GRAPHQL")"
-  jq --arg sha "$SHA" '{
+  jq '{
     html_url: .url,
     state: (if .state == "OPEN" then "open" else "closed" end),
     merged: (.state == "MERGED"),
     draft: .isDraft,
     mergeable: (if .mergeable == "MERGEABLE" then true elif .mergeable == "CONFLICTING" then false else null end),
     user: { login: .author.login, type: "User" },
-    head: { ref: .headRefName, sha: $sha },
+    head: { ref: .headRefName, sha: .headRefOid },
     base: { ref: .baseRefName }
   }' <<<"$pr" >"$(rest_file repos/o/r/pulls/1)"
   local user='{ login: .author.login, type: (if .author.__typename == "Bot" then "Bot" else "User" end) }'
-  jq "[ .reviews.nodes[] | { user: $user, state, submitted_at: .submittedAt, body } ]" <<<"$pr" \
+  jq "[ .reviews.nodes[] | { id, user: $user, state, submitted_at: .submittedAt, body, commit_id: .commit.oid } ]" <<<"$pr" \
     >"$(rest_file repos/o/r/pulls/1/reviews)"
-  jq "[ .reviewThreads.nodes[].comments.nodes[] | { id: .databaseId, user: $user, body, created_at: .createdAt, html_url: .url } ]" \
+  jq "[ .reviewThreads.nodes[].comments.nodes[] | {
+    id: .databaseId, user: $user, body, created_at: .createdAt, html_url: .url, pull_request_review_id: .pullRequestReview.id
+  } ]" \
     <<<"$pr" >"$(rest_file repos/o/r/pulls/1/comments)"
   jq "[ .comments.nodes[] | { id: .databaseId, user: $user, body, created_at: .createdAt, html_url: .url } ]" <<<"$pr" \
     >"$(rest_file repos/o/r/issues/1/comments)"
@@ -89,10 +92,13 @@ thread() {
     '{ id: "T1", isResolved: $r, isOutdated: false, path: "a.sh", line: 1, comments: { nodes: $c } }'
 }
 
-# Build one review: <author> <state> <body> [<date>]
+# Build one review: <author> <state> <body> [<date>] [<SHA, empty when unavailable>]
 review() {
   jq -nc --arg a "$1" --arg s "$2" --arg b "$3" --arg at "${4:-2026-01-01T00:00:00Z}" \
-    '{ author: { login: $a, __typename: "User" }, state: $s, submittedAt: $at, body: $b }'
+    --arg sha "${5-$SHA}" '{
+      author: { login: $a, __typename: "User" }, state: $s, submittedAt: $at, body: $b,
+      commit: (if $sha == "" then null else { oid: $sha } end)
+    }'
 }
 
 # Build one PR comment: <author> <body> [<date>]
@@ -192,6 +198,7 @@ assert_eq passing "$(field .ci.summary)" "ci.summary"
 assert_eq 0 "$(field '.ci.failing | length')" "ci.failing"
 assert_contains "$(cat "$FAKE_GH_LOG")" "pr checks 1 --repo o/r --json" "passes the PR number and repository to gh pr checks"
 assert_contains "$(cat "$FAKE_GH_LOG")" "-F owner=o -F name=r -F pr=1" "passes owner, name and PR number to GraphQL"
+assert_contains "$(cat "$FAKE_GH_LOG")" "body commit { oid }" "requests the review commit in GraphQL"
 assert_contains "$(cat "$FAKE_GH_LOG")" "repos/o/r/pulls/1/ccr/review_threads" "REST path fetches threads through the CCR route"
 assert_contains "$(cat "$FAKE_GH_LOG")" "repos/o/r/commits/$SHA/check-runs" "REST path fetches the check runs of the head SHA"
 
@@ -296,7 +303,7 @@ run_status
 assert_verdict review_in_progress false "question in PR comment"
 assert_eq false "$(field .review.explicitCompletion)" "review.explicitCompletion"
 
-t "same account: an explicit review complete with no findings can finish"
+t "same account: a completion marker review on the current head can finish"
 write_pr OPEN MERGEABLE "[$(review me COMMENTED "No findings.
 
 $COMPLETE
@@ -311,7 +318,20 @@ run_status
 assert_verdict ci_pending false "CI running"
 checks "[$PASS_CHECK]" "" 0
 
-t "same account: can finish when all finding threads are resolved"
+t "same account: a completion marker review on an older commit does not finish"
+write_pr OPEN MERGEABLE "[$(review me COMMENTED "$COMPLETE" '' "$OLDER_SHA")]" '[]' '[]'
+run_status
+assert_verdict review_in_progress false "completion marker on an older commit"
+assert_eq false "$(field .review.explicitCompletion)" "review.explicitCompletion"
+
+t "same account: a completion marker in a PR comment does not finish"
+write_pr OPEN MERGEABLE '[]' '[]' "[$(comment me "No findings. $COMPLETE")]"
+run_status
+assert_verdict review_in_progress false "completion marker in an unpinned comment"
+assert_eq true "$(field .review.activity)" "the comment still counts as activity"
+assert_eq false "$(field .review.explicitCompletion)" "review.explicitCompletion"
+
+t "same account: can finish when all finding threads are resolved and the latest review is on the head"
 write_pr OPEN MERGEABLE "[$(review me COMMENTED "## Review result
 
 $BY_REVIEWER")]" \
@@ -322,6 +342,38 @@ $BY_REVIEWER" me "Fixed (abc1234)
 $MINE")]" '[]'
 run_status
 assert_verdict ready true "all threads resolved"
+
+t "same account: resolved threads need a fresh review after a push"
+resolved_threads="[$(thread true me "[P2] Please fix this")]"
+old_review="$(review me COMMENTED 'Please fix the finding' '' "$OLDER_SHA")"
+write_pr OPEN MERGEABLE "[$old_review]" "$resolved_threads" '[]'
+run_status
+assert_verdict review_in_progress false "resolved threads with an older review"
+assert_contains "$(field .verdict.reason)" "Waiting for a review of the current head" "explains why resolved threads are insufficient"
+
+write_pr OPEN MERGEABLE '[]' "$resolved_threads" '[]'
+run_status
+assert_verdict review_in_progress false "resolved threads without a review"
+
+write_pr OPEN MERGEABLE "[$old_review,$(review me COMMENTED "$COMPLETE" 2026-01-01T01:00:00Z)]" "$resolved_threads" '[]'
+run_status
+assert_verdict ready true "resolved threads with a fresh review"
+
+t "same account: a review with inline findings can establish the head without a summary"
+inline_review="$(review me COMMENTED '' | jq -c '.id = 42')"
+inline_thread="$(thread true me '[P2] Please fix this' | jq -c '.comments.nodes[0].pullRequestReview.id = 42')"
+write_pr OPEN MERGEABLE "[$inline_review]" "[$inline_thread]" '[]'
+run_status
+assert_verdict ready true "resolved thread opened in an empty-summary review of the head"
+
+t "same account: a reply-only review does not establish the head for resolved threads"
+inline_review="$(review me COMMENTED '' '' "$OLDER_SHA" | jq -c '.id = 42')"
+reply_review="$(review me COMMENTED '' 2026-01-01T01:00:00Z | jq -c '.id = 43')"
+inline_thread="$(thread true me '[P2] Please fix this' me 'Confirmed.' | jq -c '
+  .comments.nodes[0].pullRequestReview.id = 42 | .comments.nodes[1].pullRequestReview.id = 43')"
+write_pr OPEN MERGEABLE "[$inline_review,$reply_review]" "[$inline_thread]" '[]'
+run_status
+assert_verdict review_in_progress false "a thread reply on the head cannot replace a review"
 
 t "same account: does not finish with an unresolved finding thread"
 write_pr OPEN MERGEABLE '[]' \
@@ -349,7 +401,7 @@ write_pr OPEN MERGEABLE "[$(review alice CHANGES_REQUESTED "Please fix this")]" 
 run_status
 assert_verdict review_in_progress false "changes requested"
 
-t "other account: can finish when the latest review is Approve"
+t "other account: can finish when the latest approval is for the current head"
 write_pr OPEN MERGEABLE "[$(review alice APPROVED "LGTM")]" '[]' '[]'
 run_status
 assert_verdict ready true "Approve"
@@ -359,6 +411,23 @@ checks "[$PASS_CHECK,$FAIL_CHECK]" "" 1
 run_status
 assert_verdict ci_failing false "CI failing"
 checks "[$PASS_CHECK]" "" 0
+
+t "other account: an older approval remains stale until the reviewer re-approves the head"
+old_approval="$(review alice APPROVED 'LGTM' '' "$OLDER_SHA")"
+other_approval="$(review bob APPROVED 'LGTM')"
+write_pr OPEN MERGEABLE "[$old_approval,$other_approval]" '[]' '[]'
+run_status
+assert_verdict review_in_progress false "older approval from one reviewer"
+assert_contains "$(field .verdict.reason)" "An Approve is for an older commit" "explains the stale approval"
+
+write_pr OPEN MERGEABLE "[$old_approval,$other_approval,$(review alice APPROVED 'LGTM again' 2026-01-01T01:00:00Z)]" '[]' '[]'
+run_status
+assert_verdict ready true "both reviewers approved the head"
+
+t "other account: an approval with no commit does not finish"
+write_pr OPEN MERGEABLE "[$(review alice APPROVED 'LGTM' '' '')]" '[]' '[]'
+run_status
+assert_verdict review_in_progress false "approval with no commit"
 
 t "same account: a question after the completion marker does not complete"
 write_pr OPEN MERGEABLE "[$(review me COMMENTED "No findings.

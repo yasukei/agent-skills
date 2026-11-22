@@ -161,7 +161,7 @@ write_pr() {
   jq --arg sha "$SHA" '{ html_url: .url, state: "open", merged: false, draft: false, mergeable: true,
     user: { login: "me", type: "User" }, head: { ref: .headRefName, sha: $sha }, base: { ref: .baseRefName } }' \
     <<<"$pr" >"$(rest_file repos/o/r/pulls/1)"
-  jq "[ .reviews.nodes[] | { user: $user, state, submitted_at: .submittedAt, body } ]" <<<"$pr" \
+  jq "[ .reviews.nodes[] | { user: $user, state, submitted_at: .submittedAt, body, commit_id: .commit.oid } ]" <<<"$pr" \
     >"$(rest_file repos/o/r/pulls/1/reviews)"
   jq "[ .reviewThreads.nodes[].comments.nodes[] | { id: .databaseId, user: $user, body, created_at: .createdAt, html_url: .url } ]" \
     <<<"$pr" >"$(rest_file repos/o/r/pulls/1/comments)"
@@ -174,8 +174,10 @@ write_pr() {
 
 # review <state> <body>, comment <id> <body>: posts by "me" (author and reviewer share the account)
 review() {
-  jq -nc --arg s "$1" --arg b "$2" \
-    '{ author: { login: "me", __typename: "User" }, state: $s, submittedAt: "2026-01-01T00:00:00Z", body: $b }'
+  jq -nc --arg s "$1" --arg b "$2" --arg sha "$SHA" '{
+    author: { login: "me", __typename: "User" }, state: $s, submittedAt: "2026-01-01T00:00:00Z", body: $b,
+    commit: { oid: $sha }
+  }'
 }
 comment() {
   jq -nc --argjson i "$1" --arg b "$2" \

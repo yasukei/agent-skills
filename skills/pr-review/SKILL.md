@@ -75,15 +75,16 @@ Post the inline comments and the summary as **one review** with the event `COMME
 
 Check new commits and replies once as in `references/monitoring.md`.
 
-- Post new findings as one review **before resolving existing threads**: with the same account, `issue-to-pr` treats "all threads resolved" as done.
+- Post new findings as one review **before resolving existing threads**, because a review of the current head with all threads resolved can signal completion on the same account.
 - Resolve only threads this run owns; ask the user about other sessions' ("Thread ownership" in `references/review-protocol.md`).
 - A `P0` cannot be deferred. Ask the user when you cannot judge a decline.
+- When a re-check clears a new head and you share the author's account, post a fresh no-findings review with `<!-- review-complete -->` pinned to the checked SHA after the finding threads are resolved. `issue-to-pr` requires a review of the current head.
 
 ## 5. Decide whether it can be merged
 
 Read `references/merging.md`. In short: every finding thread this skill opened is resolved, no other reviewer's thread or Request changes remains, CI passes, no conflicts, branch protection is met, not a draft, the description matches the implementation, and the head SHA is the last one checked.
 
-- When the author is a different account, post an Approve once every merge condition except branch protection is met, **whether or not `--merge` was given**. Approve is `issue-to-pr`'s completion signal.
+- When the author is a different account, post an Approve pinned to the checked SHA once every merge condition except branch protection is met, **whether or not `--merge` was given**. Post a fresh Approve when a re-check clears a new head, because `issue-to-pr` counts approval only for the current head.
 - Without `--merge`, report whether it can be merged and end. With `--merge`, follow `references/merging.md`. If the merge fails, report it without working around it.
 
 ## Reporting to the user

@@ -17,9 +17,9 @@ The PR can be merged when all of these hold:
 
 ## Approve
 
-When the PR author and the account running this skill differ, post an Approve review with the signature and the marker once every merge condition except branch protection (condition 5) is met, **whether or not `--merge` was given**. Because `issue-to-pr` uses Approve as its completion signal, post it only after any conflicts are resolved and you have checked the resolution.
+When the PR author and the account running this skill differ, post an Approve review with the signature and the marker once every merge condition except branch protection (condition 5) is met, **whether or not `--merge` was given**. Because `issue-to-pr` uses Approve as its completion signal, post it only after any conflicts are resolved and you have checked the resolution. When a re-check clears a new head, post a new Approve pinned to that SHA because the previous approval applies to the earlier commit.
 
-On the same account, Approve is impossible. All threads resolved (or the no-findings review with the completion marker) is the signal instead.
+On the same account, the completion signal is a review pinned to the current head with all finding threads resolved, or a no-findings review with the completion marker when there are no threads. Post a fresh no-findings review with the marker when a re-check clears a new head.
 
 ## Without `--merge`
 
