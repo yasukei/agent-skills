@@ -32,7 +32,19 @@ Agent skills shared by Claude Code, ChatGPT and Codex. Most work here is editing
 
 ## Before pushing
 
-Commits use Conventional Commits with the skill name as scope (e.g. `feat(pr-review): ...`). Run the same checks as CI:
+Commits use Conventional Commits with the skill name as scope (e.g. `feat(pr-review): ...`).
+
+Mark changes to what an existing skill invocation does so readers can find when its behavior changed. Examples include removing or renaming an argument, changing a default, making a different decision without asking the user, and changing a format or marker another skill or later run reads. Bug fixes that restore documented behavior, new optional arguments, and wording-only changes are exempt.
+
+Put `!` after the scope in the PR title, for example `feat(orchestrate-issue)!: delegate design questions by default`. The PR title becomes the squash commit title. Add a `BREAKING CHANGE: <what changed, and how to get the old behavior>` line at the end of the PR body, before the signature.
+
+Find marked commits with the command below. The `(#<number>)` suffix in the squash commit title points to the PR for details.
+
+```bash
+git log -E --grep='^[a-z]+(\([^)]+\))?!: '
+```
+
+Run the same checks as CI:
 
 ```bash
 scripts/validate-skills.py
