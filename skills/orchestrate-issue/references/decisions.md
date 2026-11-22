@@ -4,7 +4,7 @@ Read when the implementer or reviewer stops with a question or a choice. Classif
 
 | Type | Examples | Default | With `--no-delegate` |
 |---|---|---|---|
-| A: always the user's | Merging without `--merge`. Irreversible actions (force push, deleting branches or worktrees other than the post-merge cleanup in `cleanup.md`, closing issues). Changes to permissions, sandboxes or credentials. Work outside the issue. Breaking or public API changes. Contradictions in the issue itself. Disagreement between implementer and reviewer. Anything the underlying skill says needs the user's explicit authorization, such as resolving threads from another or unknown session, running fork PR code, or reviewing a draft or closed PR | Ask the user | Ask the user |
+| A: always the user's | Merging without `--merge`. Irreversible actions (force push, deleting refs or worktrees beyond the post-merge cleanup in `cleanup.md`, closing issues). Changes to permissions, sandboxes or credentials. Work outside the issue. Breaking or public API changes. Contradictions in the issue itself. Disagreement between implementer and reviewer. Anything the underlying skill says needs the user's explicit authorization, such as resolving threads from another or unknown session, running fork PR code, or reviewing a draft or closed PR | Ask the user | Ask the user |
 | B: a design choice with a recommendation | Within the issue's scope, reversible, and the agent states a recommendation, e.g. two ways to address a finding | Take the recommendation, and record it | Ask the user, with the recommendation |
 | C: procedural | How to proceed within the workflow, e.g. which existing artifact to point an agent to | Decide and report it | Decide and report it |
 

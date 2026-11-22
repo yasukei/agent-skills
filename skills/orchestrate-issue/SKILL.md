@@ -72,5 +72,5 @@ For each issue, report:
 - PR URL and state: merged, ready to merge, or stopped and why.
 - Recommendations taken by default, with the alternatives.
 - Observations: the comment's URL, or the items and why they were not posted (`references/observations.md`).
-- Worktrees: removed, or kept with path and reason. Local branches kept.
+- Worktrees kept (path and reason) or removed. Local cleanup (deleted refs, why others stayed, main checkout).
 - Irregularities and how they were handled.
