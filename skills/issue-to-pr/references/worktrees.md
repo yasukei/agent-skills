@@ -1,6 +1,6 @@
 # Isolated implementation (`--worktree`)
 
-Read before changing files or branches when `--worktree` is requested. The skill's review and merge permissions also apply in the dedicated checkout. Without `--worktree`, if working in a linked checkout, follow "Guard startup of a linked worktree" and follow the stop instructions below. Keep the existing in-place workflow. The main checkout needs no lock.
+Read before changing files or branches when `--worktree` is requested. It changes the checkout used for the work, not the skill's review or merge permissions. Without `--worktree`, if working in a linked checkout, follow "Guard startup of a linked worktree" and follow the stop instructions below. Keep the existing in-place workflow. The main checkout needs no lock.
 
 ## Select the checkout
 
