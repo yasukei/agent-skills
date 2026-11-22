@@ -14,8 +14,12 @@ trap 'rm -rf "$WORK"' EXIT
 
 export PATH="$ROOT/tests/fake-bin:$PATH"
 export FAKE_REST_DIR="$WORK/rest"
+export FAKE_GH_LOG="$FAKE_REST_DIR/requests.log"
 SHA=abc123
 PR_RESPONSE="$FAKE_REST_DIR/repos_o_r_pulls_1.json"
+CHECKS_RESPONSE="$FAKE_REST_DIR/repos_o_r_commits_${SHA}_check-runs.json"
+RUNS_RESPONSE="$FAKE_REST_DIR/repos_o_r_actions_runs.json"
+JOBS_RESPONSE="$FAKE_REST_DIR/repos_o_r_actions_runs_42_jobs.json"
 
 reset() {
   rm -rf "$FAKE_REST_DIR"
@@ -28,11 +32,20 @@ pull() {
   printf '{"head": {"sha": "%s"}, "mergeable": %s, "mergeable_state": "%s"}' "$1" "$2" "$3"
 }
 checks() {
-  printf '{"total_count": 0, "check_runs": %s}' "$1" >"$FAKE_REST_DIR/repos_o_r_commits_${SHA}_check-runs.json"
+  printf '{"total_count": 0, "check_runs": %s}' "$1" >"$CHECKS_RESPONSE"
 }
 statuses() {
   # The combined status reports "pending" even when there are no statuses at all.
   printf '{"state": "pending", "total_count": 0, "statuses": %s}' "$1" >"$FAKE_REST_DIR/repos_o_r_commits_${SHA}_status.json"
+}
+
+forbid() {
+  printf '%s\n' 'gh: Resource not accessible by personal access token (HTTP 403)' >"$1.err"
+}
+
+use_actions() {
+  forbid "$CHECKS_RESPONSE"
+  printf '{"workflow_runs": %s}\n' "$1" >"$RUNS_RESPONSE"
 }
 
 # run_wait: run the script with zero waits; sets OUT, ERR and RC
@@ -52,6 +65,7 @@ assert_eq 0 "$RC" "exit status"
 assert_eq success "$(jq -r .state <<<"$OUT")" "state"
 assert_eq "$SHA" "$(jq -r .sha <<<"$OUT")" "sha"
 assert_eq true "$(jq -c .mergeable <<<"$OUT")" "mergeable"
+assert_eq check-runs "$(jq -r .checks_source <<<"$OUT")" "check source"
 
 t "a conflicting PR is reported before waiting for CI registration"
 reset
@@ -61,6 +75,7 @@ run_wait
 assert_eq 4 "$RC" "exit status"
 assert_eq conflicting "$(jq -r .state <<<"$OUT")" "state"
 assert_eq false "$(jq -c .mergeable <<<"$OUT")" "mergeable"
+assert_eq null "$(jq -c .checks_source <<<"$OUT")" "check source before querying CI"
 
 t "a conflict that appears during CI takes precedence over successful checks"
 reset
@@ -94,6 +109,7 @@ for merge_state in behind blocked; do
   run_wait --mergeability-only
   assert_eq 0 "$RC" "$merge_state exit status"
   assert_eq no_conflict "$(jq -r .state <<<"$OUT")" "$merge_state state"
+  assert_eq null "$(jq -c .checks_source <<<"$OUT")" "$merge_state check source"
 done
 
 t "unknown mergeability after retries stops the workflow"
@@ -220,6 +236,124 @@ checks '[
 run_wait
 assert_eq failure "$(jq -r .state <<<"$OUT")" "state"
 assert_eq '[{"name":"test","url":"a"}]' "$(jq -c .failing <<<"$OUT")" "failing"
+
+action_run='{"id": 42, "name": "CI", "event": "pull_request"}'
+action_pending='{"name": "build", "status": "queued", "conclusion": null}'
+action_failed='{"name": "build", "status": "completed", "conclusion": "failure", "html_url": "https://ci/failed"}'
+
+t "Actions fallback waits through a queued job and reports success"
+reset
+use_actions "[$action_run]"
+printf '{"jobs": [%s]}\n' "$action_pending" >"$JOBS_RESPONSE"
+printf '{"jobs": [%s]}\n' "$run_completed" >"$JOBS_RESPONSE.next"
+run_wait --timeout 5
+assert_eq 0 "$RC" "exit status"
+assert_eq success "$(jq -r .state <<<"$OUT")" "state"
+assert_eq actions "$(jq -r .checks_source <<<"$OUT")" "check source"
+assert_contains "$(cat "$FAKE_GH_LOG")" "actions/runs?head_sha=$SHA" "reads runs for the head SHA"
+assert_eq 2 "$(grep -c 'actions/runs/42/jobs' "$FAKE_GH_LOG")" "polled jobs twice"
+
+t "Actions fallback reports failed jobs and commit statuses"
+reset
+use_actions "[$action_run]"
+printf '{"jobs": [%s]}\n' "$action_failed" >"$JOBS_RESPONSE"
+statuses '[{"context": "ci/external", "state": "failure", "target_url": "https://ext/1"}]'
+run_wait
+assert_eq 1 "$RC" "exit status"
+assert_eq failure "$(jq -r .state <<<"$OUT")" "state"
+assert_eq actions "$(jq -r .checks_source <<<"$OUT")" "check source"
+assert_eq '[{"name":"build","url":"https://ci/failed"},{"name":"ci/external","url":"https://ext/1"}]' \
+  "$(jq -c .failing <<<"$OUT")" "failing"
+
+t "Actions fallback reports a timeout while a job is queued"
+reset
+use_actions "[$action_run]"
+printf '{"jobs": [%s]}\n' "$action_pending" >"$JOBS_RESPONSE"
+run_wait
+assert_eq 3 "$RC" "exit status"
+assert_eq timeout "$(jq -r .state <<<"$OUT")" "state"
+assert_eq actions "$(jq -r .checks_source <<<"$OUT")" "check source"
+
+t "a queued workflow is pending even before jobs register"
+reset
+use_actions '[{"id": 42, "name": "CI", "event": "pull_request", "status": "queued"}]'
+printf '{"jobs": []}\n' >"$JOBS_RESPONSE"
+run_wait
+assert_eq 3 "$RC" "exit status before any checks register"
+assert_eq timeout "$(jq -r .state <<<"$OUT")" "state before any checks register"
+statuses '[{"context": "ci/external", "state": "success"}]'
+run_wait
+assert_eq 3 "$RC" "exit status with a passed status"
+assert_eq timeout "$(jq -r .state <<<"$OUT")" "state with a passed status"
+
+t "Actions fallback handles a full page of jobs with step details"
+reset
+use_actions "[$action_run]"
+jq -n '
+  {jobs: [range(100) |
+    {name: "build-\(.)", status: "completed", conclusion: "success", html_url: "https://ci/build-\(.)",
+     steps: [range(12) | {name: "Run build step \(.)", status: "completed", conclusion: "success",
+                         started_at: "2026-01-01T01:00:00Z", completed_at: "2026-01-01T01:01:00Z"}]}]}' \
+  >"$JOBS_RESPONSE"
+run_wait
+assert_eq 0 "$RC" "exit status"
+assert_eq success "$(jq -r .state <<<"$OUT")" "state"
+
+t "Actions fallback reads only the latest attempt of a re-run"
+reset
+use_actions '[{"id": 42, "name": "CI", "event": "pull_request", "run_attempt": 2}]'
+printf '{"jobs": [%s]}\n' "$run_completed" >"$JOBS_RESPONSE"
+printf '{"jobs": [%s]}\n' "$action_failed" >"$FAKE_REST_DIR/repos_o_r_actions_runs_42_attempts_1_jobs.json"
+run_wait
+assert_eq 0 "$RC" "exit status"
+assert_eq success "$(jq -r .state <<<"$OUT")" "state"
+assert_contains "$(cat "$FAKE_GH_LOG")" "actions/runs/42/jobs?filter=latest" "requests the latest attempt"
+
+t "Actions jobs deduplicate across runs but stay separate across workflows or events"
+reset
+use_actions "[$action_run, {\"id\": 43, \"name\": \"CI\", \"event\": \"pull_request\"}]"
+printf '%s\n' '{"workflow_runs": [{"id": 44, "name": "CI", "event": "push"}, {"id": 45, "name": "Other", "event": "pull_request"}]}' \
+  >>"$RUNS_RESPONSE"
+printf '%s\n' '{"jobs": [{"name": "build", "status": "completed", "conclusion": "failure", "started_at": "2026-01-01T01:00:00Z", "html_url": "old"}]}' \
+  >"$JOBS_RESPONSE"
+printf '%s\n' '{"jobs": [{"name": "build", "status": "completed", "conclusion": "success", "started_at": "2026-01-01T02:00:00Z"}]}' \
+  >"$FAKE_REST_DIR/repos_o_r_actions_runs_43_jobs.json"
+printf '%s\n' '{"jobs": [{"name": "build", "status": "completed", "conclusion": "failure", "started_at": "2026-01-01T01:00:00Z", "html_url": "push"}]}' \
+  >"$FAKE_REST_DIR/repos_o_r_actions_runs_44_jobs.json"
+printf '%s\n' '{"jobs": []}' \
+  '{"jobs": [{"name": "build", "status": "completed", "conclusion": "failure", "started_at": "2026-01-01T01:00:00Z", "html_url": "other"}]}' \
+  >"$FAKE_REST_DIR/repos_o_r_actions_runs_45_jobs.json"
+run_wait
+assert_eq 1 "$RC" "exit status"
+assert_eq '[{"name":"build","url":"push"},{"name":"build","url":"other"}]' "$(jq -c .failing <<<"$OUT")" "failing"
+
+t "Actions fallback reports none when no workflow runs register"
+reset
+use_actions '[]'
+run_wait
+assert_eq 0 "$RC" "exit status"
+assert_eq none "$(jq -r .state <<<"$OUT")" "state"
+assert_eq actions "$(jq -r .checks_source <<<"$OUT")" "check source"
+
+t "a 403 from either Actions endpoint is an API error"
+for endpoint in "$RUNS_RESPONSE" "$JOBS_RESPONSE"; do
+  reset
+  use_actions "[$action_run]"
+  forbid "$endpoint"
+  run_wait
+  assert_eq 2 "$RC" "exit status"
+  assert_eq "" "$OUT" "stdout"
+  assert_contains "$ERR" "GitHub API request failed" "stderr"
+done
+
+t "a check-runs error other than 403 does not use the Actions fallback"
+reset
+rm "$CHECKS_RESPONSE"
+printf '{"workflow_runs": []}\n' >"$RUNS_RESPONSE"
+run_wait
+assert_eq 2 "$RC" "exit status"
+assert_eq "" "$OUT" "stdout"
+assert_contains "$ERR" "HTTP 404" "stderr"
 
 t "invalid arguments"
 reset

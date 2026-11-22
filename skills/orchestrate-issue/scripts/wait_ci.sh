@@ -4,10 +4,11 @@
 #   wait_ci.sh <PR number> <OWNER/REPO> [--mergeability-only] [--interval SECONDS]
 #              [--register-timeout SECONDS] [--timeout SECONDS]
 #
-# It reads both check runs and commit statuses through REST, so it also works where GraphQL returns
-# HTTP 403. It loops by itself; run it once in the background and read its output when it exits.
+# It reads check runs and commit statuses through REST, with Actions jobs as a fallback if check
+# runs return HTTP 403. Run it once in the background and read its output when it exits.
 #
-# Output: {"state": "...", "sha": "...", "mergeable": true|false|null, "failing": [{"name": ..., "url": ...}]}
+# Output: {"state": "...", "sha": "...", "mergeable": true|false|null, "failing": [{"name": ..., "url": ...}],
+#          "checks_source": "check-runs"|"actions"|null}
 #   success  every check run and status passed
 #   failure  at least one failed (listed in "failing")
 #   none     nothing was registered within --register-timeout (default 300 s): the repository may have no CI
@@ -58,6 +59,7 @@ api_error() {
 
 pull_path="repos/${repo}/pulls/${pr}"
 sha=""
+checks_source=""
 
 read_pull() {
   local pull_json head
@@ -77,8 +79,10 @@ read_pull() {
 }
 
 emit_result() {
-  jq -cn --arg state "$1" --arg sha "$sha" --argjson mergeable "$mergeable" --argjson failing "$2" \
-    '{state: $state, sha: $sha, mergeable: $mergeable, failing: $failing}'
+  jq -c --arg state "$1" --arg sha "$sha" --argjson mergeable "$mergeable" \
+    --arg checks_source "$checks_source" \
+    '{state: $state, sha: $sha, mergeable: $mergeable, failing: .,
+      checks_source: ($checks_source | select(length > 0) // null)}' <<<"$2"
   exit "$3"
 }
 
@@ -103,10 +107,61 @@ finish() {
   finish_with_mergeability "$@"
 }
 
+check_run_entries() {
+  local wf_raw checks workflows
+  # Workflow name and event are not in check runs. If the lookup fails, keep check suites separate.
+  wf_raw="$(gh api --paginate "$workflows_path" 2>/dev/null)" || wf_raw='{"workflow_runs": []}'
+  checks="$(jq -sc '[.[].check_runs[]]' <<<"$1")" || return
+  workflows="$(jq -sc '[.[].workflow_runs[]]' <<<"$wf_raw")" || return
+  jq -cs '
+    (.[1] | map({key: (.check_suite_id | tostring), value: {name, event}}) | from_entries) as $workflow
+    | .[0][]
+    | (.check_suite.id | tostring) as $suite
+    | {started: (.started_at // ""), run: {name, status, conclusion, html_url},
+       key: (if $workflow[$suite] then [.name, $workflow[$suite].name, $workflow[$suite].event]
+             else [.name, "", "", $suite] end)}' <<<"$checks"$'\n'"$workflows"
+}
+
+action_job_entries() {
+  local response workflows workflow run_id jobs_path
+  # --paginate prints one JSON object per page. Validate the arrays before treating them as empty.
+  response="$(gh api --paginate "$workflows_path")" || api_error "$workflows_path"
+  workflows="$(jq -cs '
+    if length > 0 and all(.[]; (.workflow_runs | type) == "array")
+    then .[].workflow_runs[] | {id, name, event, status, run_started_at, created_at}
+    else error("expected workflow runs")
+    end' <<<"$response")" || api_error "$workflows_path"
+  while IFS= read -r workflow; do
+    [ -n "$workflow" ] || continue
+    run_id="$(jq -er '.id | numbers' <<<"$workflow")" || api_error "missing run ID in $workflows_path"
+    jobs_path="repos/${repo}/actions/runs/${run_id}/jobs?filter=latest&per_page=100"
+    response="$(gh api --paginate "$jobs_path")" || api_error "$jobs_path"
+    # Use the run's timestamp for queued jobs whose start time is not available yet.
+    jq -cs --argjson workflow "$workflow" '
+      if length > 0 and all(.[]; (.jobs | type) == "array")
+      then [.[].jobs[]]
+      else error("expected jobs")
+      end
+      # A workflow can register before its jobs. Give it a separate key so it counts as pending.
+      | if length == 0 and ($workflow.status // "completed") != "completed" then
+          {key: [$workflow.id], started: "", run: {status: $workflow.status}}
+        else
+          .[]
+          | {started: (.started_at // $workflow.run_started_at // $workflow.created_at // ""),
+             run: {name, status, conclusion, html_url}, key: [.name, $workflow.name, $workflow.event]}
+        end' <<<"$response" || api_error "$jobs_path"
+  done <<<"$workflows"
+}
+
 read_pull
 if [ "$mergeability_only" = true ]; then
   finish_with_mergeability no_conflict '[]' 0
 fi
+
+check_runs_path="repos/${repo}/commits/${sha}/check-runs"
+workflows_path="repos/${repo}/actions/runs?head_sha=${sha}&per_page=100"
+check_runs_error="$(mktemp)" || api_error "could not create a file for check-runs errors"
+trap 'rm -f "$check_runs_error"' EXIT
 
 SECONDS=0
 while :; do
@@ -114,48 +169,49 @@ while :; do
     emit_result conflicting '[]' 4
   fi
 
-  # --paginate prints one JSON object per page; jq -s merges them.
-  runs_raw="$(gh api --paginate "repos/${repo}/commits/${sha}/check-runs?per_page=100")" ||
-    api_error "repos/${repo}/commits/${sha}/check-runs"
+  if runs_raw="$(gh api --paginate "$check_runs_path?per_page=100" 2>"$check_runs_error")"; then
+    cat "$check_runs_error" >&2
+    checks_source=check-runs
+    entries="$(check_run_entries "$runs_raw")" || api_error "invalid response for $check_runs_path"
+  elif grep -Eq '(^|[ (])HTTP 403\)?$' "$check_runs_error"; then
+    checks_source=actions
+    entries="$(action_job_entries)" || exit 2
+  else
+    cat "$check_runs_error" >&2
+    api_error "$check_runs_path"
+  fi
   status_raw="$(gh api --paginate "repos/${repo}/commits/${sha}/status?per_page=100")" ||
     api_error "repos/${repo}/commits/${sha}/status"
-  # Workflow name and event are not in check runs; look them up in the workflow runs. If that fails, each check
-  # suite stays separate, which can keep an old failure but never hides a current one.
-  wf_raw="$(gh api --paginate "repos/${repo}/actions/runs?head_sha=${sha}&per_page=100" 2>/dev/null)" ||
-    wf_raw='{"workflow_runs": []}'
-  # When a workflow is re-run on the same commit, check-runs also returns same-named checks from the old check
-  # suite. Like gh pr checks, keep only the most recently started one per check name, workflow name and event.
-  runs="$(jq -n --argjson raw "$(jq -s '[.[].check_runs[]]' <<<"$runs_raw")" \
-    --argjson wf "$(jq -s '[.[].workflow_runs[]]' <<<"$wf_raw")" '
-    ($wf | map({key: (.check_suite_id | tostring), value: {name, event}}) | from_entries) as $workflow
-    | [$raw | to_entries[] | .key as $i | .value
-       | (.check_suite.id | tostring) as $suite
-       | {i: $i, started: (.started_at // ""), run: .,
-          key: (if $workflow[$suite] then [.name, $workflow[$suite].name, $workflow[$suite].event]
-                else [.name, "", "", $suite] end)}]
-    | group_by(.key) | map(max_by([.started, -.i])) | sort_by(.i) | map(.run)')"
+  # Keep the most recently started check per name, workflow and event, preserving input order for ties.
+  runs="$(jq -s '
+    to_entries | map(.value + {i: .key})
+    | group_by(.key) | map(max_by([.started, -.i])) | sort_by(.i) | map(.run)' <<<"$entries")"
   # The combined status already holds the latest status per context. Its own "state" is "pending"
   # when no status exists at all, so only the individual statuses are read.
-  statuses="$(jq -s '[.[].statuses[]]' <<<"$status_raw")"
+  statuses="$(jq -cs '[.[].statuses[]]' <<<"$status_raw")" ||
+    api_error "invalid response for repos/${repo}/commits/${sha}/status"
 
-  registered="$(jq -n --argjson r "$runs" --argjson s "$statuses" '($r | length) + ($s | length)')"
-  pending="$(jq -n --argjson r "$runs" --argjson s "$statuses" \
-    '([$r[] | select(.status != "completed")] | length) + ([$s[] | select(.state == "pending")] | length)')"
-
-  if [ "$registered" -eq 0 ]; then
-    if [ "$SECONDS" -ge "$register_timeout" ]; then
-      finish none '[]' 0
-    fi
-  elif [ "$pending" -eq 0 ]; then
-    failing="$(jq -n --argjson r "$runs" --argjson s "$statuses" '
-      [$r[] | select(.conclusion as $c | ["success", "neutral", "skipped"] | index($c) | not)
-            | {name, url: .html_url}]
-      + [$s[] | select(.state == "failure" or .state == "error") | {name: .context, url: .target_url}]')"
-    if [ "$(jq 'length' <<<"$failing")" -eq 0 ]; then
-      finish success '[]' 0
-    fi
-    finish failure "$failing" 1
-  fi
+  ci="$(jq -cs '
+    .[0] as $runs | .[1] as $statuses
+    | if ($runs | length) + ($statuses | length) == 0 then {state: "none"}
+      elif any($runs[]; .status != "completed") or any($statuses[]; .state == "pending")
+      then {state: "pending"}
+      else
+        ([$runs[] | select(.conclusion as $c | ["success", "neutral", "skipped"] | index($c) | not)
+                  | {name, url: .html_url}]
+         + [$statuses[] | select(.state == "failure" or .state == "error")
+                        | {name: .context, url: .target_url}]) as $failing
+        | if $failing == [] then {state: "success"} else {state: "failure", failing: $failing} end
+      end' <<<"$runs"$'\n'"$statuses")"
+  case "$(jq -r .state <<<"$ci")" in
+    none)
+      if [ "$SECONDS" -ge "$register_timeout" ]; then
+        finish none '[]' 0
+      fi
+      ;;
+    success) finish success '[]' 0 ;;
+    failure) finish failure "$(jq -c .failing <<<"$ci")" 1 ;;
+  esac
 
   if [ "$SECONDS" -ge "$timeout" ]; then
     finish timeout '[]' 3
