@@ -343,33 +343,50 @@ gh api --paginate "repos/OWNER/REPO/issues/ISSUE_NUMBER/timeline?per_page=100" -
 
 ## 5. Choosing the merge method
 
-Allowed methods and the automatic branch deletion setting:
+Read the allowed methods, the squash title setting and automatic branch deletion.
 
 ```bash
-gh api repos/OWNER/REPO --jq '{allow_merge_commit, allow_squash_merge, allow_rebase_merge, delete_branch_on_merge}'
+gh api repos/OWNER/REPO \
+  --jq '{allow_merge_commit, allow_squash_merge, allow_rebase_merge, squash_merge_commit_title, delete_branch_on_merge}'
 ```
 
-Infer the method of existing merged PRs (about the last 10):
+If exactly one merge method is allowed, use it without inspecting merge history.
+Otherwise, sample about 10 recent merged PRs.
 
 ```bash
-gh pr list --repo OWNER/REPO --state merged --limit 10 --json number,mergeCommit,commits \
-  --jq '.[] | {number, sha: .mergeCommit.oid, commits: (.commits | length)}'
-gh api repos/OWNER/REPO/commits/SHA --jq '{parents: (.parents | length), message: .commit.message}'
+gh pr list --repo OWNER/REPO --state merged --limit 10 --json number,title,mergeCommit \
+  --jq '.[] | {number, title, sha: .mergeCommit.oid}'
 ```
 
-- Two parents → merge
-- One parent, and the message starts with the PR title and `(#number)` → squash
-- One parent, otherwise (the PR's commits appear as they are) → rebase
-
-Use the majority method. Never choose a method that is not allowed.
-
-Without GraphQL, use this instead of `gh pr list` (PRs with `merged_at` are merged):
+Without GraphQL, list closed PRs with a `merged_at` timestamp through REST.
 
 ```bash
 gh api "repos/OWNER/REPO/pulls?state=closed&per_page=30" \
   --jq '.[] | select(.merged_at != null) | {number, title, sha: .merge_commit_sha}' | head -10
-gh api repos/OWNER/REPO/pulls/NUMBER --jq .commits   # number of commits in the PR
 ```
+
+Use REST for the commit data in either case. Start with the landed commit SHA and follow its first parent when checking a sequence. The subject is the first line of the commit message.
+Compare the first field of the `git patch-id` output, which is the patch ID.
+
+```bash
+gh api repos/OWNER/REPO/commits/SHA \
+  --jq '{parents: [.parents[].sha], subject: (.commit.message | split("\n")[0])}'
+gh api repos/OWNER/REPO/pulls/NUMBER --jq .commits
+gh api --paginate 'repos/OWNER/REPO/pulls/NUMBER/commits?per_page=100' \
+  --jq '.[] | {sha, subject: (.commit.message | split("\n")[0])}'
+gh api repos/OWNER/REPO/commits/SHA -H 'Accept: application/vnd.github.patch' | git patch-id --stable
+```
+
+- Two parents → merge.
+- For one parent, look for both squash and rebase evidence.
+  - With `PR_TITLE`, the squash subject starts with the PR title followed by `(#number)`.
+  - With `COMMIT_OR_PR_TITLE`, also accept the sole PR commit's subject for a one-commit PR, with or without the `(#number)` suffix.
+  - For rebase, check that the landed single-parent commits ending at the merge SHA match the complete list of PR commits in order by subject and patch ID. Unrelated commits can have the same subjects.
+  - With `PR_TITLE`, apply the rebase check to one-commit PRs too. A manual squash title that matches the original subject can still resemble a rebase if the patch ID also matches.
+  - With `COMMIT_OR_PR_TITLE` or an unknown setting, leave a one-commit PR unclassified when the landed subject equals the original subject. A default squash and a rebase can produce the same subject and patch.
+- Count a sample only when it points to one method. Leave it out when both methods fit, when required commit data is missing, or when no rule fits. An unfamiliar squash subject alone gives no evidence of rebase.
+
+Use the majority among classified samples for currently allowed methods. If no method can be inferred, follow the allowed-method fallback in "With `--merge`" in `merging.md`.
 
 ## 6. Merging
 
