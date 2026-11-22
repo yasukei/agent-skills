@@ -12,7 +12,7 @@ The PR can be merged when all of these hold:
 4. No conflicts.
 5. Branch protection rules (required approvals, etc.) are met. An Approve may satisfy a required approval.
 6. The PR is not a draft.
-7. **The PR description matches the implementation.** With a squash merge it becomes the commit message, so a description left stale by review changes leaves a wrong record. If it contradicts the implementation, post a new finding (usually P2; P1 if it misleads about behavior or compatibility).
+7. **The PR description matches the implementation.** The PR is the lasting record that readers consult to understand the change, including after review fixes. If the description contradicts the implementation, post a new finding (usually P2, or P1 if it misleads about behavior or compatibility).
 8. The head SHA at merge time is the last one you checked, so unchecked commits are never merged. In a new session, that is the SHA you checked in this pass ("On new commits" in `monitoring.md`).
 
 ## Approve

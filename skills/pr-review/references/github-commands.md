@@ -379,7 +379,7 @@ gh pr merge PR_URL --squash --delete-branch --match-head-commit HEAD_SHA
 ```
 
 - With `--match-head-commit`, the merge fails if the head changed since the SHA you checked, so unchecked commits are never merged.
-- For squash and merge, do not pass `--subject` or `--body` (the repository's default message is used, usually the PR title and description).
+- For squash and merge, do not pass `--subject` or `--body` so the repository's settings determine the commit message.
 - If the repository deletes branches automatically, `--delete-branch` is unnecessary but harmless.
 
 Without GraphQL:
