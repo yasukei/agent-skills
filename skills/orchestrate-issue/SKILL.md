@@ -29,7 +29,7 @@ Claude Code only: the workflow needs subagents and background completion notific
 
 - One or more issue numbers, optionally with `OWNER/REPO`.
 - `--merge`: when a PR is ready, ask the reviewer to merge it with `--merge`. Without it, stop at ready to merge. If the user approves a merge later, send it to the same reviewer as `--merge`.
-- `--delegate`: answer design questions that have a recommendation with that recommendation (type B in `references/decisions.md`).
+- `--no-delegate`: ask the user about type B design questions. By default, take the agent's recommendation (`references/decisions.md`).
 - `--keep-worktrees`: keep the agents' worktrees after a merge.
 
 ## Rules
@@ -68,7 +68,7 @@ Collect the observations each agent reports that are not findings. Do not pass t
 For each issue, report:
 
 - PR URL and state: merged, ready to merge, or stopped and why.
-- Decisions taken under `--delegate`, with the alternatives.
+- Recommendations taken by default, with the alternatives.
 - Observations: the comment's URL, or the items and why they were not posted (`references/observations.md`).
 - Worktrees: removed, or kept with path and reason. Local branches kept.
 - Irregularities and how they were handled.
