@@ -1,6 +1,6 @@
 ---
 name: triage-observations
-description: Triage open items in a collect-observations log, recommend decisions, and file approved work and update the log. Use for observation triage or an approved retry. Use collect-observations to build a log and create-issue to file standalone issues.
+description: Triage open items in a collect-observations log, recommend decisions, and file approved work and update the log. Use for observation triage or an approved retry (e.g. 「観察ログを仕分けして」「ログのobservationを検討して」「承認したobservationをissueにして」). Use collect-observations to build a log and create-issue to file standalone issues.
 ---
 
 # triage-observations
