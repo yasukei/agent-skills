@@ -47,7 +47,7 @@ Roughly in descending order of importance. The priority, however, comes from the
 - Consistency with the existing code base
 
 ### PR description
-- Does the description match the implementation? (With a squash merge it becomes the commit message.)
+- Does the description match the implementation? Future readers rely on the PR to understand what changed and why.
 
 ## Setting the priority
 

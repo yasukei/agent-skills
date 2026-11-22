@@ -16,7 +16,7 @@ After creating it, post the PR URL in chat.
 
 ## Updating the title and body after fixes
 
-After pushing fixes, **check that the PR title and body still match the implementation, and update them if not.** With a squash merge the PR body becomes the commit message, so a stale body leaves a wrong record, and a mismatch is itself a review finding that costs another round.
+After pushing fixes, **check that the PR title and body still match the implementation, and update them if not.** Reviewers and future readers rely on the PR as the record of what changed. A mismatch can mislead them and lead to another review round.
 
 - Check the title and every section of the body.
 - Fetch the current title and body from the PR and edit that, not the local file used at creation: it may be stale, or someone may have edited it on GitHub.
