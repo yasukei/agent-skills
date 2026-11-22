@@ -16,7 +16,9 @@
 #   conflicting  the PR conflicts with the base branch
 #   mergeability_timeout  GitHub did not return a boolean after five attempts
 # Exit status: 0 for success, none or no_conflict, 1 for failure, 3 for either timeout, 4 for conflicting.
-# Usage and GitHub API errors, including a changed PR head, exit with status 2.
+# Exit 2 for a usage error, GitHub API error, or changed PR head.
+# On a usage or API error, report it and stop. Only explicit results establish "no CI" or "no conflict".
+# For a changed head, start a fresh wait.
 set -euo pipefail
 
 usage() {

@@ -66,7 +66,7 @@ Run `scripts/wait_ci.sh` once in the background. It loops by itself, so waiting 
 | `conflicting` | 4 | `mergeable` is `false`, regardless of CI | Follow `conflicts.md` |
 | `mergeability_timeout` | 3 | `mergeable` is still `null` after retries | Stop and ask the user |
 
-Exit 2 means a usage error, a GitHub API error, or a change to the PR head since the wait began. Report it before continuing. For a changed head, start a fresh wait to get CI and mergeability for the same commit.
+Exit 2 means a usage error, a GitHub API error, or a change to the PR head since the wait began. On a usage or API error, report the error and stop with CI and mergeability undetermined. Only explicit results can establish "no CI" or "no conflict". For a changed head, start a fresh wait to get CI and mergeability for the same commit.
 
 The script waits for the PR's head when it starts. Start it after the implementer has pushed, not while the implementer is still working.
 
