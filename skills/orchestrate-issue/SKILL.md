@@ -30,7 +30,7 @@ Claude Code only: the workflow needs subagents and background completion notific
 - One or more issue numbers, optionally with `OWNER/REPO`.
 - `--merge`: when a PR is ready, ask the reviewer to merge it with `--merge`. Without it, stop at ready to merge. If the user approves a merge later, send it to the same reviewer as `--merge`.
 - `--no-delegate`: ask the user about type B design questions. By default, take the agent's recommendation (`references/decisions.md`).
-- `--keep-worktrees`: keep the agents' worktrees after a merge.
+- `--keep-worktrees`: pass through to `cleanup-local`.
 
 ## Rules
 
@@ -38,7 +38,7 @@ Claude Code only: the workflow needs subagents and background completion notific
 - Do not use the Agent tool's `isolation: "worktree"`, because it would create a second worktree.
 - Do not pass `--watch`; you drive the loop.
 - Run every agent, and every wait for CI, in the background, and wait for its completion notification. Do not poll: each check spends a turn.
-- Do not remove the agents' files or worktrees yourself. After a merge, each agent removes its own (`references/cleanup.md`).
+- Use only `cleanup-local` for post-merge worktree removal, so it can run repository teardown (`references/cleanup.md`).
 - Merge only through the reviewer with `--merge`, never yourself.
 - Write handoffs, follow-ups and answers to agents in English, as "Language" in `references/handoffs.md` says. Talk to the user in the user's language.
 - For your own GitHub calls, use `references/github-commands.md`. It has REST fallbacks for when GraphQL returns HTTP 403.
@@ -52,7 +52,7 @@ Read `references/handoffs.md` before writing handoffs. If the issue already has 
 3. **Review.** Start the reviewer on that PR. Record its verdict, findings, posts and worktree.
 4. **Fix and re-check.** If there are findings, resume the implementer with the review URL and the finding links. Wait for CI as in step 2, then resume the reviewer to re-check.
 5. **Round limit.** Count the first review and each re-check after a fix of review findings (step 4), including when the fix and a conflict resolution come from the same handoff. A re-check after only conflict resolutions and CI fixes (step 2) does not count. After the **3rd counted check**, follow the conflict procedure and run an uncounted re-check if a conflict is the sole blocker. Stop and ask the user if the latest result falls short of ready to merge, so two agents cannot loop forever. A CI failure the reviewer raises as a finding is part of that check.
-6. **Finish.** When the reviewer reports ready to merge, check for conflicts before sending the merge handoff if `--merge` was given. Without it, stop and report. After a merge, post the observations on the PR (`references/observations.md`) and clean up (`references/cleanup.md`).
+6. **Finish.** When the reviewer reports ready to merge, check for conflicts before the `--merge` handoff. Without `--merge`, stop and report. After confirming the merge, post observations (`references/observations.md`). Run `cleanup-local --pull` as scheduled in `references/cleanup.md`.
 
 Read `references/conflicts.md` when a check detects a conflict, before handing off review fixes or a merge, or when a conflict or changed merge state blocks the reviewer. Send the conflict to the implementer, wait for CI, and have the reviewer check the new head. If the implementer cannot resolve the conflict or asks about a large one, stop and ask the user.
 
@@ -72,5 +72,5 @@ For each issue, report:
 - PR URL and state: merged, ready to merge, or stopped and why.
 - Recommendations taken by default, with the alternatives.
 - Observations: the comment's URL, or the items and why they were not posted (`references/observations.md`).
-- Worktrees kept (path and reason) or removed. Local cleanup (deleted refs, why others stayed, main checkout).
+- Local cleanup results (removed worktrees and refs, paths or refs kept and why, main checkout state).
 - Irregularities and how they were handled.

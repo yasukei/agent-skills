@@ -20,8 +20,8 @@ The argument is an issue or a PR (`#<n>`, `OWNER/REPO#<n>`, URL), else the curre
 
 ## Isolated checkout (`--worktree`)
 
-With `--worktree`, read `references/worktrees.md` before changing files or branches. Create or verify a dedicated worktree and do all work, checks, commits and pushes there, so the original checkout stays available. Resolve skill helper paths before changing directories.
-Preserve the worktree on exit and report its path and branch for resuming. Combines with `--watch`.
+Read `references/worktrees.md` for `--worktree` or when using a linked checkout. With `--worktree`, use a dedicated checkout for all changes, checks and pushes so the original stays available. Resolve helper paths first.
+Protect linked checkouts in use so cleanup skips them. On stop, release your protection and report its path and branch. Combines with `--watch`.
 
 ## Prohibited actions
 

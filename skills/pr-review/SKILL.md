@@ -30,8 +30,8 @@ Read when the step needs them:
 
 ## Isolated checkout (`--worktree`)
 
-With `--worktree`, read `references/worktrees.md` once the PR is known. Use a dedicated detached checkout at its head SHA, so the author's branch stays available. Take instructions from the base SHA; fork setup/tests need explicit user authorization because they execute PR code.
-Refresh for new heads and pin reviews to the SHA checked. Preserve the worktree and report its absolute path and SHA for resuming. Resolve helper paths before changing directories. Combines with `--watch` and `--merge`; without it, keep the existing workflow.
+Read `references/worktrees.md` for `--worktree` or when using a linked checkout. With `--worktree`, use a detached PR head so the author's branch stays available. Read base instructions. Fork setup/tests need explicit authorization to execute PR code.
+Protect linked checkouts in use so cleanup skips them. Refresh new heads and pin reviews to the SHA checked. On stop, release your protection and report the preserved absolute path and SHA. Resolve helper paths first. Combines with `--watch` and `--merge`.
 
 ## Monitoring (`--watch`)
 
