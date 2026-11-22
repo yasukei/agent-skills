@@ -12,7 +12,7 @@ Commands, with REST forms that work where GraphQL returns HTTP 403, are in `refe
 ## Arguments
 
 - Targets, one or more of: PR numbers, issue numbers (their merged PRs), sub-issues of an issue, a milestone. Optionally `OWNER/REPO`; else the current repository.
-- `--log <issue>`: append to that log. Without it, create a new log.
+- `--log <issue>`: select a log to append to. Without it, create a new log.
 
 ## Rules
 
@@ -37,20 +37,21 @@ Commands, with REST forms that work where GraphQL returns HTTP 403, are in `refe
 
    A PR in `unmarked_mentions` is mentioned by an issue without the log marker. Most are ordinary issues; one that looks like a log (e.g. its title says "observations log") was written by hand or before this skill, and may already hold the PR's items. Name it in the plan.
 
-   Without `--log`, also look for open logs ("Existing logs").
+   Check the state of the `--log` issue. Also look for existing logs for the scope ("Existing logs").
 
    Then check for leftovers of an earlier run: in the `--log` issue and in every log `scan.sh` names under `collected`, compare the marked comments with the body ("Leftovers" in `references/log-format.md`). A run that posted comments but failed to update the body leaves its PRs `collected` with no rows, and only this check finds them.
 3. **Plan.** Show the user, and wait for approval:
    - The log: a new log (title, labels, milestone, parent), or the issue to append to, and whether its body needs the log marker.
+   - If `--log` names a closed log, say so and ask whether to reopen it or create a new log for the new observations. Name closed logs for the same scope so the user knows what a new log continues.
    - The PRs to collect, with the number of items in each.
    - The PRs skipped, by status, with where each collected one is.
-   - Leftovers to repair: missing rows and missing PRs on the no-observations line, per log.
+   - Leftovers to repair: missing rows and missing PRs on the no-observations line, per log. For a closed log, see "Reopening a log" before proposing repairs.
    - Issues with no merged PR, sub-issues in other repositories, logs that look hand-written, and open logs found without `--log`.
 
-   Repairs go to the log that holds the leftover, which may not be the log this run writes to. With nothing to collect, the plan names no log to create or append to and lists only the repairs: a new log would stay empty. If there is nothing to collect or repair, report that and stop.
-4. **Create the log** (new log with PRs to collect only) from `assets/log-template.md`, with only the status table's header rows, so the comments have an issue to go to. Note its number and URL.
+   Repairs go to the log that holds the leftover, which may be separate from the append target. With nothing to collect, plan only repairs because a new log would stay empty. If there is nothing to collect or repair, report that and stop.
+4. **Prepare the log.** For a new log with PRs to collect, create it from `assets/log-template.md` with only the status table's header rows. Note its number and URL. Reopen a closed log only if the user approved reopening that issue. See "Reopening a log" for closed logs, including repairs.
 5. **Post the log comments** ("Log comment" in `references/log-format.md`). Before posting, and before retrying a failed post, read the log's comments for the source markers you are about to post; skip a PR whose marker is already there. A lost response can hide a post that succeeded.
-6. **Update the body** with a row for each new item, linking the comment that holds it, the new PRs with no observations, and the leftovers ("Log body", "Status rows" and "Leftovers" in `references/log-format.md`). Write each leftover into the body of the log that holds it. A repair-only run skips steps 4 and 5. Read the body again right before you write it.
+6. **Update the body** with a row for each new item, linking the comment that holds it, the new PRs with no observations, and the leftovers ("Log body", "Status rows" and "Leftovers" in `references/log-format.md`). Write each approved repair into the body of the log that holds it. A repair-only run skips log creation and comment posting. Read the body again right before you write it.
 
 If a post fails, stop and report what was posted, with the error. A later run picks up from the markers: a PR whose comment was posted is skipped, and its missing rows are found as leftovers.
 
@@ -62,7 +63,7 @@ If a post fails, stop and report what was posted, with the error. A later run pi
 
 ## Final report
 
-- The log URL, and whether it was created or appended to.
+- The log URL, and whether it was created, reopened or appended to.
 - Each log comment's URL and the PRs and number of items in it.
-- The skipped PRs by status, issues with no merged PR, and anything that failed, with the error.
+- The skipped PRs by status, issues with no merged PR, pending repairs, and anything that failed, with the error.
 - A reminder that every new row is `open`, waiting for the user's decision.

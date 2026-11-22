@@ -77,13 +77,15 @@ Take the PRs as they are, and resolve each issue to its merged PRs as above. Rem
 
 ## Existing logs
 
-Without `--log`, look for open logs, so the plan can offer to append to one instead of creating a second log for the same scope:
+List marked log issues in both states. Match the scope using the milestone, parent or scope named in the log. Without `--log`, offer matching open logs as append targets. Name matching closed logs in the plan as predecessors of a new log.
 
 ```bash
-gh api --paginate "repos/${repo:?}/issues?state=open&per_page=100" | jq -s '
+gh api --paginate "repos/${repo:?}/issues?state=all&per_page=100" | jq -s '
   [.[][] | select(.pull_request == null and (.body // "" | contains("<!-- collect-observations:log -->")))
-   | {number, title, milestone: .milestone.title}]'
+   | {number, title, html_url, state, milestone: .milestone.number}]'
 ```
+
+Read the body of a candidate if its title and milestone do not establish the scope. Read the explicit `--log` issue directly, since a log written by hand may lack the marker.
 
 ## Reading the log
 
@@ -97,6 +99,18 @@ The observations comment of a PR is the `body` of the comment that `scan.sh` lis
 ```bash
 gh api "repos/${repo:?}/issues/comments/${comment_id:?}" --jq .body
 ```
+
+## Reopening a log
+
+Repairs belong to the log that holds the copied comments. If a repair would write to a closed log, ask the user whether to reopen that log or leave the repair pending. Choosing a new log for new observations leaves the closed log and its repairs as they are, unless reopening it for repairs was also approved.
+
+Before appending or repairing, check the destination's current state. If it closed since approval, ask before writing or reopening. Reopen only the issue and work approved in the plan:
+
+```bash
+gh api "repos/${repo:?}/issues/${log:?}" -X PATCH -f state=open --jq '{html_url, state}'
+```
+
+Verify the issue is open before posting comments or updating its body. If reopening fails or cannot be verified, report it and skip writes to that log.
 
 ## Labels, milestones and parent
 

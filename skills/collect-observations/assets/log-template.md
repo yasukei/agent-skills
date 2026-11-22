@@ -27,7 +27,8 @@ Status values: `open`, `issue #N`, `in #N` (folded into another issue), `dropped
 
 ## Acceptance criteria
 
-- Before closing (<when the log closes, e.g. at the end of the milestone>), every item in the status table has a status other than `open`; items still undecided are `moved to` the next log with a link.
+- Before closing (<when the log closes, e.g. at the end of the milestone>), every row must have a status other than `open`. Items still undecided can be marked `moved to` the next log with a link.
+- `triage-observations` may close this log as completed when every row is decided and the user approves closing it.
 
 ## Depends on
 

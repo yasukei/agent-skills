@@ -4,7 +4,9 @@
 
 Identify the log and any item filter. Show one row per selected open item with its ID and log comment link, recommendation, one-line reason, and proposed Status cell. For a new issue, use `issue #<new issue number>` in the plan and say which draft supplies the number. A recovered post uses its real issue number. Show any missing parent link to apply to a recovered issue. For Keep open, name the missing evidence and show `open`.
 
-Show the exact title and Markdown body for each new issue, its included item IDs, and any labels, assignees, milestone or parent relationship to apply. Show each fold target and the exact comment. If several items fold into the same issue, they can share a comment. Use fenced Markdown for the drafts so reviewers can see the retry markers. Ask for approval of the plan before publishing it.
+Show the exact title and Markdown body for each new issue, its included item IDs, and any labels, assignees, milestone or parent relationship to apply. Show each fold target and the exact comment. If several items fold into the same issue, they can share a comment. Use fenced Markdown for the drafts so reviewers can see the retry markers.
+
+Show the proposed outcome for the log. When the full table will have no `open` rows, give the proposal to close the log as completed, explain that every row will be decided, and tell the user they can ask to keep the log open while applying the approved decisions. If any row would stay `open`, such as an item outside the filter, a Keep open decision or an item excluded by partial approval, leave closure out of the plan. Ask the user to approve the plan, including closure when proposed, before publishing anything.
 
 Follow `references/issue-format.md` for issue titles, bodies, metadata and filing order. Use the matching `assets/task-template.md` or `assets/bug-template.md` when no repository template fits.
 
