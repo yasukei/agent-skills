@@ -19,7 +19,7 @@ In some environments, such as Claude Code on the web, the GitHub GraphQL API is 
 | Comment on a PR | `gh pr comment <PR number> --body "..."` | `gh api repos/{owner}/{repo}/issues/<PR number>/comments -X POST -f body="..."` |
 | Get the PR title and body | `gh pr view <PR number> --json title,body` | `gh api repos/{owner}/{repo}/pulls/<PR number> --jq '{title, body}'` |
 | Update the PR title and body | `gh pr edit <PR number> --title "<title>" --body-file <body file>` | `gh api repos/{owner}/{repo}/pulls/<PR number> -X PATCH -f title="<title>" -F body=@<body file>` |
-| Monitor the PR | `scripts/pr_status.sh` | Works as is (on a GraphQL 403 it switches to REST and the CCR route for review threads) |
+| Get the PR status | `scripts/pr_status.sh` | Works as is (on a GraphQL 403 it switches to REST and the CCR route for review threads) |
 
 - `gh api` replaces `{owner}/{repo}` with the repository of the current directory.
 - **When the target names its repository** (`OWNER/REPO#<n>` or a URL), use that repository in every command about the target for this run, whether it is an issue or a PR, starting with the lookup that tells which it is, instead of the placeholder or the default: `repos/OWNER/REPO/...` for `gh api`, `-R OWNER/REPO` for other `gh` commands, and `OWNER/REPO` as the second argument of `scripts/pr_status.sh`. Numbers repeat across repositories, so the placeholder can reach another issue or PR with the same number, enter the wrong workflow or post replies there. Use the current directory's repository only for a bare number or no target. Change files only in a checkout of that repository (`git remote -v`); otherwise ask in chat.
@@ -47,7 +47,7 @@ printf '\n%s\n' "$(cat <signature file>)" >> <body file>   # the PR body ends wi
 gh pr create --base <base branch> --title "<title>" --body-file <body file>
 ```
 
-## Monitoring
+## Handling PR updates
 
 ```bash
 scripts/pr_status.sh <PR number> [owner/repo]    # CI, reviews, threads and verdict as JSON

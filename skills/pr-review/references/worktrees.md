@@ -1,6 +1,6 @@
 # Isolated review (`--worktree`)
 
-Read once the target PR is identified, before local review or tests. When starting from an issue, wait to find its PR as usual; do not create a speculative review checkout. This option does not authorize code fixes, commits, pushes, monitoring or merging. Without `--worktree`, if reviewing from a linked checkout, follow "Guard startup of a linked worktree" and follow the stop instructions below. Keep the existing review workflow. The main checkout needs no lock.
+Read once the target PR is identified, before local review or tests. When starting from an issue, identify its PR before creating a review checkout. This option does not authorize code fixes, commits, pushes or merging. Without `--worktree`, if reviewing from a linked checkout, follow "Guard startup of a linked worktree" and follow the stop instructions below. Keep the existing review workflow. The main checkout needs no lock.
 
 ## Prepare a detached checkout
 
@@ -91,7 +91,7 @@ For fork PRs, do not install dependencies, run tests, invoke hooks or execute ot
 
 Use the PR's actual base and head for the diff, not the detached checkout's branch name. Keep the SHA you actually reviewed as the `commit_id` when posting comments and reviews (`github-commands.md`), so a concurrent push is not accidentally marked reviewed.
 
-On each new head, whether with `--watch` or a later re-check:
+When a re-check finds a new head:
 
 1. Retain the last checked SHA as defined in `monitoring.md`; the checkout's HEAD alone is not the review baseline.
 2. Refresh PR metadata and fetch and verify the head as above.

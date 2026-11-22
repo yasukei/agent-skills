@@ -68,7 +68,7 @@ gh api "repos/OWNER/REPO/commits/HEAD_SHA/status" --jq '.statuses[] | {context, 
 ```
 
 - `state` is `open` / `closed`. A merged PR has `merged` set to `true`.
-- `mergeable` is `true` (mergeable) / `false` (conflict) / `null` (GitHub is still computing; wait a little and fetch again).
+- `mergeable` is `true` (mergeable) / `false` (conflict) / `null` (GitHub is still computing mergeability).
 - REST has no equivalent of `reviewDecision`. Check the review state with `gh api repos/OWNER/REPO/pulls/NUMBER/reviews`.
 - A check run is running until its `status` is `completed`. Treat a `conclusion` other than `success`, `skipped` or `neutral` as a failure.
 

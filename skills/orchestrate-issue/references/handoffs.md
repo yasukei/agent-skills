@@ -7,7 +7,7 @@ The "Final report" parts of the implementer's first run and existing-PR run, and
 Every handoff ends with these lines. Append them if the template does not already contain them:
 
 ```text
-Do not use --watch. Stop when this step is done.
+Stop when this step is done.
 If the skill named above is not available, stop and say so instead of doing the work without it.
 If something unexpected happens (you cannot follow the skill's procedure, the issue or comments are ambiguous or contradictory, or the environment fails), do not work around it silently: stop or ask, and state it in your final report.
 ```
@@ -102,7 +102,7 @@ The user's language is <language>. Write repository text (commits, PRs, comments
 The reviewer will re-check the resolution after CI.
 Final report: the resolution commit, the conflicting files, checks run and their results, and CI state.
 
-Do not use --watch. Stop when this step is done.
+Stop when this step is done.
 If the skill named above is not available, stop and say so instead of doing the work without it.
 If something unexpected happens (you cannot follow the skill's procedure, the issue or comments are ambiguous or contradictory, or the environment fails), do not work around it silently: stop or ask, and state it in your final report.
 ```

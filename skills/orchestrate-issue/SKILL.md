@@ -36,7 +36,6 @@ Claude Code only: the workflow needs subagents and background completion notific
 
 - Pass `--worktree` to both skills without a path, unless the user gave one. The skills choose a suitable location for each agent. Record the absolute paths the agents report.
 - Do not use the Agent tool's `isolation: "worktree"`, because it would create a second worktree.
-- Do not pass `--watch`; you drive the loop.
 - Run every agent, and every wait for CI, in the background, and wait for its completion notification. Do not poll: each check spends a turn.
 - Use only `cleanup-local` for post-merge worktree removal, so it can run repository teardown (`references/cleanup.md`).
 - Merge only through the reviewer with `--merge`, never yourself.
