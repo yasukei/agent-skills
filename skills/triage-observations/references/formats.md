@@ -12,7 +12,9 @@ If a dependency or parent will be filed from the same plan and has no issue numb
 
 ## Fold comment and backlinks
 
-A fold comment briefly explains how the observation fits the existing issue and adds the relevant evidence. Append the same backlinks and marker after the formatted body of each new issue. Each item gets a line with its own log comment URL and item ID, even when the items share a comment.
+A fold comment briefly explains how the observation fits the existing issue and adds the relevant evidence. Include the same backlinks in new issues. Each item gets a line with its own log comment URL and item ID, even when the items share a comment.
+
+For the built-in templates, put backlinks under `## Notes`. In a task, place that section after `## Depends on`. When using a repository template, put the backlinks in its notes or references section if it has one. Otherwise, append the backlinks without adding a heading. In a task with a parent, place `Part of #N.` on its own line after the backlinks and all other visible content, with only the retry marker after it.
 
 ```markdown
 - From [the observation log comment](https://github.com/OWNER/REPO/issues/50#issuecomment-123), item `#40-1`.
