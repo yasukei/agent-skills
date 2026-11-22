@@ -1,6 +1,6 @@
 # Handling CI failures, review comments and conflicts
 
-Read this in step 6 of SKILL.md (in one pass, or while monitoring with `--watch`) when CI fails, review comments arrive or the PR conflicts. Commands are in `github-commands.md`.
+Read this in step 6 of SKILL.md when CI fails, review comments arrive or the PR conflicts. Commands are in `github-commands.md`.
 
 ## When CI fails
 
@@ -33,13 +33,13 @@ A PR opened by hand or by another tool can be handled the same way, with these d
 
 - **Requirements**: there may be no issue. Take the PR's purpose from its title, body and comments, plus any issue it closes, and keep fixes within it.
 - **Earlier replies carry no marker.** The author's own replies posted before this skill took over look like reviewer comments: `scripts/pr_status.sh` counts them as reviewer activity and shows `lastCommentByMe: false`. Judge such threads by content: if the latest comment already answers the finding (a fix with its commit, a reason, an answer) and nothing after it asks for more, do not reply again. Ask in chat if you cannot tell who wrote it. The `verdict` may say `review_in_progress` where only the author has commented; report what you see.
-- **Check a `ready` verdict before reporting it or stopping on it.** An author's note left as an inline comment counts as a reviewer thread too, so a resolved note alone gives `ready` with no review at all. Report `ready` only if what it rests on is a reviewer's: Approve from another account, comments with `<!-- pr-review -->`, or comments that read as review findings. If the threads are only the author's notes, treat the state as `waiting_for_review`: report "waiting for review" and, with `--watch`, keep monitoring on the review schedule. If you cannot tell, ask in chat.
+- **Check a `ready` verdict before reporting it.** An author's note left as an inline comment counts as a reviewer thread too, so a resolved note alone gives `ready` with no review at all. Report `ready` only if what it rests on is a reviewer's: Approve from another account, comments with `<!-- pr-review -->`, or comments that read as review findings. If the threads are only the author's notes, treat the state as `waiting_for_review`: report "waiting for review". If you cannot tell, ask in chat.
 - **Unlabeled comments** (human reviewers, bots) are judged by their content ("Findings and priority labels" in `review-protocol.md`).
 - **Another account's PR**: before the first push, confirm in chat that the user wants you to push to that branch (`gh api user` against the PR's `user.login`, `github-commands.md`). The branch is that person's work, and fork branches may not accept pushes.
 - From this run on, every comment carries the signature and the marker as usual, so later runs see them as the author's.
 
 ## When the PR conflicts
 
-- Resolve by **merging the base branch** of the PR's base repository (`base.repo.full_name` and `base.ref` of the PR, "Monitoring" in `github-commands.md`). Do not rebase. `origin` may point to a fork, whose copy of the branch can be behind and leave the conflict in place.
+- Resolve by **merging the base branch** of the PR's base repository (`base.repo.full_name` and `base.ref` of the PR, "Handling PR updates" in `github-commands.md`). Do not rebase. `origin` may point to a fork, whose copy of the branch can be behind and leave the conflict in place.
 - After resolving, pass lint and tests locally before pushing.
 - If the conflict is so large or complex that rebasing and opening a new PR seems better, do not touch it; ask in chat.

@@ -8,10 +8,10 @@ The PR can be merged when all of these hold:
 
 1. Every finding thread this skill opened is resolved (deferred ones too, after checking the issue). That includes threads from another or unknown session ("Thread ownership" in `review-protocol.md`): while the user has not answered whether to resolve one, it stays open and the PR cannot be merged.
 2. No other reviewer's thread is unresolved and no Request changes remains. Another agent's `pr-review` thread (a different `agent` in the root comment's signature) is another reviewer's thread, even with the `<!-- pr-review -->` marker. If one remains, do not merge; ask the user.
-3. All CI checks pass. Wait for pending checks to finish.
+3. All CI checks pass. Pending checks leave this condition unmet.
 4. No conflicts, and branch protection rules (required approvals, etc.) are met. A required approval may be met by the Approve below.
 5. The PR is not a draft.
-6. **The PR description matches the implementation.** With a squash merge it becomes the commit message, so a description left stale by review changes leaves a wrong record. If it contradicts the implementation, post a new finding (usually P2; P1 if it misleads about behavior or compatibility) and wait for the update.
+6. **The PR description matches the implementation.** With a squash merge it becomes the commit message, so a description left stale by review changes leaves a wrong record. If it contradicts the implementation, post a new finding (usually P2; P1 if it misleads about behavior or compatibility).
 7. The head SHA at merge time is the last one you checked, so unchecked commits are never merged. In a new session, that is the SHA you checked in this pass ("On new commits" in `monitoring.md`).
 
 ## Approve
@@ -20,14 +20,14 @@ When the PR author and the account running this skill differ, post an Approve re
 
 ## Without `--merge`
 
-Report in chat that the PR can be merged and stop. Unsubscribe from PR events if subscribed.
+Report whether the PR can be merged and list any unmet conditions.
 
 ## With `--merge`
 
-Without `--watch`, merge only if every condition holds at this check; otherwise report which conditions are missing and end, without waiting for them.
+Merge only if every condition holds at this check. If any are unmet, report them and end.
 
 1. Check which merge methods the repository allows.
 2. Infer the method used for existing merged PRs from the base branch history and use the same one.
 3. If it cannot be inferred, choose from the allowed methods in the order merge → squash → rebase.
 
-Before merging, leave a short PR comment (with the signature and the marker) that all conditions are met, so the history can be followed later. Merge pinned to the checked head SHA, then delete the branch (or leave it to the repository's automatic deletion). Unsubscribe from PR events if subscribed. If the merge fails (branch protection, missing approvals, etc.), do not work around it; report to the user.
+Before merging, leave a short PR comment (with the signature and the marker) that all conditions are met, so the history can be followed later. Merge pinned to the checked head SHA, then delete the branch (or leave it to the repository's automatic deletion). If the merge fails (branch protection, missing approvals, etc.), do not work around it; report to the user.

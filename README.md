@@ -7,8 +7,8 @@ Agent skills shared by Claude Code, ChatGPT and Codex.
 | Skill | Purpose |
 |---|---|
 | [create-issue](skills/create-issue/SKILL.md) | Write GitHub issues in a fixed format (task and bug templates) |
-| [issue-to-pr](skills/issue-to-pr/SKILL.md) | Implement an issue, open a PR, and handle CI failures and review comments, also on a PR it did not open (`issue-to-pr #<PR>`); `--worktree` isolates the work, `--watch` monitors until ready to merge (never merges) |
-| [pr-review](skills/pr-review/SKILL.md) | Review a PR with prioritized comments (P0–P3, Question), check responses and decide merge readiness; `--worktree` isolates local review, `--watch` monitors, `--merge` merges |
+| [issue-to-pr](skills/issue-to-pr/SKILL.md) | Implement an issue, open a PR, and handle CI failures and review comments, also on a PR it did not open (`issue-to-pr #<PR>`); `--worktree` isolates the work (never merges) |
+| [pr-review](skills/pr-review/SKILL.md) | Review a PR with prioritized comments (P0–P3, Question), check responses and decide merge readiness; `--worktree` isolates local review, `--merge` merges |
 | [orchestrate-issue](skills/orchestrate-issue/SKILL.md) | Claude Code only, invoked explicitly. Orchestrate an implementer (Codex, `issue-to-pr`) and a reviewer (Claude Code subagent, `pr-review`) until each PR is ready to merge. Take agents' recommendations on eligible design questions by default, or use `--no-delegate` to ask the user. `--merge` merges through the reviewer and runs `cleanup-local --pull`. Pass `--keep-worktrees` to preserve worktrees. |
 | [cleanup-local](skills/cleanup-local/SKILL.md) | Prune remote-tracking refs, remove merged worktrees and branches, and delete stale agent fetch refs. Use `--keep-worktrees` to preserve worktrees and `--pull` to fast-forward the main checkout. |
 | [collect-observations](skills/collect-observations/SKILL.md) | Collect the observations comments `orchestrate-issue` posted on merged PRs (given by PR or issue numbers, sub-issues or a milestone) into one log issue with a status table, creating the log or appending to one and skipping PRs already collected |

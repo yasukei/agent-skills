@@ -1,6 +1,6 @@
 # Isolated implementation (`--worktree`)
 
-Read before changing files or branches when `--worktree` is requested. It changes the checkout used for the work, not the skill's review, monitoring or merge permissions. Without `--worktree`, if working in a linked checkout, follow "Guard startup of a linked worktree" and follow the stop instructions below. Keep the existing in-place workflow. The main checkout needs no lock.
+Read before changing files or branches when `--worktree` is requested. It changes the checkout used for the work, not the skill's review or merge permissions. Without `--worktree`, if working in a linked checkout, follow "Guard startup of a linked worktree" and follow the stop instructions below. Keep the existing in-place workflow. The main checkout needs no lock.
 
 ## Select the checkout
 
@@ -101,7 +101,7 @@ After Git creates the worktree or the checks above verify it for reuse or resump
 
 On leaving a worktree entered by this run, use `ExitWorktree` with `action: "keep"`, so the checkout remains resumable. If these tools are unavailable, use explicit absolute tool paths and working directories only if all required read/write access is already available. If entry is denied or access is missing, stop and report it; do not change permission settings or bypass a denial. See the [Claude Code tools reference](https://code.claude.com/docs/en/tools-reference) for availability and path restrictions.
 
-Pass the worktree path to the independent reviewer. With `--watch`, perform every follow-up fix in this same checkout. Recheck its identity and status when resuming; do not infer that an existing directory is still at the expected branch.
+Pass the worktree path to the independent reviewer. Before resuming in this checkout, verify its identity, branch and status.
 
 When the run stops for any reason, finish worktree commands and leave the worktree if this run entered it. Unlock with `git worktree unlock "${worktree:?}"` only if the current Git lock is the one this run acquired. Release any guard still held by this run. Report release failures. A crashed run can leave a lock or guard, which `cleanup-local` skips and reports.
 

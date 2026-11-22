@@ -113,5 +113,5 @@ A question or an intermediate comment alone is never a completion signal.
 
 - Post findings as **one review** with the event `COMMENT`. The same account cannot Approve or Request changes on its own PR.
 - Always post a review, even with no findings. With no findings, the body is a short "no findings" note with `<!-- review-complete -->` before `<!-- pr-review -->`. Never put the completion marker on a review that has findings or questions.
-- When the author pushes, **post new findings before resolving existing threads.** With the same account, "all threads resolved" means done, so resolving first could end the author's monitoring before the new findings arrive.
+- When the author pushes, **post new findings before resolving existing threads.** With the same account, "all threads resolved" means done, so resolving first could make the PR appear ready before the new findings arrive.
 - With a different account, post **Approve** once every merge condition except branch protection is met, whether or not `--merge` was given, because Approve is the author's completion signal.
