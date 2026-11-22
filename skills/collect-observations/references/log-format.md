@@ -2,6 +2,8 @@
 
 Read before writing a log comment or the log body. The log is one issue: its comments hold copies of the PRs' observations comments, and its body holds a status table with one row per item, where decisions are recorded. The markers below are how a later run tells what is already collected, so never drop or change them.
 
+`triage-observations` reads the log's markers, status table and status values. Check that skill when changing any of them so it can still read the log.
+
 ## Markers
 
 | Marker | Where | Meaning |

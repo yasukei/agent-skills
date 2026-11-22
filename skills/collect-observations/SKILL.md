@@ -1,6 +1,6 @@
 ---
 name: collect-observations
-description: Collect the observations comments that orchestrate-issue posted on merged PRs into one log issue (a status table plus copied items), creating the log or appending to an existing one and skipping PRs already collected. Targets are PR or issue numbers, an issue's sub-issues or a milestone (e.g. 「observationをまとめて」「M2のobservationをログにして」「#40〜#45のobservationを#32に追記して」). Not for deciding or filing the items (use create-issue) or posting a PR's observations (orchestrate-issue).
+description: Collect the observations comments that orchestrate-issue posted on merged PRs into one log issue (a status table plus copied items), creating the log or appending to an existing one and skipping PRs already collected. Targets are PR or issue numbers, an issue's sub-issues or a milestone (e.g. 「observationをまとめて」「M2のobservationをログにして」「#40〜#45のobservationを#32に追記して」). Use triage-observations to decide or file log items and orchestrate-issue to post a PR's observations.
 ---
 
 # collect-observations
@@ -18,7 +18,7 @@ Commands, with REST forms that work where GraphQL returns HTTP 403, are in `refe
 
 - Write only to the log issue: create it, post comments on it, update its body. Never comment on, edit or react to the PRs or their comments. The cross-reference GitHub adds when a log comment mentions a PR already links the PR to the log.
 - Copy items as they are ("Log comment" in `references/log-format.md`). Never rewrite, merge or drop an item, and never fill in a field the source left empty.
-- Every new status row is `open`. Never decide an item or change an existing row: those are the user's decisions. Filing an item as an issue is `create-issue`'s job.
+- Every new status row is `open`. Never decide an item or change an existing row: those are the user's decisions. Use `triage-observations` to recommend decisions for log items and file approved items as issues.
 - The log lives in the same repository as the PRs, because `#<PR>` references and item IDs only mean something there. Targets in several repositories need one log each.
 - Post nothing before the user approves the plan (step 3), because the log is shared with everyone who reads the repository.
 
