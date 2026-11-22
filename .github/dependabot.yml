@@ -23,3 +23,14 @@ updates:
       default-days: 7
     commit-message:
       prefix: ci
+
+  # Python dependencies used by the development checks
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: monthly
+    # Wait a week after a release, so a compromised or broken release can be pulled first
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: ci

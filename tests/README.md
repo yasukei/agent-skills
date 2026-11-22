@@ -3,18 +3,21 @@
 CI ([.github/workflows/ci.yml](../.github/workflows/ci.yml)) runs these on every PR and on pushes to `main`. Run the same commands locally from the repository root:
 
 ```bash
-scripts/validate-skills.py      # validate SKILL.md and the files shared between skills
-scripts/check-plugin-policy.py  # policy check of the four Claude / ChatGPT / Codex manifests
-tests/run.sh                    # lint and all tests
-tests/run.sh lint               # bash -n and shellcheck only
-tests/run.sh test               # tests only
-claude plugin validate .        # schema validation of the manifests in .claude-plugin/ (needs Claude Code)
-uvx zizmor .github/              # security audit of the workflows and dependabot.yml (needs uv)
+uv lock --check                     # check that uv.lock matches pyproject.toml
+uv run scripts/validate-skills.py   # validate SKILL.md and the files shared between skills
+scripts/check-plugin-policy.py      # policy check of the four Claude / ChatGPT / Codex manifests
+uv run tests/run.sh                 # lint and all tests
+uv run tests/run.sh lint            # bash -n and shellcheck only
+uv run tests/run.sh test            # tests only
+claude plugin validate .            # schema validation of the manifests in .claude-plugin/ (needs Claude Code)
+uvx zizmor .github/                 # security audit of the workflows and dependabot.yml
 ```
 
 ## Required tools
 
-`bash`, `git`, `jq`, `shellcheck`, `python3` with PyYAML, Claude Code for `claude plugin validate .`, and `uv` for `uvx zizmor .github/`. Only the zizmor check needs network access, because `uvx` downloads zizmor on first run. Without a GitHub token, zizmor runs offline and skips its online audits; that check, and everything else here, needs no GitHub authentication. To reproduce CI, which passes a token and runs the online audits too, set `GH_TOKEN` (e.g. `GH_TOKEN=$(gh auth token) uvx zizmor .github/`).
+`bash`, `git`, `jq`, `shellcheck`, `python3` (3.7 or newer), `uv`, and Claude Code for `claude plugin validate .`. `uv run` installs PyYAML from `uv.lock` into the checkout's `.venv/`. The first run may need network access to download PyYAML or zizmor. CI uses `uv run --locked` so a stale lockfile fails the check.
+
+Without a GitHub token, zizmor runs offline and skips its online audits. To run the online audits as CI does, set `GH_TOKEN` (e.g. `GH_TOKEN=$(gh auth token) uvx zizmor .github/`).
 
 ## `scripts/validate-skills.py`
 

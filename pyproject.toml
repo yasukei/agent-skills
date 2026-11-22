@@ -1,0 +1,10 @@
+[project]
+name = "agent-skills"
+version = "0.0.0"
+requires-python = ">=3.7"
+
+[dependency-groups]
+dev = ["pyyaml"]
+
+[tool.uv]
+package = false
