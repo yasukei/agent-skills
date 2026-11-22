@@ -56,6 +56,7 @@ Read the related code and follow its design and style.
 ## 2. Branch and commits
 
 Follow `references/conventions.md` for branches and commits. For new work, branch from the latest default branch; for a PR, continue its head branch. With `--worktree`, prepare that branch in the dedicated worktree first.
+Record the starting commit SHA of a new implementation branch for the review in step 4.
 
 ## 3. Pass lint and tests locally
 
