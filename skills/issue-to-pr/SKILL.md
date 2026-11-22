@@ -56,6 +56,7 @@ Read the related code and follow its design and style.
 ## 2. Branch and commits
 
 Follow `references/conventions.md` for branches and commits. For new work, branch from the latest default branch; for a PR, continue its head branch. With `--worktree`, prepare that branch in the dedicated worktree first.
+Record the starting commit SHA of a new implementation branch for the review in step 4.
 
 ## 3. Pass lint and tests locally
 
@@ -66,7 +67,7 @@ Do not force checks that need external services or secrets; note "not run locall
 
 Before opening the PR, have **a sub-agent with an independent context** review it. Reviewing your own code repeats your own assumptions.
 
-- Pass only where the diff against the base branch is and the issue number; criteria or intent reduce independence.
+- Before launching the reviewer, read `references/internal-review.md` and use its request template. Omit review criteria and your intent because they reduce independence.
 - Judge its findings by the priorities in `references/review-protocol.md`, fix the valid ones, and rerun the checks.
 - If the environment cannot start a sub-agent, say so in chat and continue.
 
