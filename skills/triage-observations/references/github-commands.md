@@ -14,13 +14,15 @@ gh api --paginate "repos/$repo/issues/$log/comments?per_page=100" --hostname "$h
 The helper returns one JSON object with `repository`, `number`, `url`, and ordered `rows`. Each row has `id`, `summary`, `status`, `comment_url`, and `item`. An item has `pr`, `issue` (the issue from its PR heading), `sha`, `location`, `observation`, `not_raised_because`, `related` and `source`. The helper follows the link in each row. When it cannot recover the item from that log comment, it returns `item: null` and `item_error` for that row. Usage, API and log structure errors exit with status 2 and no JSON.
 
 - Read a referenced issue and its discussion with `gh issue view N -R "$host/$repo" --comments`. With REST use `gh api "repos/$repo/issues/N" --hostname "$host"` and `gh api --paginate "repos/$repo/issues/N/comments?per_page=100" --hostname "$host"`. Inspect `pull_request` to exclude PRs when looking for issues.
-- Use the paginated REST search below for open and closed issues. Inspect the full records of matches and narrow broad queries that hit GitHub's search result limit.
+- Use the paginated REST search below for open and closed issues. Inspect the full records of matches and narrow queries that hit GitHub's search result limit.
 - Read a file from a verified checkout with `git show "$sha:$path"`. Without the Git object, resolve the SHA with `gh api "repos/$repo/commits/$sha" --hostname "$host" --jq .sha` and fetch the file at the resulting `full_sha`. Use a URL-encoded path in the Contents API.
 
 ```bash
-gh api --paginate -X GET search/issues --hostname "$host" -f q="repo:$repo is:issue $terms" -F per_page=100 --jq '.items[]'
+gh api --paginate -X GET search/issues --hostname "$host" -f q="repo:$repo is:issue $terms" -F per_page=100
 gh api -H 'Accept: application/vnd.github.raw+json' "repos/$repo/contents/$path?ref=$full_sha" --hostname "$host"
 ```
+
+If search is unavailable or its results are incomplete, use the paginated repository issue listing under “Find earlier posts and recover retries”. Match the titles and bodies locally using the item's symptom, affected paths, or feature names, and inspect relevant matches in both states. If neither route gives enough information to check an item for duplicate or completed work, recommend Keep open and explain what could not be checked.
 
 To find issue templates without a checkout, list `gh api "repos/$repo/contents/.github/ISSUE_TEMPLATE" --hostname "$host" --jq '.[].name'` and fetch each candidate with the Contents API and the raw media type above. Check the other paths and the owner's shared repository listed in the formats reference. A 404 means the path is absent. For existing labels use `gh label list -R "$host/$repo"`, or `gh api --paginate "repos/$repo/labels?per_page=100" --hostname "$host" --jq '.[].name'`.
 
