@@ -86,4 +86,4 @@ Handle each event as in `references/handling-updates.md` (for review comments, a
 
 ## 7. Report the verdict
 
-Run `scripts/pr_status.sh <PR number>` once after the pass. Read `references/exit-conditions.md` to interpret `verdict.status`, verify readiness on a PR this skill did not open, and report what remains. Report "ready to merge" only if the verified status is `ready` or a same-account human reviewer clearly confirmed completion without the marker, CI passes and there are no conflicts. Ask in chat if the confirmation is unclear.
+Run `scripts/pr_status.sh <PR number>` once after the pass. Read `references/exit-conditions.md` to interpret `verdict.status`, verify readiness on a PR this skill did not open, and report what remains. Report "ready to merge" only if the verified status is `ready` or a same-account human reviewer clearly confirmed completion for the current head, CI passes and there are no conflicts. Ask in chat if the confirmation is unclear.

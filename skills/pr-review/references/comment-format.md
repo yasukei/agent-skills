@@ -73,7 +73,7 @@ No findings. (A short impression.)
 <!-- pr-review -->
 ```
 
-When the author and the reviewer are the same account, `issue-to-pr` takes this marker as "review finished, nothing to fix", because with no threads there is nothing to resolve. Never put it on a review with findings or questions.
+When the author and the reviewer are the same account, `issue-to-pr` takes this marker on a review pinned to the current head as "review finished, nothing to fix", because with no threads there is nothing to resolve. Never put it on a review with findings or questions.
 
 ## Replies and records
 

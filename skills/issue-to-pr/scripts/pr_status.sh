@@ -54,7 +54,7 @@ query($owner: String!, $name: String!, $pr: Int!) {
       headRefOid
       baseRefName
       reviews(last: 50) {
-        nodes { author { login __typename } state submittedAt body }
+        nodes { id author { login __typename } state submittedAt body commit { oid } }
       }
       reviewThreads(first: 100) {
         nodes {
@@ -64,7 +64,7 @@ query($owner: String!, $name: String!, $pr: Int!) {
           path
           line
           comments(first: 50) {
-            nodes { databaseId author { login __typename } body createdAt url }
+            nodes { databaseId author { login __typename } body createdAt url pullRequestReview { id } }
           }
         }
       }
@@ -83,7 +83,9 @@ rest_pr_json() {
     $pr[0] as $pr
     | def author: { login: (.user.login // "ghost"), __typename: (if .user.type == "Bot" then "Bot" else "User" end) };
       def node: { databaseId: .id, author: author, body: (.body // ""), createdAt: .created_at, url: .html_url };
-    ($comments[0] | map({ key: (.id | tostring), value: node }) | from_entries) as $byId
+    ($comments[0] | map({
+      key: (.id | tostring), value: (node + { pullRequestReview: { id: .pull_request_review_id } })
+    }) | from_entries) as $byId
     | {
         url: $pr.html_url,
         state: (if $pr.merged then "MERGED" elif $pr.state == "closed" then "CLOSED" else "OPEN" end),
@@ -94,8 +96,12 @@ rest_pr_json() {
         reviewDecision: null,
         author: { login: $pr.user.login },
         headRefName: $pr.head.ref,
+        headRefOid: $pr.head.sha,
         baseRefName: $pr.base.ref,
-        reviews: { nodes: [ $reviews[0][] | { author: author, state, submittedAt: .submitted_at, body: (.body // "") } ] },
+        reviews: { nodes: [ $reviews[0][] | {
+          id, author: author, state, submittedAt: .submitted_at, body: (.body // ""),
+          commit: (if .commit_id then { oid: .commit_id } else null end)
+        } ] },
         # The CCR route returns only comment IDs per thread, so look up bodies etc. in the review comment list.
         # Drop comments missing from the list (e.g. from a pending review), and threads left with no comments
         reviewThreads: { nodes: [ $threads[0][] | {
@@ -214,14 +220,17 @@ jq -n --argjson pr "$PR_JSON" --argjson checks "$CHECKS_JSON" \
      elif any($checks[]; .bucket == "pending") then "pending"
      else "passing" end) as $ci
   # Reviewer activity (items without the marker). Excludes the replies of this skill itself and the PR body.
-  # Replying to a thread creates a COMMENTED review with an empty body in the name of the author, so exclude those too.
+  # GitHub creates empty COMMENTED reviews for replies. Keep an empty review only when it opened a reviewer thread.
   # Bots (Copilot, coverage reports, etc.) never Approve or signal completion, so they do not count as reviewers
   | def human: (.author.__typename // "User") != "Bot" and (.author.login // "" | endswith("[bot]") | not);
     def notMine: .body // "" | contains($marker) | not;
-  [ $pr.reviews.nodes[]
-      | select(human and notMine and ((.body // "") != "" or .state != "COMMENTED"))
+    def onHead: ($pr.headRefOid // "") != "" and .commit.oid == $pr.headRefOid;
+  [ $pr.reviewThreads.nodes[] | select(.comments.nodes[0] | human and notMine) ] as $reviewerThreads
+  | [ $reviewerThreads[].comments.nodes[0].pullRequestReview.id | select(. != null) ] as $findingReviewIds
+  | [ $pr.reviews.nodes[]
+      | .id as $id
+      | select(human and notMine and ((.body // "") != "" or .state != "COMMENTED" or ($findingReviewIds | index($id)) != null))
       | . + { at: .submittedAt } ] as $reviewerReviews
-  | [ $pr.reviewThreads.nodes[] | select(.comments.nodes[0] | human and notMine) ] as $reviewerThreads
   | [ $pr.reviewThreads.nodes[].comments.nodes[] | select(human and notMine) | . + { at: .createdAt } ] as $reviewerThreadComments
   | [ $pr.comments.nodes[] | select(human and notMine) | . + { at: .createdAt } ] as $reviewerIssueComments
   | ($reviewerReviews + $reviewerThreadComments + $reviewerIssueComments) as $reviewerActivity
@@ -230,8 +239,9 @@ jq -n --argjson pr "$PR_JSON" --argjson checks "$CHECKS_JSON" \
   | ([ $pr.reviews.nodes[] | select(human and .author.login != $author and .state != "COMMENTED") ]
      | group_by(.author.login) | map(max_by(.submittedAt))) as $latestOthers
   | ([ $reviewerThreads[] | select(.isResolved | not) ] | length) as $unresolvedReviewer
-  # The completion marker counts only when there is no reviewer activity (a question, etc.) after it
-  | ([ ($reviewerReviews + $reviewerIssueComments)[] | select(.body // "" | contains($complete)) | .at ] | max) as $completedAt
+  | ($reviewerReviews | map(select(.at != null)) | max_by(.at)) as $latestReviewerReview
+  # A completion marker must be in a review of the head, with no later reviewer activity
+  | ([ $reviewerReviews[] | select(onHead and (.body // "" | contains($complete))) | .at ] | max) as $completedAt
   | ($completedAt != null and all($reviewerActivity[]; .at <= $completedAt)) as $explicit
   | (if $pr.state == "MERGED" then ["merged", "The PR was merged"]
      elif $pr.state == "CLOSED" then ["closed", "The PR was closed"]
@@ -241,13 +251,17 @@ jq -n --argjson pr "$PR_JSON" --argjson checks "$CHECKS_JSON" \
      elif $pr.mergeable != "MERGEABLE" then ["mergeable_unknown", "GitHub is still computing whether the PR can be merged"]
      elif ($activity | not) then ["waiting_for_review", "No reviewer activity yet"]
      elif $hasOther then
-       (if ($latestOthers | length) > 0 and all($latestOthers[]; .state == "APPROVED")
-        then ["ready", "The latest review from a non-author account is Approve"]
-        else ["review_in_progress", "Waiting for Approve from a non-author account"] end)
+       (if ($latestOthers | length) > 0 and all($latestOthers[]; .state == "APPROVED" and onHead)
+        then ["ready", "The latest non-author approvals are for the current head"]
+        elif any($latestOthers[]; .state == "APPROVED" and (.commit.oid // "") != "" and (onHead | not))
+        then ["review_in_progress", "An Approve is for an older commit. Waiting for Approve on the current head"]
+        else ["review_in_progress", "Waiting for Approve from a non-author account on the current head"] end)
      elif $unresolvedReviewer > 0 then ["review_in_progress", "There are unresolved review threads"]
-     elif ($reviewerThreads | length) > 0 then ["ready", "All review threads are resolved"]
+     elif ($reviewerThreads | length) > 0 then
+       (if ($latestReviewerReview | onHead) then ["ready", "All review threads are resolved and the latest review is for the current head"]
+        else ["review_in_progress", "All review threads are resolved. Waiting for a review of the current head"] end)
      elif $explicit then ["ready", "The reviewer signaled review complete with no findings"]
-     else ["review_in_progress", "No review completion signal yet (all threads resolved or the completion marker)"] end
+     else ["review_in_progress", "No review completion signal for the current head yet"] end
     ) as $v
   | {
       url: $pr.url,
@@ -274,14 +288,14 @@ jq -n --argjson pr "$PR_JSON" --argjson checks "$CHECKS_JSON" \
         unresolvedReviewerThreadCount: $unresolvedReviewer
       },
       hasOtherReviewer: $hasOther,
-      latestReviewByOthers: $latestOthers,
-      reviews: $pr.reviews.nodes,
+      latestReviewByOthers: ($latestOthers | map(del(.id))),
+      reviews: ($pr.reviews.nodes | map(del(.id))),
       unresolvedThreadCount: ([ $pr.reviewThreads.nodes[] | select(.isResolved | not) ] | length),
       threads: [
         $pr.reviewThreads.nodes[] | {
           id, isResolved, isOutdated, path, line,
           rootCommentId: .comments.nodes[0].databaseId,
-          comments: .comments.nodes,
+          comments: (.comments.nodes | map(del(.pullRequestReview))),
           # If the last comment has no marker, a reviewer comment may still be unanswered
           lastCommentByMe: (.comments.nodes[-1].body | contains($marker))
         }

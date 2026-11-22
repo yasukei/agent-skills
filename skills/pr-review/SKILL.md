@@ -75,7 +75,7 @@ Post the inline comments and the summary as **one review** with the event `COMME
 
 Check new commits and replies once as in `references/monitoring.md`.
 
-- Post new findings as one review **before resolving existing threads**: with the same account, `issue-to-pr` treats "all threads resolved" as done.
+- Post new findings as one review **before resolving existing threads**, because a review of the current head with all threads resolved can signal completion on the same account.
 - Resolve only threads this run owns; ask the user about other sessions' ("Thread ownership" in `references/review-protocol.md`).
 - A `P0` cannot be deferred. Ask the user when you cannot judge a decline.
 

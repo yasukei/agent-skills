@@ -99,13 +99,13 @@ The reviewer resolves a thread without asking only when it is certain the thread
 
 ## Completion signals
 
-While the PR is open, the author treats the review as complete when CI passes, there is no conflict, and one of these signals is present:
+While the PR is open, the author treats the review as complete when CI passes, there is no conflict, and one of these signals applies to the current PR head SHA:
 
 | Accounts | Signal |
 |---|---|
-| Reviewer is a different account from the PR author | The latest review from each non-author account is **Approve** |
-| Same account, findings were posted | **All reviewer threads are resolved** |
-| Same account, no findings | A review or PR comment with **`<!-- review-complete -->`**, and no reviewer activity after it |
+| Reviewer is a different account from the PR author | The latest review affecting approval status from each non-author reviewer is **Approve**, pinned to the current head |
+| Same account, findings were posted | **All reviewer threads are resolved** and the latest submitted reviewer review is pinned to the current head |
+| Same account, no findings | A review pinned to the current head with **`<!-- review-complete -->`**, and no reviewer activity after it |
 
 A question or an intermediate comment alone is never a completion signal.
 
@@ -113,5 +113,6 @@ A question or an intermediate comment alone is never a completion signal.
 
 - Post findings as **one review** with the event `COMMENT`. The same account cannot Approve or Request changes on its own PR.
 - Always post a review, even with no findings. With no findings, the body is a short "no findings" note with `<!-- review-complete -->` before `<!-- pr-review -->`. Never put the completion marker on a review that has findings or questions.
-- When the author pushes, **post new findings before resolving existing threads.** With the same account, "all threads resolved" means done, so resolving first could make the PR appear ready before the new findings arrive.
+- When the author pushes, **post new findings before resolving existing threads.** A review of the new head with all threads resolved can signal completion on the same account, so keep existing threads open until you post the new findings.
 - With a different account, post **Approve** once every merge condition except branch protection is met, whether or not `--merge` was given, because Approve is the author's completion signal.
+- When a re-check clears a new head, post a fresh signal pinned to the checked SHA, either **Approve** on a different account or a no-findings review with the completion marker on the same account.
