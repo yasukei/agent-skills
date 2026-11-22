@@ -1,6 +1,6 @@
 # Isolated implementation (`--worktree`)
 
-Read before changing files or branches when `--worktree` is requested. It changes the checkout used for the work, not the skill's review, monitoring or merge permissions.
+Read before changing files or branches when `--worktree` is requested. It changes the checkout used for the work, not the skill's review, monitoring or merge permissions. Without `--worktree`, if working in a linked checkout, follow "Guard startup of a linked worktree" and release the Git lock on stop. Keep the existing in-place workflow. The main checkout needs no lock.
 
 ## Select the checkout
 
@@ -49,7 +49,8 @@ Use the latest default branch of the target repository and the branch naming con
 default_branch=$(gh api "repos/${repo:?}" --jq .default_branch)
 git fetch --no-write-fetch-head "${base_remote:?}" "refs/heads/${default_branch:?}:${fetch_ref:?}"
 base_sha=$(git rev-parse "${fetch_ref:?}^{commit}")
-git worktree add -b "${branch:?}" "${worktree:?}" "${base_sha:?}"
+git worktree add --lock --reason "issue-to-pr ${repo:?}#${number:?}" \
+  -b "${branch:?}" "${worktree:?}" "${base_sha:?}"
 ```
 
 If the branch already exists, inspect it and its registered worktree instead of recreating or resetting it. Reuse it only after confirming it belongs to this issue; ask if its purpose is unclear. Git cannot attach the same branch to two worktrees: use its verified, available worktree rather than detaching it from another checkout.
@@ -70,15 +71,25 @@ Verify `fetched_sha` equals the API's `head_sha`; if it changed during preparati
 The leading `+` updates only this run's private `refs/agent-skills/issue-to-pr/...` fetch ref when a remote head is rewritten. Never use a local branch or another run's ref as `fetch_ref`; branch fast-forwards and the prohibition on force-pushes still apply.
 
 - If the head branch is already checked out, inspect and reuse that worktree only under the checks above.
-- If the local branch exists but is not checked out, attach it with `git worktree add "${worktree:?}" "${head_ref:?}"` after verifying its identity and history. If it does not exist, use `git worktree add -b "${head_ref:?}" "${worktree:?}" "${fetched_sha:?}"`.
-- In a clean, verified worktree, fast-forward a behind branch with `git -C "${worktree:?}" merge --ff-only "${fetched_sha:?}"`. Inspect local commits ahead of the PR before continuing; if their ownership is unclear or history has diverged, ask instead of resetting or rebasing.
+- If the local branch exists but is not checked out, attach it with `git worktree add --lock --reason "issue-to-pr ${repo:?}#${pr:?}" "${worktree:?}" "${head_ref:?}"` after verifying its identity and history. If it does not exist, use the same lock options with `git worktree add -b "${head_ref:?}" "${worktree:?}" "${fetched_sha:?}"`.
+- In a clean, verified worktree, acquire this run's lock before fast-forwarding a behind branch with `git -C "${worktree:?}" merge --ff-only "${fetched_sha:?}"`. Inspect local commits ahead of the PR before continuing; if their ownership is unclear or history has diverged, ask instead of resetting or rebasing.
 - Push explicitly to the verified head repository and head branch (for example, `git -C "${worktree:?}" push "${head_remote:?}" "HEAD:refs/heads/${head_ref:?}"`), so a fork PR receives the fixes.
 
 ## Work and resume
 
 Shell variables and `cd` may not survive a tool call. Substitute literal absolute paths and verified values into each call, or initialize them in that call; all examples use `${variable:?}` to fail before Git runs if a value is missing or empty. In particular, `git -C ""` runs in the current checkout and must never be used as a fallback.
 
+Use the issue number for an issue invocation and the PR number for a PR invocation. Create new worktrees locked as shown above, so there is no gap between creation and locking. For reuse, follow "Guard startup of a linked worktree" before relying on the checkout. Only unlock a lock this run acquired, because someone else may be using the checkout.
+
 Set the working directory explicitly to the worktree for every implementation command, local check, commit and push. Read the repository instructions there and install dependencies as required. Ignored setup files are not copied by Git: follow the repository's setup procedure rather than copying secrets or the original checkout wholesale.
+
+### Guard startup of a linked worktree
+
+Acquire the shared guard after identifying the linked checkout. While holding it, verify again that it is the expected worktree and is unlocked. Recheck clean status when reusing a dedicated `--worktree` checkout. Then run `git worktree lock --reason "issue-to-pr ${repo:?}#${number:?}" "${worktree:?}"` before using it. Release the guard after the Git lock succeeds, keeping the Git lock for the rest of the run. If acquiring the guard, verification or locking fails, release any guard this run acquired, then stop and report. The guard prevents two startups from claiming the same worktree and keeps cleanup from checking the Git lock before startup acquires it.
+
+The startup and cleanup guard is the directory `<common-dir>/agent-skills-worktree-guards/<worktree-id>`. Use Git's absolute common directory and the linked worktree's absolute Git directory (`git -C "$worktree" rev-parse --path-format=absolute --git-common-dir` and `git -C "$worktree" rev-parse --absolute-git-dir`). Verify the common directory is the target repository's and that the Git directory is directly under its `worktrees/` directory. Use that Git directory's final component as the ID, because Git can give the worktree a different ID than its checkout basename.
+
+Create the parent with `mkdir -p` and acquire the guard with plain `mkdir "$guard"`, which succeeds for only one caller. Release it with `rmdir "$guard"` only if this run acquired it. The guard lives outside the linked worktree's Git directory so removal cannot clear it while cleanup still holds it. Report failures and any guard left behind by a crash. Leave an existing guard in place, because another run may own it.
 
 ### Claude Code session directory
 
@@ -88,4 +99,6 @@ On leaving a worktree entered by this run, use `ExitWorktree` with `action: "kee
 
 Pass the worktree path to the independent reviewer. With `--watch`, perform every follow-up fix in this same checkout. Recheck its identity and status when resuming; do not infer that an existing directory is still at the expected branch.
 
-Keep the worktree and branch when the run stops, including after PR creation or a monitoring timeout, so the user can resume. Report the PR URL, absolute worktree path and branch. Remove a worktree only when the user requests cleanup and its changes have been preserved; never remove it forcibly.
+When the run stops for any reason, finish worktree commands and leave the worktree if the session entered it. Release this run's lock with `git worktree unlock "${worktree:?}"` and report any failure. A crashed run may leave a lock, which `cleanup-local` skips and reports.
+
+Keep the worktree and branch for resuming and report the PR URL, absolute worktree path and branch. `cleanup-local` handles worktree removal after the merge.

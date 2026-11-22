@@ -84,7 +84,7 @@ This mode returns `no_conflict` with exit 0 when `mergeable` is `true`. The `con
 
 ## PR state
 
-To confirm the merge before posting the observations comment (`observations.md`) and before the implementer's cleanup (`cleanup.md`):
+To confirm the merge before posting observations (`observations.md`) and running `cleanup-local` (`cleanup.md`):
 
 ```bash
 gh api "repos/${repo:?}/pulls/${pr:?}" --jq '{number, state, merged, merge_commit_sha}'

@@ -13,6 +13,28 @@ git fetch --prune --no-tags --no-prune-tags --no-write-fetch-head \
   --no-recurse-submodules --refmap= "$remote" "${branch_refspecs[@]}"
 ```
 
+## Check and remove a worktree
+
+Capture the invoking session's directory before changing directories. Parse `git worktree list --porcelain -z` as NUL-delimited fields and compare physical paths so a symlink or a session in a subdirectory cannot hide the current worktree. Keep the main entry and any worktree containing the session. Keep a candidate while another registered worktree is nested inside it, because Git can recursively delete an ignored nested worktree even if that nested worktree is locked or dirty.
+
+For an attached checkout, use the upstream and merged PR checks under "Check a local branch" and verify the worktree HEAD matches the checked branch SHA. For a detached checkout, compare the full HEAD SHA with the `head_sha` values of merged PRs from the paginated target-repository lookup below. A closed but unmerged PR or an ancestor of a merged PR head does not qualify. Keep the worktree if a required check is inconclusive, including when the checkout is missing. Keep worktrees with a rebase or bisect in progress even if status is clean, because the operation may still hold unfinished work.
+
+Read both `AGENTS.md` and `CLAUDE.md` and any worktree instructions they reference. Use trusted target-repository instructions that apply to the candidate. Check the matched PR's historical merge tree (`merge_commit_sha` below) as well as the default branch, because teardown may have changed since an older checkout was set up. Keep the checkout and report why if the applicable teardown cannot be established.
+
+Under the guard described below, take a fresh worktree listing and check for locks, nested worktrees, the same branch or detached state and HEAD, and clean status from `git -C "$path" status --porcelain --untracked-files=all`. An empty result counts as clean only when the command succeeds. Before running teardown in a fork PR checkout, verify its checkout-local scripts and configuration against trusted target-repository content, because the fork head can differ from the merged tree. Keep the checkout and report why if those inputs cannot be verified. Run any documented teardown from the candidate worktree. If teardown fails, keep the checkout and report the command and result.
+
+With the guard still held, repeat the worktree checks and, for an attached branch, verify it still qualifies. Then run `git worktree remove -- "$path"` from outside the candidate. Never add `--force`, unlock a candidate, or detach its branch to get past a refusal. If removal fails, report the error and what remains of the checkout and keep its branch. Before deleting a branch that a worktree held, confirm the removal succeeded and repeat the branch checks.
+
+Files ignored by `.gitignore` are removed with the worktree, including any that exist only there and cannot be recreated (e.g. local settings or data an agent created or edited in the worktree). This data loss is accepted by design; do not check for or keep ignored files. After the merge, everything the repository needs has been committed, reviewed and merged, and ignored files are outside the repository by definition. An ignored file that should have been committed is an implementation or review miss, to be caught before the merge, not by keeping worktrees. Keeping every worktree with ignored files would also stop cleanup in any repository with installed dependencies.
+
+### Coordinate with agent startup
+
+Set `worktree` to the verified candidate path. Acquire the guard before the final worktree checks and hold it through teardown and removal. Release it when done with the candidate, including when skipping it or when teardown or removal fails. Keep and report a candidate if the guard cannot be acquired. Git can check its worktree lock just before another process acquires that lock, then remove the worktree anyway. The guard serializes cleanup and startup in these skills. Git commands run outside these skills can bypass the guard.
+
+The startup and cleanup guard is the directory `<common-dir>/agent-skills-worktree-guards/<worktree-id>`. Use Git's absolute common directory and the linked worktree's absolute Git directory (`git -C "$worktree" rev-parse --path-format=absolute --git-common-dir` and `git -C "$worktree" rev-parse --absolute-git-dir`). Verify the common directory is the target repository's and that the Git directory is directly under its `worktrees/` directory. Use that Git directory's final component as the ID, because Git can give the worktree a different ID than its checkout basename.
+
+Create the parent with `mkdir -p` and acquire the guard with plain `mkdir "$guard"`, which succeeds for only one caller. Release it with `rmdir "$guard"` only if this run acquired it. The guard lives outside the linked worktree's Git directory so removal cannot clear it while cleanup still holds it. Report failures and any guard left behind by a crash. Leave an existing guard in place, because another run may own it.
+
 ## Check a local branch
 
 Use `LC_ALL=C git for-each-ref` over `refs/heads/` to get the full ref name, object ID, symbolic target, upstream remote, source ref and status (`%(refname)`, `%(objectname)`, `%(symref)`, `%(upstream:remotename)`, `%(upstream:remoteref)`, `%(upstream:track)`). For each direct branch with a gone upstream on the verified remote, confirm the source ref itself is gone with `git ls-remote --exit-code --refs "$remote" "$upstream_source"`. Only exit status 2 establishes absence. This distinguishes deletion from a missing tracking ref caused by fetch configuration.
@@ -35,7 +57,11 @@ Use these REST commands directly, including when GitHub's GraphQL API returns HT
 gh api "repos/$repo" --jq '{full_name, default_branch}'
 gh api --paginate --method GET "repos/$repo/pulls" \
   -f state=closed -f "head=$owner:$branch" -F per_page=100 \
-  --jq '.[] | {number, merged_at, head_ref: .head.ref, head_repo: .head.repo.full_name, head_sha: .head.sha}'
+  --jq '.[] | {number, merged_at, merge_commit_sha, head_ref: .head.ref, head_repo: .head.repo.full_name, head_sha: .head.sha}'
+# Detached worktrees: collect merged heads across all pages, once for the pending candidates.
+gh api --paginate --method GET "repos/$repo/pulls" \
+  -f state=closed -F per_page=100 \
+  --jq '.[] | select(.merged_at != null) | {number, merge_commit_sha, head_sha: .head.sha}'
 gh api "repos/$repo/issues/$number" --jq .state
 ```
 
