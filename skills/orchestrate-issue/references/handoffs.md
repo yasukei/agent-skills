@@ -166,4 +166,4 @@ Resume the same agent. State whose decision the answer is:
   In English: <rendering that names the chosen option in the agent's terms>
   ```
 
-- Under `--delegate`: "Under --delegate, the orchestrator chose your recommendation <answer>. The user has not seen this decision; record it in the PR (e.g. Review focus or the thread)."
+- When taking a recommendation by default, say "The orchestrator chose your recommendation <answer>. The user has not seen this decision. Record it in the PR (e.g. Review focus or the thread)."
