@@ -61,18 +61,16 @@ Final report: how each finding was handled (fix commit, or reason for declining)
 If an issue already has an open PR (e.g. from an earlier session), continue from it instead of starting over:
 
 - Start a new reviewer. It will ask before resolving threads of the earlier reviewer's session; that is a type A question for the user.
-- For fixes, resume Codex with the `session` value from the `agent=codex` signature in the PR body, if `codex exec resume` accepts it. Otherwise start a new implementer run with "Implementer: existing PR" below.
+- For fixes, resume Codex with the `session` value from the `agent=codex` signature in the PR body, if `codex exec resume` accepts it. Otherwise, start a new implementer run with the PR as the target, using "Implementer: existing PR" below.
 
 ## Implementer: existing PR
 
-Use this for a PR from an earlier session when the earlier Codex thread cannot be resumed; the session may no longer exist in this environment. The new run has no earlier context, so it works best effort from what GitHub records. Give no worktree path: `issue-to-pr` finds or creates one.
+Use this when the earlier Codex thread cannot be resumed and the new run has no context from that thread. Omit the worktree path so `issue-to-pr` can find or create the checkout for the PR.
 
 ```text
-$<issue-to-pr> Handle the unresolved review comments and failing CI on PR <OWNER/REPO>#<PR> --worktree.
+$<issue-to-pr> <OWNER/REPO>#<PR> --worktree
 
 The user's language is <language>. Write repository text (commits, PRs, comments) by the repository's conventions, falling back to the user's language. Report and ask questions in English.
-
-You have no context from the earlier implementation. Read the issue, the PR and all its review threads first.
 
 The reviewer resolves threads after re-checking.
 Final report: how each finding was handled (fix commit, or reason for declining), worktree path, branch, checks run and their results, CI state, the URLs of the replies you posted.
