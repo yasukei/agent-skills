@@ -21,7 +21,7 @@ Post once per PR: a second comment would duplicate every item in the log. Before
 
 ## Earlier sessions
 
-When you continued a PR from an earlier session ("Existing PR" in SKILL.md), its agents' observations were only in that session's final report, which you cannot read. The current agents do not know them either.
+When you continued a PR from an earlier session ("Existing PR" in `handoffs.md`), its agents' observations were only in that session's final report, which you cannot read. The current agents do not know them either.
 
 - If the user gave you the earlier final report in this conversation (e.g. pasted it), include its items with the SHA and Source it states.
 - Otherwise, start the comment with the incomplete-history line in "Comment" below, and say in the final report that the earlier observations are not in the comment. Without the line, a log would read the PR's history as complete, and a "none" as no observations at all.

@@ -30,5 +30,5 @@ Do not remove anything yourself; report the path and the reason in the final rep
 
 - An agent refuses or fails, e.g. a worktree with leftovers or a sandbox denial.
 - An agent cannot be resumed (its Codex thread or subagent is gone).
-- A worktree belongs to an agent of an earlier session ("Existing PR" in SKILL.md). The current agents remove only the checkouts they used.
+- A worktree belongs to an agent of an earlier session ("Existing PR" in `handoffs.md`). The current agents remove only the checkouts they used.
 - The PR was not merged through this session, e.g. the user merges it by hand later.

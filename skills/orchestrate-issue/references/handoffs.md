@@ -1,6 +1,6 @@
 # Handoffs
 
-Read before writing a prompt or message to the implementer or reviewer. Start each one with the skill invocation, then add only what the skill cannot know. Do not restate the skill's own rules: duplicated rules drift apart. Replace the placeholders (`<issue-to-pr>` and `<pr-review>` are the installed skill names, see "Roles" in SKILL.md), write the text in English (see "Language" below), and keep every handoff in plain text.
+Read before writing a prompt or message to the implementer or reviewer. Start each one with the skill invocation, then add only what the skill cannot know. Do not restate the skill's own rules: duplicated rules drift apart. Replace the placeholders (`<issue-to-pr>` and `<pr-review>` are the installed skill names, see "Installed skill names" below), write the text in English (see "Language" below), and keep every handoff in plain text.
 
 The "Final report" parts of the implementer's first run and existing-PR run, and of the reviewer's first review and re-check, ask for observations with the fields in `observations.md`, so the final report needs no lookups afterwards. Keep them in step with that file.
 
@@ -11,6 +11,10 @@ Do not use --watch. Stop when this step is done.
 If the skill named above is not available, stop and say so instead of doing the work without it.
 If something unexpected happens (you cannot follow the skill's procedure, the issue or comments are ambiguous or contradictory, or the environment fails), do not work around it silently: stop or ask, and state it in your final report.
 ```
+
+## Installed skill names
+
+`<issue-to-pr>` and `<pr-review>` are the names the skills are installed under: `agent-skills:<name>` from the plugin, plain `<name>` when installed as a standalone skill (`.claude/skills/<name>`, `.agents/skills/<name>`). For a Claude Code agent, use the name in your own skill list. For Codex, use `<name>` if the target checkout has `.agents/skills/<name>`, else `agent-skills:<name>`.
 
 ## Language
 
@@ -51,6 +55,13 @@ Review: <review URL>
 The reviewer resolves threads after re-checking.
 Final report: how each finding was handled (fix commit, or reason for declining), checks run and their results, CI state, the URLs of the replies you posted.
 ```
+
+## Existing PR
+
+If an issue already has an open PR (e.g. from an earlier session), continue from it instead of starting over:
+
+- Start a new reviewer. It will ask before resolving threads of the earlier reviewer's session; that is a type A question for the user.
+- For fixes, resume Codex with the `session` value from the `agent=codex` signature in the PR body, if `codex exec resume` accepts it. Otherwise start a new implementer run with "Implementer: existing PR" below.
 
 ## Implementer: existing PR
 
