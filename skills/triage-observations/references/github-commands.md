@@ -32,7 +32,7 @@ Search is useful for finding related work. For retry markers use the paginated R
 
 ```bash
 gh api --paginate "repos/$repo/issues?state=all&per_page=100" --hostname "$host" \
-  --jq '.[] | select(.pull_request == null) | {number, html_url, body}'
+  --jq '.[] | select(.pull_request == null) | {number, state, title, body, html_url}'
 gh api --paginate "repos/$repo/issues/comments?per_page=100" --hostname "$host" \
   --jq '.[] | {issue_url, html_url, body}'
 ```
