@@ -10,6 +10,7 @@
 #                      after the path without its query string, with / replaced by _ and .json appended
 #                      (e.g. repos/o/r/pulls/1/reviews?per_page=100 → repos_o_r_pulls_1_reviews.json).
 #                      If the file does not exist, exits with status 1 as HTTP 404
+#                      If <file>.next exists, use it for subsequent requests
 #   FAKE_GH_LOG        if set, append the arguments of each call as one line
 if [ -n "${FAKE_GH_LOG:-}" ]; then
   echo "$*" >>"$FAKE_GH_LOG"
@@ -42,7 +43,8 @@ case "$1 ${2:-}" in
       echo "gh: Not Found (HTTP 404)" >&2
       exit 1
     fi
-    cat "$file"
+    cat "$file" || exit $?
+    if [ -f "$file.next" ]; then mv "$file.next" "$file"; fi
     ;;
   *)
     echo "fake gh: unexpected call: $*" >&2

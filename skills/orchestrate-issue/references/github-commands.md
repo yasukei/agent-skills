@@ -1,6 +1,6 @@
 # GitHub commands for the orchestrator
 
-Read when you check an issue's dependencies, look for an existing PR, wait for CI, fill in an observation's related issue or milestone, confirm a merge, or look for and post the observations comment. Agents do their own GitHub work; apart from that one comment, these commands are only for your reads. `gh` subcommands such as `gh pr checks` use GraphQL, which some environments reject with HTTP 403. The REST forms (`gh api repos/...`) work there too.
+Read when you check an issue's dependencies, look for an existing PR, wait for CI, check for a conflict, fill in an observation's related issue or milestone, confirm a merge, or look for and post the observations comment. Agents do their own GitHub work; apart from that one comment, these commands are only for your reads. `gh` subcommands such as `gh pr checks` use GraphQL, which some environments reject with HTTP 403. The REST forms (`gh api repos/...`) work there too.
 
 ## Issue and dependencies
 
@@ -49,13 +49,13 @@ If no candidate closes the issue, treat the issue as having no PR. If more than 
 
 ## Waiting for CI
 
-Run `scripts/wait_ci.sh` once in the background. It loops by itself, so waiting spends no turns; its completion notification wakes you once. It reads check runs and commit statuses through REST, so it works where GraphQL returns HTTP 403, and it covers CI that reports only commit statuses.
+Run `scripts/wait_ci.sh` once in the background. It loops by itself, so waiting spends no turns and its completion notification wakes you once. It reads check runs and commit statuses through REST, so it works where GraphQL returns HTTP 403, and it covers CI that reports only commit statuses. It checks mergeability during the wait and again when CI finishes. It returns as soon as GitHub reports a conflict because a conflicting PR may register no CI.
 
 ```bash
 "${skill_dir:?}/scripts/wait_ci.sh" "${pr:?}" "${repo:?}"
 ```
 
-`skill_dir` is this skill's absolute directory. The script prints one JSON line:
+`skill_dir` is this skill's absolute directory. The script prints one JSON line with the head `sha`, `state`, `mergeable`, and `failing` checks.
 
 | `state` | Exit | Meaning | Next |
 |---|---|---|---|
@@ -63,10 +63,24 @@ Run `scripts/wait_ci.sh` once in the background. It loops by itself, so waiting 
 | `failure` | 1 | `failing` lists each failed check's name and URL | Pass them to the implementer |
 | `none` | 0 | Nothing was registered within 5 minutes; the repository may have no CI | Continue, and mention it in the final report |
 | `timeout` | 3 | Still running after 60 minutes | Ask the user |
+| `conflicting` | 4 | `mergeable` is `false`, regardless of CI | Follow `conflicts.md` |
+| `mergeability_timeout` | 3 | `mergeable` is still `null` after retries | Stop and ask the user |
 
-Exit 2 means a usage or GitHub API error, which is never read as "no CI". Report it instead of continuing.
+Exit 2 means a usage error, a GitHub API error, or a change to the PR head since the wait began. On a usage or API error, report the error and stop with CI and mergeability undetermined. Only explicit results can establish "no CI" or "no conflict". For a changed head, start a fresh wait to get CI and mergeability for the same commit.
 
 The script waits for the PR's head when it starts. Start it after the implementer has pushed, not while the implementer is still working.
+
+## Checking for a conflict
+
+Use this mode at the checkpoints in `conflicts.md` that do not need a CI wait. Run it in the background for the same completion notification.
+
+```bash
+"${skill_dir:?}/scripts/wait_ci.sh" "${pr:?}" "${repo:?}" --mergeability-only
+```
+
+The script reads `gh api "repos/${repo:?}/pulls/${pr:?}"`. Only `mergeable: false` indicates a conflict, typically with `mergeable_state: dirty`. States such as `behind` and `blocked` do not indicate a conflict. GitHub returns `mergeable: null` while computing it, so the script retries up to five total reads, two seconds apart by default. If it stays `null`, the result is `mergeability_timeout`.
+
+This mode returns `no_conflict` with exit 0 when `mergeable` is `true`. The `conflicting`, `mergeability_timeout`, and exit 2 outcomes are as above. Use this result only for mergeability. The mode does not query CI.
 
 ## PR state
 
