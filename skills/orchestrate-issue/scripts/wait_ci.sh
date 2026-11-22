@@ -1,22 +1,26 @@
 #!/usr/bin/env bash
-# Wait until CI on a PR's head commit finishes, then print the result as JSON.
+# Wait for CI on a PR's head and check for conflicts, then print the result as JSON.
 #
-#   wait_ci.sh <PR number> <OWNER/REPO> [--interval SECONDS] [--register-timeout SECONDS] [--timeout SECONDS]
+#   wait_ci.sh <PR number> <OWNER/REPO> [--mergeability-only] [--interval SECONDS]
+#              [--register-timeout SECONDS] [--timeout SECONDS]
 #
 # It reads both check runs and commit statuses through REST, so it also works where GraphQL returns
 # HTTP 403. It loops by itself; run it once in the background and read its output when it exits.
 #
-# Output: {"state": "success|failure|none|timeout", "sha": "...", "failing": [{"name": ..., "url": ...}]}
+# Output: {"state": "...", "sha": "...", "mergeable": true|false|null, "failing": [{"name": ..., "url": ...}]}
 #   success  every check run and status passed
 #   failure  at least one failed (listed in "failing")
 #   none     nothing was registered within --register-timeout (default 300 s): the repository may have no CI
 #   timeout  CI was still running after --timeout (default 3600 s)
-# Exit status: 0 for success or none, 1 for failure, 3 for timeout, 2 for usage or GitHub API errors.
-# An API error stops the wait with status 2 and is never read as "no CI".
+#   no_conflict  the mergeability-only check found no conflict
+#   conflicting  the PR conflicts with the base branch
+#   mergeability_timeout  GitHub did not return a boolean after five attempts
+# Exit status: 0 for success, none or no_conflict, 1 for failure, 3 for either timeout, 4 for conflicting.
+# Usage and GitHub API errors, including a changed PR head, exit with status 2.
 set -euo pipefail
 
 usage() {
-  echo "usage: $0 <PR number> <OWNER/REPO> [--interval SECONDS] [--register-timeout SECONDS] [--timeout SECONDS]" >&2
+  echo "usage: $0 <PR number> <OWNER/REPO> [--mergeability-only] [--interval SECONDS] [--register-timeout SECONDS] [--timeout SECONDS]" >&2
   exit 2
 }
 
@@ -27,8 +31,10 @@ shift 2
 interval=30
 register_timeout=300
 timeout=3600
+mergeability_only=false
 while [ $# -gt 0 ]; do
   case "$1" in
+    --mergeability-only) mergeability_only=true; shift ;;
     --interval) [ $# -ge 2 ] || usage; interval="$2"; shift 2 ;;
     --register-timeout) [ $# -ge 2 ] || usage; register_timeout="$2"; shift 2 ;;
     --timeout) [ $# -ge 2 ] || usage; timeout="$2"; shift 2 ;;
@@ -40,24 +46,72 @@ for n in "$pr" "$interval" "$register_timeout" "$timeout"; do
     '' | *[!0-9]*) usage ;;
   esac
 done
+merge_interval=2
+if [ "$interval" -lt "$merge_interval" ]; then merge_interval="$interval"; fi
 
 api_error() {
   echo "wait_ci.sh: GitHub API request failed: $1" >&2
   exit 2
 }
 
-pull_json="$(gh api "repos/${repo}/pulls/${pr}")" || api_error "repos/${repo}/pulls/${pr}"
-sha="$(jq -r '.head.sha // empty' <<<"$pull_json")"
-[ -n "$sha" ] || api_error "no head SHA for PR ${pr}"
+pull_path="repos/${repo}/pulls/${pr}"
+sha=""
 
-finish() {
-  # finish <state> <failing JSON array> <exit status>
-  jq -cn --arg state "$1" --arg sha "$sha" --argjson failing "$2" '{state: $state, sha: $sha, failing: $failing}'
+read_pull() {
+  local pull_json head
+  pull_json="$(gh api "$pull_path")" || api_error "$pull_path"
+  head="$(jq -r '.head.sha // empty' <<<"$pull_json")" || api_error "invalid response for PR ${pr}"
+  [ -n "$head" ] || api_error "no head SHA for PR ${pr}"
+  if [ -n "$sha" ] && [ "$head" != "$sha" ]; then
+    echo "wait_ci.sh: PR ${pr} head changed while waiting from ${sha} to ${head}" >&2
+    exit 2
+  fi
+  sha="$head"
+  mergeable="$(jq -c '.mergeable' <<<"$pull_json")" || api_error "invalid response for PR ${pr}"
+  case "$mergeable" in
+    true | false | null) ;;
+    *) api_error "invalid mergeable value for PR ${pr}" ;;
+  esac
+}
+
+emit_result() {
+  jq -cn --arg state "$1" --arg sha "$sha" --argjson mergeable "$mergeable" --argjson failing "$2" \
+    '{state: $state, sha: $sha, mergeable: $mergeable, failing: $failing}'
   exit "$3"
 }
 
+finish_with_mergeability() {
+  local attempt
+  # GitHub computes mergeability asynchronously. Only the boolean indicates a conflict.
+  for attempt in 1 2 3 4 5; do
+    case "$mergeable" in
+      true) emit_result "$@" ;;
+      false) emit_result conflicting "$2" 4 ;;
+    esac
+    [ "$attempt" -lt 5 ] || break
+    sleep "$merge_interval"
+    read_pull
+  done
+  emit_result mergeability_timeout "$2" 3
+}
+
+finish() {
+  # Refresh after CI to catch changes to the base branch while CI was running.
+  read_pull
+  finish_with_mergeability "$@"
+}
+
+read_pull
+if [ "$mergeability_only" = true ]; then
+  finish_with_mergeability no_conflict '[]' 0
+fi
+
 SECONDS=0
 while :; do
+  if [ "$mergeable" = false ]; then
+    emit_result conflicting '[]' 4
+  fi
+
   # --paginate prints one JSON object per page; jq -s merges them.
   runs_raw="$(gh api --paginate "repos/${repo}/commits/${sha}/check-runs?per_page=100")" ||
     api_error "repos/${repo}/commits/${sha}/check-runs"
@@ -105,4 +159,5 @@ while :; do
     finish timeout '[]' 3
   fi
   sleep "$interval"
+  read_pull
 done

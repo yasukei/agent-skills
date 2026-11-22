@@ -48,11 +48,13 @@ Claude Code only: the workflow needs subagents and background completion notific
 Read `references/handoffs.md` before writing handoffs. If the issue already has an open PR, follow that file's instructions for continuing it.
 
 1. **Implement.** Start the implementer. From its final report, record the PR URL, worktree, branch, checks run and CI state. Confirm the PR number with `gh`.
-2. **Wait for CI.** Run `scripts/wait_ci.sh` in the background ("Waiting for CI" in `references/github-commands.md`). If it fails, resume the implementer with the failing checks, then wait again. If the implementer cannot fix it, or reports that the failure is unrelated to the PR, stop and ask the user.
+2. **Wait for CI and check for conflicts.** Run `scripts/wait_ci.sh` in the background before the first review and each re-check ("Waiting for CI" in `references/github-commands.md`). If CI fails, resume the implementer with the failing checks, then wait again. If the implementer cannot fix it, or reports that the failure is unrelated to the PR, stop and ask the user.
 3. **Review.** Start the reviewer on that PR. Record its verdict, findings, posts and worktree.
 4. **Fix and re-check.** If there are findings, resume the implementer with the review URL and the finding links. Wait for CI as in step 2, then resume the reviewer to re-check.
-5. **Round limit.** Count the reviewer's checks of a PR: the first review and each re-check. If the **3rd check** does not end in ready to merge, stop and ask the user, so two agents cannot loop forever. CI fixes made before a check (step 2) do not count. A CI failure the reviewer raises as a finding is part of that check.
-6. **Finish.** When the reviewer reports ready to merge, ask it to merge if `--merge` was given; otherwise stop and report. After a merge, post the observations on the PR (`references/observations.md`) and clean up (`references/cleanup.md`).
+5. **Round limit.** Count the first review and each re-check. A re-check whose only new PR-branch commit since the last check is a conflict resolution does not count. A re-check after fixing its findings counts as usual. If the **3rd counted check** does not end in ready to merge after any conflict-only re-check, stop and ask the user, so two agents cannot loop forever. CI fixes made before a check (step 2) do not count. A CI failure the reviewer raises as a finding is part of that check.
+6. **Finish.** When the reviewer reports ready to merge, check for conflicts before sending the merge handoff if `--merge` was given. Without it, stop and report. After a merge, post the observations on the PR (`references/observations.md`) and clean up (`references/cleanup.md`).
+
+Read `references/conflicts.md` when a check detects a conflict, before handing off review fixes or a merge, or when a conflict or changed merge state blocks the reviewer. Send the conflict to the implementer, wait for CI, and have the reviewer check the new head. If the implementer cannot resolve the conflict or asks about a large one, stop and ask the user.
 
 Collect the observations each agent reports that are not findings. Do not pass them to the implementer: acting on them would widen the PR. When an agent stops with a question, classify and handle it as `references/decisions.md` says. Relay an irregularity it reports to the user unless you can handle it as type C.
 

@@ -4,7 +4,7 @@ Read before writing a prompt or message to the implementer or reviewer. Start ea
 
 The "Final report" parts of the implementer's first run and existing-PR run, and of the reviewer's first review and re-check, ask for observations with the fields in `observations.md`, so the final report needs no lookups afterwards. Keep them in step with that file.
 
-Every handoff ends with these lines:
+Every handoff ends with these lines. Append them if the template does not already contain them:
 
 ```text
 Do not use --watch. Stop when this step is done.
@@ -90,6 +90,23 @@ Failing checks:
 Final report: the cause, the fix commit (or why it is unrelated to this PR), checks run and their results.
 ```
 
+## Implementer: conflict
+
+Resume the implementer in its existing worktree. If you have not recorded a worktree for an existing PR, follow "Existing PR" above, omit the sentence specifying the path, and ask for the path and branch in the final report. If review findings also need work, add the review URL, findings and reporting requirements from "Implementer: review fixes" before the closing lines. Include any failing check links reported for the same head.
+
+```text
+$<issue-to-pr> Resolve the conflict with the base branch on PR <OWNER/REPO>#<PR> --worktree. Use the same worktree as before: <path>.
+
+The user's language is <language>. Write repository text (commits, PRs, comments) by the repository's conventions, falling back to the user's language. Report and ask questions in English.
+
+The reviewer will re-check the resolution after CI.
+Final report: the resolution commit, the conflicting files, checks run and their results, and CI state.
+
+Do not use --watch. Stop when this step is done.
+If the skill named above is not available, stop and say so instead of doing the work without it.
+If something unexpected happens (you cannot follow the skill's procedure, the issue or comments are ambiguous or contradictory, or the environment fails), do not work around it silently: stop or ask, and state it in your final report.
+```
+
 ## Reviewer: first review
 
 Start it with the Agent tool, at `effort: "high"`, in the target repository's checkout.
@@ -107,7 +124,7 @@ Also report each thing you noticed but did not raise as a finding: the head SHA 
 
 ## Reviewer: re-check
 
-Send it with SendMessage to the same reviewer.
+Send it with SendMessage to the same reviewer. For a conflict resolution, say the reviewer should check the new head and include the resolution commit in the implementer's report. Include finding lines only when there were findings to address.
 
 ```text
 The implementer pushed fixes to PR <OWNER/REPO>#<PR>. Re-check them as a continuation of your review, following <pr-review> with --worktree.
