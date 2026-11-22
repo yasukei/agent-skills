@@ -133,13 +133,13 @@ gh api repos/OWNER/REPO/pulls/NUMBER/comments -X POST \
 
 ### Approve (only when the author is a different account)
 
-Post it when the merge conditions are met. It fails on the author's own account.
+Post it once every merge condition except branch protection is met (see "Approve" in `merging.md`). It fails on the author's own account.
 
 Use REST, with or without GraphQL, so the approval is pinned to the head SHA you checked (`gh pr review --approve` cannot set `commit_id`; see "Posting a review"):
 
 ```bash
 cat > BODY_FILE <<'BODY'
-Confirmed that all merge conditions are met (HEAD_SHA).
+Confirmed that all merge conditions required for approval are met (HEAD_SHA).
 BODY
 printf '\n%s\n<!-- pr-review -->\n' "$(cat SIG_FILE)" >> BODY_FILE
 gh api repos/OWNER/REPO/pulls/NUMBER/reviews -X POST -f event=APPROVE \

@@ -90,5 +90,5 @@ Confirmed (fixed in abc1234).
 
 - **Fix confirmed**: say which commit fixed it, e.g. "Confirmed (fixed in abc1234).", then resolve the thread.
 - **Fix not sufficient, or not convinced**: give the concrete reason and leave the thread open.
-- **Approve** (different account only): a short record that the merge conditions are met, with the head SHA.
+- **Approve** (different account only): record that every merge condition except branch protection is met and include the checked head SHA.
 - **Before merging** (`--merge` only): a short PR comment that all conditions are met, so the history can be followed later.
