@@ -143,6 +143,14 @@ assert_eq '["A と B の場合に失敗する。","範囲外。","なし","実�
 assert_eq '[true,true,true,true,true,true]' "$(field '[.rows[] | .item != null]')" "fields for decided rows too"
 assert_contains "$(cat "$FAKE_GH_LOG")" 'api --paginate repos/o/r/issues/50/comments?per_page=100' "requests every page"
 
+t "rows-only mode reads the whole status table in a single request"
+read_log o/r 50 --rows-only
+assert_eq 0 "$RC" "exit status ($ERR)"
+assert_eq '["#40-1","#40-2","#41-1","#41-2","#41-3","#41-4"]' "$(field '[.rows[].id]')" "all rows"
+assert_eq '["#40-1","#41-1"]' "$(field '[.rows[] | select(.status == "open") | .id]')" "open rows"
+assert_eq '"moved to [next log](https://github.com/o/r/issues/51)"' "$(field '.rows[-1].status')" "moved status"
+assert_eq 'api repos/o/r/issues/50 --hostname github.com' "$(cat "$FAKE_GH_LOG")" "only reads the issue"
+
 t "an item found only in another comment is still missing from its linked comment"
 {
   table

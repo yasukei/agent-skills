@@ -129,7 +129,7 @@ def read_items(body):
     return items
 
 
-def read_log(repo, number, hostname):
+def read_log(repo, number, hostname, *, rows_only=False):
     path = f"repos/{repo}/issues/{number}"
     issue = json.loads(gh_api(path, hostname))
     if not isinstance(issue, dict) or issue.get("number") != number:
@@ -141,7 +141,7 @@ def read_log(repo, number, hostname):
         raise ValueError(f"{repo}#{number} is missing the log marker")
 
     rows = read_rows(body)
-    if rows:
+    if rows and not rows_only:
         comments = read_comments(f"{path}/comments?per_page=100", hostname)
         linked_urls = {row["comment_url"].casefold() for row in rows}
         linked_items = {
@@ -163,6 +163,7 @@ def main():
     parser.add_argument("repository", metavar="OWNER/REPO")
     parser.add_argument("log", metavar="ISSUE")
     parser.add_argument("--hostname", default="github.com", help="GitHub host (default: github.com)")
+    parser.add_argument("--rows-only", action="store_true", help="Read status rows without fetching comments")
     args = parser.parse_args()
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", args.repository):
         parser.error("repository must be OWNER/REPO")
@@ -172,7 +173,7 @@ def main():
     if not re.fullmatch(r"[1-9][0-9]*", number):
         parser.error("log must be a positive issue number")
     try:
-        result = read_log(args.repository, int(number), args.hostname)
+        result = read_log(args.repository, int(number), args.hostname, rows_only=args.rows_only)
     except (OSError, ValueError) as error:
         parser.exit(2, f"{parser.prog}: {error}\n")
     print(json.dumps(result))

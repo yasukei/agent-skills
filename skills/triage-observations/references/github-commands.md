@@ -90,3 +90,14 @@ gh api "repos/$repo/issues/$log" --hostname "$host" -X PATCH -F body=@"$updated_
 Verify the fresh issue is the marked log. Change only the Status cell text of the selected rows. Preserve the cell padding, all other text and the final newline as received. Check the diff against the freshly fetched body before patching. Skip the patch when there are no changes. If time passes or a concurrent edit is reported before the patch, start from a new read. GitHub accepts the whole body here, so the fresh read reduces the window for overwriting concurrent edits.
 
 Check the resulting statuses and report errors. If the patch fails, leave the approved posts in place. Their markers let a later run propose recording the missing statuses without repeating those posts.
+
+## Close the log
+
+After verifying the approved issues, fold comments and Status updates, reread the marked log with `scripts/read-log.py "$repo" "$log" --hostname "$host" --rows-only`. This returns the entire table without fetching the linked comments. Check every row, including those outside any filter. If the read fails or any row is `open`, report the reason and skip closure. If closure was approved and every row is decided, immediately send a state-only PATCH:
+
+```bash
+gh api "repos/$repo/issues/$log" --hostname "$host" -X PATCH \
+  -f state=closed -f state_reason=completed --jq '{html_url, state, state_reason}'
+```
+
+Verify `state` is `closed` and `state_reason` is `completed`. If the PATCH result is uncertain, read the issue state before reporting the outcome.
