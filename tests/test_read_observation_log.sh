@@ -208,4 +208,42 @@ assert_eq 2 "$RC" "exit status"
 assert_contains "$ERR" 'invalid status row' "malformed row is reported"
 assert_eq '' "$OUT" "no partial rows"
 
+t "a duplicate item ID in the status table fails without JSON"
+{
+  table
+  cat <<MD
+| [#40-1]($FIRST) | Empty input | open |
+| [#40-1]($SECOND) | Duplicate ID | issue #70 |
+
+$MARKER
+MD
+} | write_issue
+read_log o/r 50
+assert_eq 2 "$RC" "exit status"
+assert_eq '' "$OUT" "no JSON"
+assert_contains "$ERR" 'duplicate status row: #40-1' "duplicate ID is reported"
+
+# Change one part of the valid first comment at a time.
+assert_malformed_item() {
+  jq "$1 | [.]" <<<"$first" >"$COMMENTS"
+  read_log o/r 50
+  assert_eq 0 "$RC" "exit status ($ERR)"
+  assert_eq 'true' "$(field '.rows[0] | .id == "#40-1" and has("item") and .item == null
+    and (.item_error | type == "string" and length > 0)')" "row has a null item and an explanation"
+}
+
+{ table; printf '| [#40-1](%s) | Empty input | open |\n\n%s\n' "$FIRST" "$MARKER"; } | write_issue
+
+t "an item under a different PR heading is rejected"
+assert_malformed_item '.body |= sub("### PR #40"; "### PR #41")'
+
+t "an item in a comment without the source marker is rejected"
+assert_malformed_item '.body |= sub("<!-- collect-observations:source pr=40 comment=201 -->\n"; "")'
+
+t "an item with a missing field is rejected"
+assert_malformed_item '.body |= sub("- Related: #60\n"; "")'
+
+t "an item with an extra field is rejected"
+assert_malformed_item '.body |= sub("- Related: #60\n"; "- Related: #60\n- Extra: Unexpected field.\n")'
+
 done_testing
